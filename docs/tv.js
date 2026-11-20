@@ -42,7 +42,13 @@
   }
   function name(id) { var t = st.session.teams[id]; return t ? t.name : ''; }
   // One side of a court: a couple, or (individual format) the two players paired for this round.
-  function side(c, which) { return E.sideIds(c, which).map(name).join(' & '); }
+  // two players paired for a round: each name stays in one piece, so a long side breaks after the "&"
+  function side(c, which) {
+    var ids = E.sideIds(c, which), out = [];
+    if (ids.length < 2) return ids.map(name).join(' & ');
+    ids.forEach(function (id, i) { if (i) out.push(' & '); out.push(h('span', 'pn', name(id))); });
+    return out;
+  }
 
   // Every TV keeps a short code of its own, shown in the bottom corner and inside the pairing QR.
   function tvId() {
@@ -156,7 +162,7 @@
     if (st.mode === 'flyers' && mode !== 'flyers') stopFlyers();
     st.mode = mode;
     if (mode !== 'menu') st.menuShown = '';
-    if (mode !== 'show') { st.seriesId = null; st.seriesName = ''; st.session = null; st.pendingSince = 0; st.flyer = ''; st.flyerKey = ''; endIntro(); }
+    if (mode !== 'show') { st.seriesId = null; st.seriesName = ''; st.session = null; st.pendingSince = 0; st.flyer = ''; st.flyerKey = ''; endIntro(); wheelEnd(); }
     document.body.classList.toggle('mode-flyers', mode === 'flyers');
     document.body.classList.toggle('mode-menu', mode === 'menu');
     buttons();
@@ -448,7 +454,8 @@
     root.replaceChildren(h('div', 'tvroot', [left, rightSide(s)]));
     fit();
     st.lastSession = s && !s.discarded ? s.id : ''; st.lastStatus = s && !s.discarded ? s.status : '';
-    if (st.announce) { roundIntro(st.announce); st.announce = 0; }
+    if (st.spinShow) { st.spinShow = false; st.announce = 0; wheelShow(s); }
+    else if (st.announce) { roundIntro(st.announce, st.announceText); st.announce = 0; }
     // a score has just come in: fireworks around the winning team's name, and the crown dances its way onto it
     var cheer = st.cheer; st.cheer = [];
     cheer.forEach(function (c, n) {
@@ -462,9 +469,9 @@
       crownDance(c.idx, c.side, n);
     });
   }
-  function head(title, flash) {
+  function head(title, flash, note) {
     // the event name lives in the top banner; this line carries the round and the set length (the clock is bottom left)
-    var s = st.session, sets = s && !s.discarded && s.status !== 'ended' ? 'Sets to ' + (s.setTo || 4) : '';
+    var s = st.session, sets = note !== undefined ? note : s && !s.discarded && s.status !== 'ended' ? 'Sets to ' + (s.setTo || 4) : '';
     barTitle();
     return h('div', 'tvhead', [h('div', 'round' + (flash ? ' flash' : ''), title), h('div', 'event', sets)]);
   }
@@ -506,6 +513,17 @@
 
   function setupLeft(s) {
     var teams = E.activeTeams(s);
+    if (E.isWheel(s)) {                                   // everyone who has checked in goes on the wheel
+      var plan = E.wheelPlan(teams.length), idle = h('div', 'wheelidle');
+      st.spinKey = '';                                    // the next spin is a first spin again (also after a restart)
+      idle.innerHTML = wheelSvg(teams.map(function (t) { return t.name; }), 'l');
+      idle.firstChild.style.animationDelay = -(Date.now() % 90000) + 'ms';      // keeps turning smoothly when a name is added
+      return h('div', 'tvleft', [head('Today', false, ''),
+        h('div', 'tvwheel', [idle, h('div', 'txt', [
+          h('div', 'ttl', teams.length ? teams.length + (teams.length === 1 ? ' player' : ' players') + ' checked in' : 'Starting soon'),
+          h('div', 'how', plan ? plan.text : 'The wheel picks your partner. It spins when at least four players are here.')])]),
+        s.courts.length ? h('div', 'tvsit', [h('div', 'lab', s.courts.length === 1 ? 'Court' : 'Courts'), h('div', 'names', s.courts.join(' · '))]) : h('div')]);
+    }
     return h('div', 'tvleft', [head('Tonight', false),
       h('div', 'tvbig', teams.length ? [h('div', 'ttl', teams.length + ' ' + E.formatOf(s).units + ' checked in'), h('div', 'teams', teams.map(function (t) { return h('div', null, t.name); }))]
         : h('div', 'ttl', 'Starting soon')),
@@ -519,6 +537,13 @@
     // announcement. Opening the page in the middle of a round does not.
     if (flash && ((st.lastSession === s.id && st.lastRound && r.n === st.lastRound + 1) || (st.lastSession === s.id && st.lastStatus === 'setup' && r.n === 1))) st.announce = r.n;
     st.lastRound = r.n;
+    // Wheel of Fortune: a spin this screen watched happen gets the two wheels instead of the round announcement
+    var wheel = E.isWheel(s), wst = wheel ? E.wheelState(s) : 'none', spinKey = wheel && s.wheel ? s.id + ':' + s.wheel.spin : '';
+    if (wheel) {
+      if (spinKey && spinKey !== st.spinKey && st.lastSession === s.id) st.spinShow = true;
+      st.spinKey = spinKey;
+      st.announceText = INTRO_WORDS[r.stage] ? INTRO_WORDS[r.stage] : [r.stage === 'set' ? 'Set' : s.wheel && s.wheel.respin ? 'Round' : 'Pool round', String(r.n - (s.wheel ? s.wheel.start : 0))];
+    } else st.announceText = null;
     var top = r.top !== undefined && r.top !== null ? r.top : s.courts.length - 1;
     // scores sent from phones that the organizer's device has not applied yet: shown at once, in green
     var sent = {};
@@ -533,8 +558,10 @@
       var sa = done ? c.sa : p ? p.sa : null, sb = done ? c.sb : p ? p.sb : null, w = done ? c.w : p ? p.w : null;
       var has = done || !!p;
       // green behind the names once the score is in, so it is easy to see which courts are still missing
-      return h('div', 'tvcourt' + (c.level === top ? ' king' : '') + (has ? ' done' : ''), [
-        h('div', 'cn', [h('span', null, c.level === top ? 'King’s Court' : 'Court'), h('b', null, String(c.court))]),
+      var king = wheel ? E.isKingsCourt(s, r, c) : c.level === top;
+      var label = wheel ? (c.label || (c.wait && !has ? 'Next on' : 'Court')) : king ? 'King’s Court' : 'Court';
+      return h('div', 'tvcourt' + (king ? ' king' : '') + (has ? ' done' : '') + (c.wait && !has ? ' wait' : ''), [
+        h('div', 'cn', [h('span', wheel ? 'lbl' : null, label), h('b', null, String(c.court))]),
         h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), [side(c, 'a'), has && w === 'a' ? ['\u00a0', crown(i)] : null]),
         c.void ? h('div', 'mid', 'no match') : has ? h('div', 'mid score', sa + ' – ' + sb) : h('div', 'mid', 'vs'),
         h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), [has && w === 'b' ? [crown(i), '\u00a0'] : null, side(c, 'b')])
@@ -556,7 +583,9 @@
     var names = r.sitting.map(function (id) { return keep(name(id)); }).concat(waiting.map(function (t) { return keep(t.name + ' (next round)'); })).join('  ·  ');
     // players scan this to enter their own court's score from their phone
     var qr = qrSvg(S.link('player', { s: st.seriesId }));
-    return h('div', 'tvleft', [head('Round ' + r.n, flash), h('div', 'tvcourts', courts),
+    var title = !wheel ? 'Round ' + r.n : wst === 'spin' ? 'Wheel time!' : wst === 'done' ? 'All matches played' : r.title || 'Round ' + r.n;
+    var note = !wheel ? undefined : wst === 'spin' ? 'New partners next' : wst === 'done' ? '' : 'Sets to ' + E.roundSetTo(s, r);
+    return h('div', 'tvleft', [head(title, flash, note), h('div', 'tvcourts', courts),
       h('div', 'tvbottom', [
         signBox(roundKey, names),
         qr ? h('div', 'tvqr', [h('div', 'cap', ['Enter your score', h('small', null, 'Scan with your phone')]), qr]) : null
@@ -579,9 +608,10 @@
     var nights = Object.keys(monthDocs).filter(function (k) { return monthDocs[k] && monthDocs[k].entries && Object.keys(monthDocs[k].entries).length; }).length;
     var mName = MONTHS[Number((st.monthKey || '2000-01').slice(5, 7)) - 1];
     var unit = s && s.scoring === 'player' ? 'players' : 'teams';
+    var byDay = (st.series[st.seriesId] || {}).format === 'wheel';      // a daytime social: "today", "2 days"
     return h('div', 'tvright', [
-      board('Tonight', tonight.length ? tonight.length + ' ' + unit : '', tonight, tonight.length, 'Waiting for teams'),
-      board(mName, nights ? nights + (nights === 1 ? ' night' : ' nights') : '', month.slice(0, MONTH_ROWS), Math.min(month.length, MONTH_ROWS), 'No results yet this month')
+      board(byDay ? 'Today' : 'Tonight', tonight.length ? tonight.length + ' ' + unit : '', tonight, tonight.length, 'Waiting for ' + unit),
+      board(mName, nights ? nights + (byDay ? (nights === 1 ? ' day' : ' days') : (nights === 1 ? ' night' : ' nights')) : '', month.slice(0, MONTH_ROWS), Math.min(month.length, MONTH_ROWS), 'No results yet this month')
     ]);
   }
   function board(title, sub, rows, count, empty) {
@@ -843,13 +873,17 @@
     for (var i = 0; i < id.length; i++) seed = (seed * 31 + id.charCodeAt(i)) % 9973;
     return PUNS[(seed + n * 7) % PUNS.length];
   }
-  function roundIntro(n) {
+  // What the announcement says for the play-off rounds of a wheel day: a line above, and the big word.
+  var INTRO_WORDS = { playin: ['4th v 5th', 'Play-in'], semi: ['Time for the', 'Semis'], final: ['Here comes the', 'Final'], place: ['Time for the', 'Medals'] };
+  function roundIntro(n, text) {
     if (!inter) return;
     endIntro();
     buildIntro();
     var look = (st.series[st.seriesId] || {}).look, kind = INTRO_KINDS[n % INTRO_KINDS.length], has = look && (look.wide || look.tall);
     inter.style.backgroundColor = has ? L.banner(look).color : '';
-    inter.querySelector('.num').textContent = String(n);
+    inter.querySelector('.word').textContent = text ? text[0] : 'Round';
+    inter.querySelector('.num').textContent = text ? text[1] : String(n);
+    inter.querySelector('.num').classList.toggle('text', !!text && !/^\d+$/.test(text[1]));
     inter.querySelector('.pun').textContent = punFor(n);
     inter.querySelector('.racket').innerHTML = racketSvg('#f3ead6');          // a cream racket, whatever the flyer's colours
     inter.hidden = false;
@@ -860,6 +894,91 @@
       inter.classList.add('out');
       interTimers.push(setTimeout(endIntro, 460));
     }, INTRO_MS));
+  }
+
+  // ---------------------------------------------------------------- the wheel of fortune
+  // One wheel while players check in. When the organizer spins, two wheels fill the screen: half the players on
+  // each. They spin, stop on a name each, and the two names under the pointers are partners; again and again
+  // until everyone has one. Who is paired with whom was decided on the organizer's device (session.wheel).
+  var WHEEL_COLOURS = [['#12508f', '#ffffff'], ['#f4b63f', '#0e2238'], ['#0a2f57', '#ffffff'], ['#f3ead6', '#0e2238'], ['#1f8a7a', '#ffffff'], ['#e2604a', '#ffffff']];
+  function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  // side 'l': a name reads outwards and stops under a pointer at 3 o'clock. side 'r': the mirror image, pointer at 9 o'clock.
+  function wheelSvg(names, side) {
+    var n = Math.max(names.length, 1), step = 360 / n, half = step / 2 * Math.PI / 180, flip = side === 'r', R = 100;
+    var out = ['<svg viewBox="-112 -112 224 224" aria-hidden="true"><circle r="111" fill="#0e2238"/><circle r="108" fill="#f4b63f"/><circle r="' + (R + 1.5) + '" fill="#071a30"/>'];
+    var chord = n <= 2 ? 60 : 2 * 62 * Math.sin(half), fs0 = Math.min(19, chord * 0.6), room = 62, em = 0.37;
+    for (var i = 0; i < n; i++) {
+      var col = WHEEL_COLOURS[i % WHEEL_COLOURS.length];
+      if (n > 1 && i === n - 1 && i % WHEEL_COLOURS.length === 0) col = WHEEL_COLOURS[3];      // never the same colour as its neighbour
+      var x = R * Math.cos(half), y = R * Math.sin(half), turn = i * step + (flip ? 180 : 0);
+      out.push(n === 1 ? '<circle r="' + R + '" fill="' + col[0] + '"/>'
+        : '<path transform="rotate(' + turn.toFixed(3) + ')" d="M0 0L' + x.toFixed(3) + ' ' + (-y).toFixed(3) + 'A' + R + ' ' + R + ' 0 ' + (step > 180 ? 1 : 0) + ' 1 ' + x.toFixed(3) + ' ' + y.toFixed(3) + 'Z" fill="' + col[0] + '" stroke="#071a30" stroke-width=".8"/>');
+      var label = String(names[i] || ''), floor = fs0 * 0.6, parts = label.split(' ');
+      // a name too long for its slice, even in small letters, goes on as "Francisco G."
+      if (label.length * floor * em > room * 1.2 && parts.length > 1) label = parts[0] + ' ' + parts[parts.length - 1].charAt(0) + '.';
+      var fs = fs0, wide = label.length * fs * em, squeeze = '';
+      if (wide > room) { fs = Math.max(floor, fs0 * room / wide); if (label.length * fs * em > room) squeeze = ' textLength="' + room + '" lengthAdjust="spacingAndGlyphs"'; }
+      out.push('<text transform="rotate(' + (i * step).toFixed(3) + ')" x="' + (flip ? -94 : 94) + '" y="0" text-anchor="' + (flip ? 'start' : 'end') + '" dominant-baseline="central" font-size="' + fs.toFixed(2) + '" fill="' + col[1] + '"' + squeeze + '>' + esc(label) + '</text>');
+    }
+    for (var b = 0; b < 24; b++) out.push('<circle cx="' + (104.8 * Math.cos(b * Math.PI / 12)).toFixed(2) + '" cy="' + (104.8 * Math.sin(b * Math.PI / 12)).toFixed(2) + '" r="1.7" fill="#fffbe0"/>');
+    out.push('<circle r="17" fill="#f4b63f" stroke="#071a30" stroke-width="1.2"/><circle r="9" fill="#071a30"/></svg>');
+    return out.join('');
+  }
+  var ws = { el: null, timers: [] };
+  function wheelEnd() { if (!ws) return; ws.timers.forEach(clearTimeout); ws.timers = []; if (ws.el) { ws.el.remove(); ws.el = null; } }
+  function wheelShow(s) {
+    var w = s.wheel;
+    if (!w || !w.left || !w.left.length || w.left.length !== (w.right || []).length) return;
+    wheelEnd(); endIntro();
+    var T = w.left.length, seed = 7;
+    for (var i = 0; i < s.id.length; i++) seed = (seed * 31 + s.id.charCodeAt(i)) % 65521;
+    seed = (seed + w.spin * 977) % 65521;
+    var rnd = function () { seed = (seed * 75 + 74) % 65537; return seed / 65537; };
+    var mix = function (list) { var a = list.slice(); for (var k = a.length - 1; k > 0; k--) { var j = Math.floor(rnd() * (k + 1)), t = a[k]; a[k] = a[j]; a[j] = t; } return a; };
+    // the names sit around each wheel in a shuffled order, so nobody can read the pairs off before it stops
+    var onL = mix(w.left), onR = mix(w.right), step = 360 / T;
+    var third = function (i) { var tm = (w.teams || [])[i] || []; return tm.length > 2 ? tm.slice(2) : []; };
+    var rotL = h('div', 'wrot'), rotR = h('div', 'wrot');
+    rotL.innerHTML = wheelSvg(onL.map(name), 'l'); rotR.innerHTML = wheelSvg(onR.map(name), 'r');
+    var nowA = h('div', 'a'), nowB = h('div', 'b'), now = h('div', 'wnow', [nowA, h('div', 'amp', '&'), nowB]), pairs = h('div', 'wpairs'), extra = h('div', 'wextra');
+    ws.el = h('div', 'wheelshow', [
+      h('div', 'wtitle', st.seriesName || 'Wheel of Fortune'),
+      h('div', 'wsub', w.spin > 1 ? 'New partners!' : 'Who plays with whom?'),
+      h('div', 'wstage', [h('div', 'wbox l', [rotL, h('i', 'wptr')]), h('div', 'wmid', now), h('div', 'wbox r', [rotR, h('i', 'wptr')])]),
+      pairs, extra]);
+    ws.el.setAttribute('data-spin', String(w.spin));
+    ws.el.setAttribute('data-teams', String(T));
+    document.body.appendChild(ws.el);
+    var reveal = function (i) {
+      nowA.textContent = name(w.left[i]); nowB.textContent = name(w.right[i]);
+      now.classList.remove('pop'); void now.offsetWidth; now.classList.add('pop');
+      var plus = third(i).map(name);
+      pairs.appendChild(h('div', 'wpair', [name(w.left[i]) + ' & ' + name(w.right[i]), plus.length ? h('small', null, ' + ' + plus.join(' + ')) : null]));
+      ws.el.setAttribute('data-shown', String(i + 1));
+    };
+    var finish = function (hold) {
+      var sit = (w.sit || []).map(name).filter(Boolean), trio = [];
+      for (var i = 0; i < T; i++) if (third(i).length) trio.push(third(i).map(name).join(' and ') + ' joins ' + name(w.left[i]) + ' & ' + name(w.right[i]) + ': they take turns resting');
+      extra.textContent = (sit.length ? 'Sitting out: ' + sit.join(', ') : '') + (sit.length && trio.length ? '   ·   ' : '') + trio.join('   ·   ');
+      ws.el.classList.add('all');
+      ws.timers.push(setTimeout(function () { if (ws.el) ws.el.classList.add('out'); ws.timers.push(setTimeout(wheelEnd, 500)); }, hold));
+    };
+    if (calm) { for (var k = 0; k < T; k++) reveal(k); return finish(7000); }
+    var quick = T > 5, first = 3200, spin = quick ? 1400 : 1800, hold = quick ? 900 : 1200, a = 0, b = 0, t = 500;
+    var go = function (i) {
+      var dur = i === 0 ? first : spin, turns = i === 0 ? 4 : 1, baseL = -onL.indexOf(w.left[i]) * step, baseR = -onR.indexOf(w.right[i]) * step;
+      a = baseL + 360 * Math.ceil((a + turns * 360 - baseL) / 360);           // the left wheel turns clockwise, the right one the other way
+      b = baseR + 360 * Math.floor((b - turns * 360 - baseR) / 360);
+      rotL.style.transitionDuration = rotR.style.transitionDuration = dur + 'ms';
+      rotL.style.transform = 'rotate(' + a + 'deg)'; rotR.style.transform = 'rotate(' + b + 'deg)';
+      now.classList.remove('pop');
+      ws.timers.push(setTimeout(function () { reveal(i); }, dur + 60));
+    };
+    for (var p = 0; p < T; p++) (function (p) {
+      ws.timers.push(setTimeout(function () { go(p); }, t));
+      t += (p === 0 ? first : spin) + hold;
+    })(p);
+    ws.timers.push(setTimeout(function () { finish(4200); }, t));
   }
 
   // ---------------------------------------------------------------- the dancing crown

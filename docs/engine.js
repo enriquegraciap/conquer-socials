@@ -9,6 +9,9 @@
  *
  * Two formats share the same rules for courts, sit-outs and returning:
  *   kings-fixed       fixed partners. An entry in session.teams is a couple; a court's a and b are team ids.
+ *   wheel             Wheel of Fortune: players sign up alone and a wheel pairs them up. How the day runs depends on
+ *                     how many came (see wheelPlan): new partners after every set with 4 to 7 players; fixed
+ *                     partners, pool rounds and play-offs with 8 or more. Points are per player.
  *   kings-individual  everyone plays for themselves. An entry in session.teams is ONE player; a court's a and b
  *                     are each a list of two player ids. After every round the pairs split: the two winners move
  *                     up a court and become opponents, each with a new partner; the two losers move down and split.
@@ -30,7 +33,8 @@
   // ---- Formats ------------------------------------------------------------------------------
   var FORMATS = {
     'kings-fixed': { name: 'Fixed partner, King\u2019s Court', solo: false, per: 2, scoring: 'team', unit: 'team', units: 'teams' },
-    'kings-individual': { name: 'Individual, King\u2019s Court', solo: true, per: 4, scoring: 'player', unit: 'player', units: 'players' }
+    'kings-individual': { name: 'Individual, King\u2019s Court', solo: true, per: 4, scoring: 'player', unit: 'player', units: 'players' },
+    'wheel': { name: 'Wheel of Fortune', solo: true, per: 4, scoring: 'player', unit: 'player', units: 'players', wheel: true }
   };
   function formatOf(x) { return FORMATS[typeof x === 'string' ? x : (x && x.format)] || FORMATS['kings-fixed']; }
   function isSolo(session) { return formatOf(session).solo; }
@@ -140,6 +144,12 @@
       t.left = t.left || null;
       t.sitCredit = t.sitCredit || 0;
     });
+    if (s.wheel && typeof s.wheel === 'object') {
+      var w = s.wheel;
+      w.spin = w.spin || 0; w.start = w.start || 0; w.respin = !!w.respin;
+      w.left = toArray(w.left); w.right = toArray(w.right); w.sit = toArray(w.sit); w.stages = toArray(w.stages);
+      w.teams = toArray(w.teams).map(toArray);
+    } else if (s.wheel !== undefined) s.wheel = null;
     s.rounds = toArray(s.rounds);
     s.rounds.forEach(function (r) {
       r.courts = toArray(r.courts);
@@ -170,7 +180,7 @@
   function roundHasScores(r) { return !!r && r.courts.some(function (c) { return !c.void && (c.w || c.sa !== null || c.sb !== null); }); }
 
   function roundTop(session, r) { return (r.top !== undefined && r.top !== null) ? r.top : session.courts.length - 1; }
-  function isKingsCourt(session, r, c) { return c.level === roundTop(session, r); }
+  function isKingsCourt(session, r, c) { return !c.wait && c.level === roundTop(session, r); }
 
   // ---- Stats by replaying the rounds --------------------------------------------------------
   function teamStats(session, upto) {
@@ -479,6 +489,186 @@
     return res;
   }
 
+  // ---- Wheel of Fortune ---------------------------------------------------------------------
+  // session.wheel = { spin, start, left, right, teams, sit, stages, respin }
+  //   spin    counts the spins of the day (the TV plays the wheel animation when it changes)
+  //   start   how many rounds had been played when this spin was made
+  //   left / right   the players on the two wheels, in order; left[i] is paired with right[i]
+  //   teams   the pairs (a team of three when the number playing is odd: one of the three rests each round)
+  //   sit     players sitting out until the next spin
+  //   stages  what each round after the spin is: 'set', 'pool', 'playin', 'semi', 'final', 'place'
+  //   respin  true when the wheel spins again after the last stage (4 to 7 players)
+  function isWheel(session) { return formatOf(session).wheel === true; }
+  function roundSetTo(session, r) { return r && r.setTo ? r.setTo : (session.setTo === 6 ? 6 : 4); }
+
+  // How the day runs for n players. Follows the organizer's guideline for 4, 5, 6, 8, 10 and 12 players; odd
+  // numbers use the plan of the even number below with one player sitting (5, 7) or one team of three (9 and up).
+  function wheelPlan(n) {
+    if (!(n >= 4)) return null;
+    var p;
+    if (n === 4) p = { teams: 2, sit: 0, respin: true, stages: ['set'], text: 'Two teams play one set to 6. Then the wheel picks new partners.' };
+    else if (n === 5) p = { teams: 2, sit: 1, respin: true, stages: ['set', 'set'], text: 'One player sits out; two teams play two sets to 6. Then the wheel spins again and someone else sits.' };
+    else if (n <= 7) p = { teams: 3, sit: n - 6, respin: true, stages: ['pool', 'pool', 'pool'],
+      text: (n === 7 ? 'One player sits out. ' : '') + 'Three teams: each plays the other two, sets to 4, one team resting each round. Then the wheel spins again.' };
+    else {
+      var T = Math.floor(n / 2), pools = Math.min(5, roundRobin(T).length), stages = [];
+      for (var i = 0; i < pools; i++) stages.push('pool');
+      if (T === 4) stages.push('semi', 'final'); else if (T === 5) stages.push('playin', 'semi', 'final'); else stages.push('place');
+      p = { teams: T, sit: 0, respin: false, stages: stages,
+        text: T + ' teams keep the same partner all day' + (n % 2 ? ' (one team of three takes turns resting)' : '') + '. ' + pools + ' pool rounds, sets to 4' + (T % 2 ? ', one team resting each round' : '') + '. ' +
+          (T === 4 ? 'Then semifinals to 4 and a final to 6.' : T === 5 ? 'Then play-offs to 4: 4th v 5th, semifinals, final.' : 'Then medal matches to 6: 1st v 2nd, 3rd v 4th, and so on.') };
+    }
+    p.players = n; p.trio = n >= 8 && n % 2 === 1;
+    return p;
+  }
+  function stageSetTo(stage, T) { return stage === 'set' || stage === 'place' || (stage === 'final' && T === 4) ? 6 : 4; }
+  // Everyone plays everyone: a list of rounds, each { matches: [[i, j], ...], bye: [i] } (circle method).
+  function roundRobin(T) {
+    var ring = [], rounds = [], i;
+    for (i = 0; i < T; i++) ring.push(i);
+    if (T % 2) ring.push(-1);
+    var n = ring.length;
+    for (var r = 0; r < n - 1; r++) {
+      var matches = [], bye = [];
+      for (i = 0; i < n / 2; i++) {
+        var a = ring[i], b = ring[n - 1 - i];
+        if (a < 0) bye.push(b); else if (b < 0) bye.push(a); else matches.push([a, b]);
+      }
+      rounds.push({ matches: matches, bye: bye });
+      ring.splice(1, 0, ring.pop());
+    }
+    return rounds;
+  }
+  // Which court the i-th match of a round is on. The first match gets the last court in the list; with more
+  // matches than courts the extra ones wait for a court to come free.
+  function wheelCourt(session, i) {
+    var C = session.courts.length, level = C - 1 - (i % C);
+    return { court: session.courts[level], level: level, wait: i >= C };
+  }
+  // Where the day stands: 'none' (not a wheel day, or not spun yet), 'playing', 'spin' (time for new partners)
+  // or 'done' (the last match of the day has been played).
+  function wheelState(session) {
+    var w = session.wheel;
+    if (!isWheel(session) || !w || session.status !== 'live') return 'none';
+    var cur = currentRound(session), k = session.rounds.length - w.start;
+    if (cur && !roundComplete(cur)) return 'playing';
+    if (k >= w.stages.length) return w.respin ? 'spin' : 'done';
+    return 'playing';
+  }
+  // The pool table of the current spin: teams ranked by matches won, then games won, then fewest games lost,
+  // then the match between the two.
+  function wheelStandings(session) {
+    var w = session.wheel;
+    if (!w) return [];
+    var of = {}, rows = w.teams.map(function (t, i) { t.forEach(function (id) { of[id] = i; }); return { team: i, players: t.slice(), won: 0, lost: 0, gf: 0, ga: 0, played: 0 }; }), beat = {};
+    session.rounds.slice(w.start).forEach(function (r) {
+      if (r.stage !== 'pool' && r.stage !== 'set') return;
+      r.courts.forEach(function (c) {
+        if (!c.w || c.void) return;
+        var A = rows[of[sideIds(c, 'a')[0]]], B = rows[of[sideIds(c, 'b')[0]]];
+        if (!A || !B) return;
+        A.played++; B.played++; A.gf += c.sa || 0; A.ga += c.sb || 0; B.gf += c.sb || 0; B.ga += c.sa || 0;
+        var win = c.w === 'a' ? A : B, lose = c.w === 'a' ? B : A;
+        win.won++; lose.lost++; beat[win.team + '>' + lose.team] = true;
+      });
+    });
+    rows.sort(function (x, y) {
+      return y.won - x.won || y.gf - x.gf || x.ga - y.ga || (beat[x.team + '>' + y.team] ? -1 : beat[y.team + '>' + x.team] ? 1 : 0) || x.team - y.team;
+    });
+    rows.forEach(function (row, i) { row.rank = i + 1; });
+    return rows;
+  }
+  // The k-th round after the current spin.
+  function wheelRound(session, k) {
+    var w = session.wheel, stage = w.stages[k], T = w.teams.length, n = session.rounds.length + 1;
+    var here = function (id) { return !!session.teams[id] && !session.teams[id].left; };
+    var playing = function (ti) {                       // the two of a team who play this round
+      var team = w.teams[ti].filter(here);
+      if (team.length <= 2) return team;
+      var rest = (k + ti) % team.length;                // a team of three: one rests, in turn
+      return team.filter(function (x, i) { return i !== rest; });
+    };
+    var of = {};
+    w.teams.forEach(function (t, i) { t.forEach(function (id) { of[id] = i; }); });
+    var winnerOf = function (c) { return of[sideIds(c, c.w)[0]]; };
+    var prev = currentRound(session), matches = [], labels = [], pools = w.stages.filter(function (x) { return x === 'pool'; }).length, title;
+    if (stage === 'set') { matches = [[0, 1]]; title = 'Set ' + (k + 1) + (w.stages.length > 1 ? ' of ' + w.stages.length : ''); }
+    else if (stage === 'pool') { var rr = roundRobin(T); matches = rr[k % rr.length].matches; title = (w.respin ? 'Round ' : 'Pool round ') + (k + 1) + ' of ' + pools; }
+    else {
+      var rank = wheelStandings(session).map(function (x) { return x.team; });
+      if (stage === 'playin') { matches = [[rank[3], rank[4]]]; labels = ['Play-in']; title = 'Play-in: 4th v 5th'; }
+      else if (stage === 'semi') {
+        matches = T === 5 ? [[rank[0], winnerOf(prev.courts[0])], [rank[1], rank[2]]] : [[rank[0], rank[3]], [rank[1], rank[2]]];
+        labels = ['Semifinal', 'Semifinal']; title = 'Semifinals';
+      } else if (stage === 'final') { matches = [[winnerOf(prev.courts[0]), winnerOf(prev.courts[1])]]; labels = ['Final']; title = 'Final'; }
+      else {
+        var names = ['Gold match', 'Bronze match', '5th place', '7th place', '9th place', '11th place'];
+        for (var i = 0; i + 1 < rank.length; i += 2) { matches.push([rank[i], rank[i + 1]]); labels.push(names[i / 2] || 'Placement'); }
+        title = 'Medal matches';
+      }
+    }
+    var round = { n: n, top: -1, courts: [], sitting: [], entry: {}, redraw: 0, stage: stage, setTo: stageSetTo(stage, T), title: title, spin: w.spin }, on = {};
+    matches.forEach(function (m) {
+      var a = playing(m[0]), b = playing(m[1]);
+      if (a.length < 2 && b.length < 2) return;
+      var at = wheelCourt(session, round.courts.length);
+      var c = { court: at.court, level: at.level, a: a, b: b, sa: null, sb: null, w: null, void: false };
+      if (at.wait) c.wait = true;
+      if (labels.length) c.label = labels[round.courts.length] || labels[0];
+      if (a.length < 2 || b.length < 2) { c.void = true; c.w = a.length < 2 ? 'b' : 'a'; }     // a team that lost a player cannot play
+      a.concat(b).forEach(function (id) { on[id] = true; });
+      round.courts.push(c);
+    });
+    if ((stage === 'final' || stage === 'place') && round.courts.length) round.top = round.courts[0].level;
+    round.sitting = activeTeams(session).map(function (t) { return t.id; }).filter(function (id) { return !on[id]; });
+    return round;
+  }
+  function wheelAdvance(session) {
+    var w = session.wheel;
+    if (session.status !== 'live' || !w || !session.courts.length) return false;
+    var cur = currentRound(session), k = session.rounds.length - w.start;
+    if ((cur && !roundComplete(cur)) || k >= w.stages.length) return false;
+    session.rounds.push(wheelRound(session, k));
+    return true;
+  }
+  // Spin: decide who sits (the organizer's choice first, then whoever has sat least), put the others on two
+  // wheels and pair them across, preferring partners who have not played together yet today. Starts the day
+  // when it has not started, and a new set of teams when it has. opts.sit: ids the organizer wants to sit out.
+  function wheelSpin(session, opts) {
+    opts = opts || {};
+    if (!isWheel(session)) return { ok: false, error: 'This social does not use the wheel.' };
+    if (session.status !== 'setup' && session.status !== 'live') return { ok: false, error: 'The day has ended.' };
+    var cur = currentRound(session);
+    if (session.status === 'live' && cur && !roundComplete(cur) && roundHasScores(cur)) return { ok: false, error: 'Finish this round first: some of its matches have a score.' };
+    var players = activeTeams(session), plan = wheelPlan(players.length);
+    if (!plan) return { ok: false, error: 'The wheel needs at least four players.' };
+    if (!session.courts.length) return { ok: false, error: 'Pick the courts first.' };
+    if (session.status === 'setup') { session.status = 'live'; session.rounds = []; }
+    else if (cur && !roundComplete(cur)) session.rounds.pop();          // a round nobody has played is dropped
+    var spin = ((session.wheel && session.wheel.spin) || 0) + 1, rng = makeRng(hashSeed(session.seed, 'wheel', spin));
+    var st = teamStats(session), ids = players.map(function (t) { return t.id; }), tb = {};
+    ids.forEach(function (id) { tb[id] = rng(); });
+    var sit = toArray(opts.sit).filter(function (id, i, a) { return ids.indexOf(id) >= 0 && a.indexOf(id) === i; }).slice(0, plan.sit);
+    ids.filter(function (id) { return sit.indexOf(id) < 0; })
+      .sort(function (x, y) { return st[x].sitOuts - st[y].sitOuts || st[x].lastSat - st[y].lastSat || tb[x] - tb[y]; })
+      .slice(0, plan.sit - sit.length).forEach(function (id) { sit.push(id); });
+    var playing = ids.filter(function (id) { return sit.indexOf(id) < 0; }), T = plan.teams;
+    var past = pairHistory(session, Infinity), best = null, bestCost = Infinity;
+    for (var tries = 0; tries < 120 && bestCost > 0; tries++) {
+      var order = shuffle(playing, rng), cost = 0;
+      for (var i = 0; i < T; i++) {
+        var l = order[i], r = order[T + i], lastL = past.last[l];
+        cost += 30 * ((past.partner[l] && past.partner[l][r]) || 0) + (lastL && lastL.id === r ? 1000 : 0);
+      }
+      if (cost < bestCost) { bestCost = cost; best = order; }
+    }
+    var left = best.slice(0, T), right = best.slice(T, 2 * T), teams = left.map(function (l, i) { return [l, right[i]]; });
+    if (best.length > 2 * T) teams[Math.floor(rng() * T)].push(best[2 * T]);     // the odd one out joins a team as its third
+    session.wheel = { spin: spin, start: session.rounds.length, left: left, right: right, teams: teams, sit: sit, stages: plan.stages, respin: plan.respin };
+    wheelAdvance(session);
+    return { ok: true, spin: spin, teams: teams, sit: sit, plan: plan };
+  }
+
   // ---- Night actions (each one changes the session object in place) -------------------------
   function teamName(players) { return players.map(cleanName).filter(Boolean).join(' & '); }
 
@@ -500,6 +690,12 @@
       if (act.length) team.sitCredit = Math.round(act.reduce(function (sum, t) { return sum + st[t.id].sitOuts; }, 0) / act.length);
     }
     session.teams[id] = team;
+    if (isWheel(session) && session.wheel && session.status === 'live') {   // a pair that lost a player takes the newcomer
+      var open = session.wheel.teams.filter(function (tm) {
+        return tm.filter(function (x) { return session.teams[x] && !session.teams[x].left; }).length === 1;
+      })[0];
+      if (open) open.push(id);
+    }
     return team;
   }
 
@@ -526,6 +722,19 @@
     t.left = cur.n;
     var si = cur.sitting.indexOf(id);
     if (si >= 0) cur.sitting.splice(si, 1);
+    if (isWheel(session)) {
+      // her match this round: a third team-mate who was resting steps in; otherwise the match is called off
+      var mates = (((session.wheel || {}).teams || []).filter(function (tm) { return tm.indexOf(id) >= 0; })[0] || []);
+      cur.courts.forEach(function (c) {
+        var side = sideOf(c, id);
+        if (courtDone(c) || !side) return;
+        var sub = mates.filter(function (x) { return x !== id && cur.sitting.indexOf(x) >= 0; })[0];
+        if (sub) { cur.sitting.splice(cur.sitting.indexOf(sub), 1); c[side] = c[side].map(function (x) { return x === id ? sub : x; }); c.sa = null; c.sb = null; out.substitute = sub; out.court = c.court; }
+        else { c.void = true; c.w = side === 'a' ? 'b' : 'a'; c.sa = null; c.sb = null; out.voided = c.court; }
+      });
+      out.advanced = advance(session);
+      return out;
+    }
     cur.courts.forEach(function (c) {
       var side = sideOf(c, id);
       if (courtDone(c) || !side) return;
@@ -545,8 +754,9 @@
     return out;
   }
 
-  function startNight(session) {
+  function startNight(session, opts) {
     if (session.status !== 'setup') return false;
+    if (isWheel(session)) return wheelSpin(session, opts).ok;
     session.status = 'live';
     session.rounds = [];
     advance(session);
@@ -562,6 +772,7 @@
   // Create round 1, or the next round once every court of the current round has a result.
   function advance(session) {
     if (session.status !== 'live') return false;
+    if (isWheel(session)) return wheelAdvance(session);
     var cur = currentRound(session);
     if (cur && !roundComplete(cur)) return false;
     if (activeTeams(session).length < formatOf(session).per || !session.courts.length) return false;
@@ -580,6 +791,17 @@
     var out = { changed: JSON.stringify(old) !== JSON.stringify(session.courts), redrawn: false, moved: 0, nextRound: false };
     var cur = currentRound(session);
     if (!out.changed || session.status !== 'live' || !cur) return out;
+    if (isWheel(session)) {                               // matches not scored yet move to the new courts
+      cur.courts.forEach(function (c, i) {
+        if (courtDone(c) || !session.courts.length) return;
+        var at = wheelCourt(session, i);
+        if (c.court !== at.court) out.moved++;
+        c.court = at.court; c.level = at.level; c.wait = at.wait;
+      });
+      if (cur.top >= 0 && cur.courts.length) cur.top = cur.courts[0].level;
+      out.nextRound = true;
+      return out;
+    }
     if (!roundHasScores(cur)) {
       session.rounds[session.rounds.length - 1] = generateRound(session, cur.n, cur.redraw || 0);
       out.redrawn = true;
@@ -599,6 +821,13 @@
   // are still here, and those that have left are taken off the list altogether.
   function rewindTo(session, n) {
     n = Math.floor(Number(n));
+    if (isWheel(session)) {                               // the wheel only starts over: back to the sign-up list
+      if (session.status !== 'live' || n !== 1) return { ok: false, removed: 0 };
+      var gone = session.rounds.length;
+      session.rounds = []; session.wheel = null; session.status = 'setup';
+      Object.keys(session.teams).forEach(function (id) { if (session.teams[id].left) delete session.teams[id]; else { session.teams[id].joined = 0; session.teams[id].sitCredit = 0; } });
+      return { ok: true, removed: gone, round: 1, setup: true };
+    }
     if (session.status !== 'live' || !(n >= 1) || n > session.rounds.length) return { ok: false, removed: 0 };
     var removed = session.rounds.length - (n - 1);
     session.rounds = session.rounds.slice(0, n - 1);
@@ -615,7 +844,7 @@
 
   function redrawRound(session) {
     var cur = currentRound(session);
-    if (!cur || roundHasScores(cur)) return false;
+    if (!cur || roundHasScores(cur) || isWheel(session)) return false;
     session.rounds[session.rounds.length - 1] = generateRound(session, cur.n, (cur.redraw || 0) + 1);
     return true;
   }
@@ -630,7 +859,7 @@
     if (sa === null || sb === null || sa === undefined || sb === undefined) { c.sa = null; c.sb = null; c.w = null; }
     else {
       sa = Number(sa); sb = Number(sb);
-      var max = session.setTo === 6 ? 6 : 4;
+      var max = roundSetTo(session, r);
       if (!(sa >= 0 && sb >= 0) || sa > max || sb > max) return { ok: false, error: 'Scores go from 0 to ' + max + ' (sets to ' + max + ' games)' };
       var w = sa > sb ? 'a' : sb > sa ? 'b' : (winner === 'a' || winner === 'b' ? winner : null);
       if (!w) return { ok: false, error: 'Level score: choose which team moves up' };
@@ -638,6 +867,14 @@
     }
     var out = { ok: true, regenerated: false, advanced: false, tooLate: false };
     var last = currentRound(session);
+    if (isWheel(session)) {
+      // a corrected result changes who meets whom in a play-off round nobody has played yet: draw it again
+      if (session.status === 'live' && roundNo < last.n && oldW !== c.w && r.spin === last.spin && !roundHasScores(last) && last.stage !== 'pool' && last.stage !== 'set') {
+        session.rounds.pop(); out.regenerated = true;
+      }
+      out.advanced = advance(session);
+      return out;
+    }
     if (session.status === 'live' && roundNo < last.n && oldW !== c.w) {
       if (roundNo === last.n - 1 && !roundHasScores(last)) {
         // the winner of the previous round changed and nobody has played the new round yet: redo it
@@ -657,7 +894,7 @@
   function pendingPlayerScores(session, roundNo, entries) {
     var cur = currentRound(session), out = [];
     if (!entries || session.status !== 'live' || !cur || cur.n !== roundNo) return out;
-    var max = session.setTo === 6 ? 6 : 4;
+    var max = roundSetTo(session, cur);
     Object.keys(entries).sort().forEach(function (key) {
       var e = entries[key], idx = Number(String(key).replace(/^c/, '')), c = cur.courts[idx];
       if (!e || !c || c.void || typeof e.sa !== 'number' || typeof e.sb !== 'number' || typeof e.at !== 'number') return;
@@ -764,7 +1001,8 @@
     roundComplete: roundComplete, roundHasScores: roundHasScores, courtDone: courtDone,
     teamStats: teamStats, generateRound: generateRound,
     addTeam: addTeam, renameTeam: renameTeam, removeTeam: removeTeam, startNight: startNight, endNight: endNight, reopenNight: reopenNight,
-    advance: advance, redrawRound: redrawRound, rewindTo: rewindTo, setScore: setScore, setCourts: setCourts, isKingsCourt: isKingsCourt,
+    advance: advance, redrawRound: redrawRound, rewindTo: rewindTo,
+    isWheel: isWheel, wheelPlan: wheelPlan, wheelSpin: wheelSpin, wheelState: wheelState, wheelStandings: wheelStandings, roundSetTo: roundSetTo, roundRobin: roundRobin, setScore: setScore, setCourts: setCourts, isKingsCourt: isKingsCourt,
     pendingPlayerScores: pendingPlayerScores, applyPlayerScores: applyPlayerScores,
     scoringEntities: scoringEntities, entityKey: entityKey, keyOf: keyOf, teamName: teamName,
     leaderboard: leaderboard, resultsDoc: resultsDoc, monthlyBoard: monthlyBoard,

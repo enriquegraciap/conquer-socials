@@ -344,12 +344,14 @@
           var on = state.ui.newFormat === f;
           return h('button', { type: 'button', class: 'fmt' + (on ? ' on' : ''), 'data-format': f, 'aria-pressed': on ? 'true' : 'false', onclick: function () { state.ui.newFormat = f; render(); } }, [
             h('b', null, E.FORMATS[f].name),
-            h('span', null, f === 'kings-individual'
+            h('span', null, f === 'wheel'
+              ? 'Everyone signs up alone and a wheel on the TV picks the partners. How the day runs depends on how many came: new partners after every set with 4 to 7 players; with 8 or more, the same partner all day, pool rounds and play-offs. Points and the leaderboard are per player.'
+              : f === 'kings-individual'
               ? 'Everyone signs up alone. After each round the pairs split: the two winners move up a court and face each other with new partners, the two losers move down and split. Points and the leaderboard are per player.'
               : 'Couples sign up together and stay together all night. Winners move up a court, losers move down. Points and the leaderboard are per couple.')
           ]);
         })),
-        h('p', { class: 'hint' }, 'Both formats share the courts, sit-out and scoring rules. The format is chosen once, when the event is created.')
+        h('p', { class: 'hint' }, 'Every game won is a point in all of them. The format is chosen once, when the event is created.')
       ]),
       h('div', { class: 'panel' }, [
         h('h2', null, ['Flyers', h('small', null, 'two slideshows for the TVs')]),
@@ -407,6 +409,7 @@
 
   // ---- Setup
   function setupView(s) {
+    if (E.isWheel(s)) return wheelSetup(s);
     var teams = E.teamList(s), N = teams.length, C = s.courts.length;
     var W = words(s), k = Math.min(C, Math.floor(N / W.per)), sit = N - W.per * k;
     var summary = !C ? 'Pick the courts first.' : N < W.per ? (W.solo ? 'Add at least four players.' : 'Add at least two teams.') :
@@ -446,6 +449,96 @@
     ]);
   }
 
+  // ---- Wheel of Fortune: the wheel makes the pairs; the head count decides how the day runs.
+  function sitPicker(s, plan) {
+    var players = E.activeTeams(s), ids = players.map(function (t) { return t.id; });
+    var chosen = (state.ui.wheelSit || []).filter(function (id) { return ids.indexOf(id) >= 0; }).slice(0, plan.sit);
+    state.ui.wheelSit = chosen;
+    var toggle = function (id) {
+      var at = chosen.indexOf(id);
+      if (at >= 0) chosen.splice(at, 1); else { if (chosen.length >= plan.sit) chosen.shift(); chosen.push(id); }
+      state.ui.wheelSit = chosen; render();
+    };
+    return h('div', { class: 'sitpick' }, [
+      h('b', null, 'Who sits out first?'),
+      h('p', { class: 'hint', style: 'margin:2px 0 8px' }, 'Tap a name, for example an ambassador. Leave it and the wheel picks someone who has sat the least.'),
+      h('div', { class: 'regulars' }, players.map(function (t) {
+        var on = chosen.indexOf(t.id) >= 0;
+        return h('button', { type: 'button', class: on ? 'on' : '', 'data-sit': t.name, 'aria-pressed': on ? 'true' : 'false', onclick: function () { toggle(t.id); } }, t.name);
+      }))
+    ]);
+  }
+  function spinWheel() {
+    var first = state.session.status === 'setup';
+    var out = commit(function (x) {
+      if (first) { x.date = E.localDate(new Date()); x.month = x.date.slice(0, 7); }
+      return E.wheelSpin(x, { sit: state.ui.wheelSit || [] });
+    });
+    state.ui.wheelSit = [];
+    toast(out.ok ? 'The wheel is spinning on the TV.' : out.error);
+    render();
+  }
+  function wheelSetup(s) {
+    var N = E.teamList(s).length, C = s.courts.length, plan = E.wheelPlan(N);
+    var summary = !C ? 'Pick the courts first.' : !plan ? 'Add at least four players.' : N + ' players on ' + C + (C === 1 ? ' court' : ' courts') + ', ' + plan.teams + ' teams' + (plan.sit ? ', ' + plan.sit + ' sitting out' : '') + '.';
+    return h('div', { class: 'wrap' }, [
+      h('div', { class: 'setupgrid wheel' }, [
+        h('div', { class: 'a-teams' }, teamsPanel(s, true)),
+        h('div', { class: 'a-courts' }, courtsPanel(s)),
+        h('div', { class: 'a-r1' },
+          h('div', { class: 'panel', id: 'wheelPlan' }, [
+            h('h2', null, ['How today runs', h('small', null, 'decided by how many came')]),
+            h('p', { class: 'sitlist', style: 'margin:0' }, plan ? N + ' players. ' + plan.text : 'The wheel needs at least four players. The format is set when you spin: 4 or 5 players play sets to 6 with a new partner each time, 6 or 7 make three teams, 8 and more keep the same partner all day and finish with play-offs.'),
+            plan && plan.sit ? sitPicker(s, plan) : null,
+            h('p', { class: 'hint' }, 'Every game a pair wins is a point for both of its players, play-offs included.')
+          ])),
+        h('div', { class: 'a-start' },
+          h('div', { class: 'panel startbar' }, [
+            h('p', { class: 'sitlist' }, summary),
+            btn('Spin the wheel', 'gold', spinWheel, { disabled: !plan || !C, id: 'startNight' })
+          ]))
+      ])
+    ]);
+  }
+  // What the organizer does next on a wheel day: spin for new partners, or finish.
+  function wheelNext(s) {
+    var state2 = E.wheelState(s), N = E.activeTeams(s).length, plan = E.wheelPlan(N);
+    if (state2 === 'spin') return h('div', { class: 'panel wheelnext', id: 'wheelNext' }, [
+      h('h2', null, 'Time to spin the wheel'),
+      h('p', { class: 'sitlist', style: 'margin:0' }, plan ? 'New partners for everyone. ' + N + ' players: ' + plan.text : 'The wheel needs at least four players.'),
+      plan && plan.sit ? sitPicker(s, plan) : null,
+      h('div', { class: 'row end', style: 'margin-top:10px' }, btn('Spin the wheel', 'gold', spinWheel, { disabled: !plan, id: 'spinWheel' }))
+    ]);
+    if (state2 === 'done') return h('div', { class: 'panel wheelnext', id: 'wheelNext' }, [
+      h('h2', null, 'All matches played'),
+      h('p', { class: 'sitlist', style: 'margin:0' }, 'End the day to save the points to the monthly leaderboard. Time left? Spin again for new partners and another block.'),
+      h('div', { class: 'row end', style: 'margin-top:10px' }, [btn('Spin again', '', spinWheel, { disabled: !plan, id: 'spinWheel' }), btn('End the day', 'gold', endNightAsk, { id: 'endDay' })])
+    ]);
+    return null;
+  }
+  // The teams the wheel made, ranked: this is what decides who meets whom in the play-offs.
+  function poolPanel(s) {
+    var w = s.wheel, rows = w ? E.wheelStandings(s) : [];
+    if (!rows.length) return null;
+    var nm = function (row) { return row.players.filter(function (id) { return s.teams[id] && !s.teams[id].left; }).map(teamNameOf).join(' & ') || '(left)'; };
+    return h('div', { class: 'panel', id: 'poolTable' }, [
+      h('h2', null, ['Teams', h('small', null, w.respin ? 'until the next spin' : 'ranked by matches won, then games')]),
+      h('table', { class: 'board pooltable' }, [
+        h('thead', null, h('tr', null, [h('th', null, ''), h('th', null, 'Pair'), h('th', null, 'Won'), h('th', null, 'Lost'), h('th', null, 'Games')])),
+        h('tbody', null, rows.map(function (r) {
+          return h('tr', null, [h('td', null, String(r.rank)), h('td', { class: 'pair' }, nm(r)), h('td', { class: 'num' }, String(r.won)), h('td', { class: 'num' }, String(r.lost)), h('td', { class: 'num' }, r.gf + '–' + r.ga)]);
+        }))
+      ])
+    ]);
+  }
+  function endNightAsk() {
+    state.ui.modal = { type: 'confirm', title: 'End the night?', text: 'Tonight’s results are saved to the monthly leaderboard and the TV shows the final standings. You can reopen the night if you end it by mistake.', ok: 'End night', danger: true,
+      onOk: function () { commit(function (x) { E.endNight(x); }); render(); } };
+    render();
+  }
+  function roundTitle(r) { return r.title ? r.title : 'Round ' + r.n; }
+  function roundName(r) { return r.title ? 'Round ' + r.n + ' · ' + r.title : 'Round ' + r.n; }
+
   function setsControl(s) {
     var opt = function (n) {
       return h('button', { type: 'button', class: s.setTo === n ? 'on' : '', 'data-sets': n, 'aria-pressed': s.setTo === n ? 'true' : 'false',
@@ -456,16 +549,17 @@
 
   // The court buttons: tap from the bottom court up to King's Court. `courts` is the list being edited.
   function courtPicker(courts, onChange) {
-    var chips = [];
+    var chips = [], wheel = !!state.session && E.isWheel(state.session);
     for (var n = 1; n <= MAX_COURT; n++) (function (n) {
       var i = courts.indexOf(n), king = i >= 0 && i === courts.length - 1;
       chips.push(h('button', { type: 'button', class: 'chip' + (i >= 0 ? ' on' : '') + (king ? ' king' : ''), 'aria-pressed': i >= 0 ? 'true' : 'false', 'data-court': n,
         onclick: function () { var next = courts.slice(), j = next.indexOf(n); if (j >= 0) next.splice(j, 1); else next.push(n); onChange(next); } },
-        [String(n), i >= 0 ? h('span', { class: 'ord' }, king ? 'King' : String(i + 1)) : null]));
+        [String(n), i >= 0 ? h('span', { class: 'ord' }, king ? (wheel ? 'Main' : 'King') : String(i + 1)) : null]));
     })(n);
     return [
       h('div', { class: 'courtpick' }, chips),
-      courts.length ? h('div', { class: 'ladder' }, ['Bottom: ' + courts.slice(0, -1).join(' → ') + (courts.length > 1 ? ' → ' : ''), h('b', null, courts[courts.length - 1] + ' King’s Court')]) : h('p', { class: 'hint' }, 'No courts picked yet.'),
+      courts.length ? (wheel ? h('div', { class: 'ladder' }, [courts.slice(0, -1).join(' · ') + (courts.length > 1 ? ' · ' : ''), h('b', null, courts[courts.length - 1] + ' main court')])
+        : h('div', { class: 'ladder' }, ['Bottom: ' + courts.slice(0, -1).join(' → ') + (courts.length > 1 ? ' → ' : ''), h('b', null, courts[courts.length - 1] + ' King’s Court')])) : h('p', { class: 'hint' }, 'No courts picked yet.'),
       courts.length ? h('div', { class: 'row', style: 'margin-top:8px' }, [
         btn('Sort low to high', 'small', function () { onChange(courts.slice().sort(function (a, b) { return a - b; })); }),
         btn('Reverse order', 'small', function () { onChange(courts.slice().reverse()); }),
@@ -475,7 +569,7 @@
   }
   function courtsPanel(s) {
     return h('div', { class: 'panel' }, [
-      h('h2', null, ['Courts', h('small', null, 'tap from the bottom court up to King’s Court')]),
+      h('h2', null, ['Courts', h('small', null, E.isWheel(s) ? 'tap the courts you have; the last one is the main court' : 'tap from the bottom court up to King’s Court')]),
       courtPicker(s.courts, function (next) { commit(function (x) { E.setCourts(x, next); }); })
     ]);
   }
@@ -487,15 +581,24 @@
       if (!p.join('').trim()) return;
       var res = commit(function (x) { return E.addTeam(x, p); });
       if (!res) toast('That ' + W.one + ' is already on the list.');
-      else { state.ui.p1 = ''; state.ui.p2 = ''; if (!setup) toast(res.name + ' joins from the next round.'); }
+      else { state.ui.p1 = ''; state.ui.p2 = ''; if (!setup) toast(joinNote(res)); }
       state.ui.focus = 'p1'; render();
+    };
+    var wheel = E.isWheel(s);
+    var joinNote = function (res) {                       // what happens to someone added after the start
+      if (!wheel) return res.name + ' joins from the next round.';
+      var tm = ((state.session.wheel || {}).teams || []).filter(function (x) { return x.indexOf(res.id) >= 0; })[0];
+      var mate = tm ? tm.filter(function (x) { return x !== res.id && state.session.teams[x] && !state.session.teams[x].left; })[0] : null;
+      return mate ? res.name + ' plays with ' + teamNameOf(mate) + ' from the next round.' : res.name + ' is on the list and gets a partner at the next spin of the wheel.';
     };
     var status = function (t) {
       if (t.left) return 'Left';
       if (setup || !cur) return '';
+      var c = cur.courts.filter(function (c) { return !c.void && !!E.sideOf(c, t.id); })[0];
+      if (c) return (c.wait ? 'Next on court ' : 'Court ') + c.court;
+      if (wheel) return ((s.wheel || {}).teams || []).some(function (x) { return x.indexOf(t.id) >= 0; }) ? 'Resting' : ((s.wheel || {}).sit || []).indexOf(t.id) >= 0 ? 'Sitting out' : 'Waits for the next spin';
       if (cur.sitting.indexOf(t.id) >= 0) return 'Sitting out';
-      var c = cur.courts.filter(function (c) { return !!E.sideOf(c, t.id); })[0];
-      return c ? 'Court ' + c.court : 'Joins next round';
+      return 'Joins next round';
     };
     var move = function (t, dir) {
       commit(function (x) {
@@ -527,7 +630,7 @@
         h('span', { class: 'hint', style: 'margin:0' }, W.solo ? 'Say the players’ names; check the list; add them all at once.' : 'Say the couples’ names; check the list; add them all at once.')
       ]) : null,
       regs.length ? h('div', null, [h('p', { class: 'hint' }, 'Played before (tap to add):'), h('div', { class: 'regulars' }, regs.map(function (r) {
-        return h('button', { type: 'button', onclick: function () { var res = commit(function (x) { return E.addTeam(x, r.players); }); if (res && !setup) toast(res.name + ' joins from the next round.'); } }, '+ ' + r.name);
+        return h('button', { type: 'button', onclick: function () { var res = commit(function (x) { return E.addTeam(x, r.players); }); if (res && !setup) toast(joinNote(res)); } }, '+ ' + r.name);
       }))]) : null,
       h('ul', { class: 'teamlist' }, teams.map(function (t, i) {
         return h('li', { class: t.left ? 'gone' : '' }, [
@@ -537,7 +640,7 @@
           btn('Edit', 'small', function () { editTeam(t); }, { 'aria-label': 'Edit ' + t.name }),
           setup && s.round1 === 'seeded' ? btn('▲', 'small', function () { move(t, -1); }, { 'aria-label': 'Move ' + t.name + ' up', disabled: i === 0 }) : null,
           setup && s.round1 === 'seeded' ? btn('▼', 'small', function () { move(t, 1); }, { 'aria-label': 'Move ' + t.name + ' down', disabled: i === teams.length - 1 }) : null,
-          t.left ? btn('Bring back', 'small', function () { commit(function (x) { x.teams[t.id].left = null; }); toast(t.name + ' rejoins from the next round.'); render(); })
+          t.left ? btn('Bring back', 'small', function () { commit(function (x) { x.teams[t.id].left = null; }); toast(t.name + (wheel ? ' is back on the list.' : ' rejoins from the next round.')); render(); })
             : btn('Remove', 'small danger', function () { removeTeam(t); }, { 'aria-label': 'Remove ' + t.name })
         ]);
       })),
@@ -680,11 +783,13 @@
     var go = function () {
       var out = commit(function (x) { return E.removeTeam(x, t.id); });
       if (out.substitute) toast(teamNameOf(out.substitute) + ' steps in on court ' + out.court + '.');
+      else if (out.voided && E.isWheel(s)) toast('Court ' + out.voided + ': that match is called off. Add a late player to take the place, or spin the wheel again for new teams.');
       else if (out.voided) toast('Court ' + out.voided + (E.isSolo(s) ? ': nobody is free to step in, so that match is called off. The other three keep their court.' : ': the other team keeps its place, no points for that match.'));
       render();
     };
     if (s.status === 'setup') return go();
-    state.ui.modal = { type: 'confirm', title: 'Remove ' + t.name + '?', text: 'They keep the points they have won tonight but are left out of the next rounds. If they are on court right now, a ' + words(s).one + ' that is sitting out takes their place.', ok: 'Remove ' + words(s).one, danger: true, onOk: go };
+    state.ui.modal = { type: 'confirm', title: 'Remove ' + t.name + '?', text: E.isWheel(s) ? 'They keep the points they have won today. Their partner has no match until a late player takes the place or the wheel is spun again.'
+      : 'They keep the points they have won tonight but are left out of the next rounds. If they are on court right now, a ' + words(s).one + ' that is sitting out takes their place.', ok: 'Remove ' + words(s).one, danger: true, onOk: go };
     render();
   }
 
@@ -697,7 +802,7 @@
       S.write(up).then(function () {
         var out = commit(function (x) { return E.rewindTo(x, n); });
         state.ui.modal = null;
-        toast(!out.ok ? 'Nothing was deleted.' : n === 1 ? 'The night starts again: round 1 has been drawn afresh.' : 'Back to round ' + n + ': ' + out.removed + (out.removed === 1 ? ' round' : ' rounds') + ' deleted, round ' + n + ' drawn afresh.');
+        toast(!out.ok ? 'Nothing was deleted.' : out.setup ? 'Back to the list of players. Spin the wheel when you are ready.' : n === 1 ? 'The night starts again: round 1 has been drawn afresh.' : 'Back to round ' + n + ': ' + out.removed + (out.removed === 1 ? ' round' : ' rounds') + ' deleted, round ' + n + ' drawn afresh.');
         render();
       }).catch(function (err) {
         if (err.status === 401 || err.status === 403) { state.ui.modal = { type: 'key', wrong: !!S.getKey(), then: go }; render(); }
@@ -707,7 +812,8 @@
     var scored = s.rounds.slice(n - 1).filter(function (r) { return E.roundHasScores(r); }).length;
     state.ui.modal = { type: 'confirm', danger: true,
       title: n === 1 ? 'Restart the night?' : 'Delete round ' + n + (last > n ? ' to ' + last : '') + '?',
-      text: (n === 1 ? 'Every round played tonight is deleted, with its scores and points, and round 1 is drawn again with the ' + words(s).many + ' that are still here. Anyone who has left is taken off the list. Courts and set length stay as they are.'
+      text: (E.isWheel(s) ? 'Every round played today is deleted, with its scores and points, and you are back at the list of players, ready to spin the wheel for the first time. Anyone who has left is taken off the list.'
+        : n === 1 ? 'Every round played tonight is deleted, with its scores and points, and round 1 is drawn again with the ' + words(s).many + ' that are still here. Anyone who has left is taken off the list. Courts and set length stay as they are.'
         : 'Round ' + n + (last > n ? ' and every round after it are' : ' is') + ' deleted, with scores and points, and round ' + n + ' is drawn again from how things stood after round ' + (n - 1) + '.') +
         (scored ? ' ' + scored + (scored === 1 ? ' round with scores is' : ' rounds with scores are') + ' affected. This cannot be undone.' : ''),
       ok: n === 1 ? 'Restart night' : 'Delete from round ' + n, onOk: go };
@@ -720,8 +826,8 @@
     var done = !!c.w && !c.void;
     var open = function () { state.ui.modal = { type: 'score', n: r.n, i: i, sa: c.sa, sb: c.sb, w: c.sa === c.sb ? c.w : null }; render(); };
     return h('button', { type: 'button', class: 'courtcard' + (king ? ' king' : '') + (c.void ? ' void' : done ? '' : ' todo'), disabled: c.void, 'data-court': c.court, 'data-round': r.n, onclick: open,
-      'aria-label': 'Court ' + c.court + ': ' + sideNameOf(c, 'a') + ' against ' + sideNameOf(c, 'b') + (done ? ', ' + c.sa + ' to ' + c.sb + '. Tap to correct.' : '. Tap to enter the score.') }, [
-      h('div', { class: 'cn' }, [h('b', null, String(c.court)), h('span', null, king ? 'King’s' : 'Court')]),
+      'aria-label': (c.label ? c.label + ', court ' : 'Court ') + c.court + ': ' + sideNameOf(c, 'a') + ' against ' + sideNameOf(c, 'b') + (done ? ', ' + c.sa + ' to ' + c.sb + '. Tap to correct.' : '. Tap to enter the score.') }, [
+      h('div', { class: 'cn' }, [h('b', null, String(c.court)), h('span', null, c.label ? c.label : c.wait && !done ? 'Next up' : E.isWheel(s) ? 'Court' : king ? 'King’s' : 'Court')]),
       h('div', { class: 'tm' }, [
         h('div', { class: done && c.w === 'a' ? 'won' : '' }, sideNameOf(c, 'a')),
         h('div', { class: done && c.w === 'b' ? 'won' : '' }, sideNameOf(c, 'b'))
@@ -734,44 +840,47 @@
     var cur = E.currentRound(s), prev = s.rounds.slice(0, -1).reverse();
     var left = cur ? cur.courts.filter(function (c) { return !c.void && !c.w; }).length : 0;
     var waiting = E.activeTeams(s).filter(function (t) { return cur && cur.sitting.indexOf(t.id) < 0 && !cur.courts.some(function (c) { return !!E.sideOf(c, t.id); }); });
+    var wheel = E.isWheel(s), wst = E.wheelState(s);
+    var spinAgain = function () {
+      state.ui.modal = { type: 'confirm', title: 'Spin the wheel again?', text: 'Everyone gets a new partner and this block starts over from its first round: ' + roundTitle(cur) + ' has no scores yet and is replaced. Points already won stay. Use it after adding or removing a player.', ok: 'Spin again', onOk: spinWheel };
+      render();
+    };
     return h('div', { class: 'wrap' }, [
       h('div', { class: 'cols' }, [
         h('div', { class: 'stack' }, [
+          wheel ? wheelNext(s) : null,
           h('div', { class: 'panel' }, [
             h('div', { class: 'roundhead' }, [
-              h('span', { class: 'big' }, 'Round ' + (cur ? cur.n : 1)),
-              h('span', { class: 'hint' }, !cur ? 'Add ' + words(s).many + ' and courts to begin.' : left ? left + (left === 1 ? ' court' : ' courts') + ' still to score. The next round appears when the last score goes in.' : '')
+              h('span', { class: 'big' }, cur ? roundTitle(cur) : 'Round 1'),
+              h('span', { class: 'hint' }, !cur ? 'Add ' + words(s).many + ' and courts to begin.' : (wheel ? 'Sets to ' + E.roundSetTo(s, cur) + '. ' : '') + (left ? left + (left === 1 ? ' match' : ' matches') + ' still to score.' + (wheel ? '' : ' The next round appears when the last score goes in.') : ''))
             ]),
             cur ? h('div', { class: 'courtcards' }, cur.courts.map(function (c, i) { return courtCard(s, cur, c, i, false); })) : null,
             cur && cur.sitting.length ? h('p', { class: 'sitlist' }, [h('b', null, 'Sitting out: '), cur.sitting.map(teamNameOf).join(', ')]) : null,
             waiting.length ? h('p', { class: 'sitlist' }, [h('b', null, 'Joining next round: '), waiting.map(function (t) { return t.name; }).join(', ')]) : null,
             h('div', { class: 'row end', style: 'margin-top:8px' }, [
-              h('span', { class: 'hint', style: 'margin:0' }, 'Sets to'), setsControl(s), h('span', { style: 'flex:1' }),
+              wheel ? null : h('span', { class: 'hint', style: 'margin:0' }, 'Sets to'), wheel ? null : setsControl(s), h('span', { style: 'flex:1' }),
               btn('Change courts', 'small', function () { state.ui.modal = { type: 'courts', courts: s.courts.slice() }; render(); }, { id: 'changeCourts' }),
-              cur && !E.roundHasScores(cur) ? btn('Re-draw this round', 'small', function () {
+              wheel && wst === 'playing' && cur && !E.roundHasScores(cur) ? btn('Spin again', 'small', spinAgain, { id: 'spinAgain' }) : null,
+              !wheel && cur && !E.roundHasScores(cur) ? btn('Re-draw this round', 'small', function () {
                 state.ui.modal = { type: 'confirm', title: 'Re-draw round ' + cur.n + '?', text: cur.n === 1 ? 'Makes a new draw for round 1.' : 'Chooses again who sits out and where everyone plays, following the same rules. Use it after adding or removing a ' + words(s).one + '.', ok: 'Re-draw', onOk: function () { commit(function (x) { E.redrawRound(x); }); render(); } };
                 render();
               }) : null,
               cur ? btn('Restart night', 'small danger', function () { deleteFrom(1); }, { id: 'restartNight' }) : null,
-              btn('End night', 'small danger', function () {
-                state.ui.modal = { type: 'confirm', title: 'End the night?', text: 'Tonight’s results are saved to the monthly leaderboard and the TV shows the final standings. You can reopen the night if you end it by mistake.', ok: 'End night', danger: true,
-                  onOk: function () { commit(function (x) { E.endNight(x); }); render(); } };
-                render();
-              }, { id: 'endNight' })
+              btn('End night', 'small danger', endNightAsk, { id: 'endNight' })
             ])
           ]),
           prev.length ? h('div', { class: 'panel' }, h('details', { class: 'prev', open: state.ui.prevOpen, ontoggle: function (e) { state.ui.prevOpen = e.target.open; } }, [
-            h('summary', null, 'Earlier rounds (tap a score to correct it, or delete rounds)'),
-            h('p', { class: 'hint' }, 'Deleting a round also deletes every round after it, and that round is drawn again. Deleting from round 1 restarts the night.'),
+            h('summary', null, wheel ? 'Earlier rounds (tap a score to correct it)' : 'Earlier rounds (tap a score to correct it, or delete rounds)'),
+            wheel ? null : h('p', { class: 'hint' }, 'Deleting a round also deletes every round after it, and that round is drawn again. Deleting from round 1 restarts the night.'),
             prev.map(function (r) {
-              return h('div', null, [h('div', { class: 'prevhead' }, [h('h2', null, 'Round ' + r.n),
-                btn(r.n === 1 ? 'Delete all rounds' : 'Delete from round ' + r.n, 'small danger', function () { deleteFrom(r.n); }, { 'data-delete-from': r.n })]),
+              return h('div', null, [h('div', { class: 'prevhead' }, [h('h2', null, roundName(r)),
+                wheel ? null : btn(r.n === 1 ? 'Delete all rounds' : 'Delete from round ' + r.n, 'small danger', function () { deleteFrom(r.n); }, { 'data-delete-from': r.n })]),
                 h('div', { class: 'courtcards' }, r.courts.map(function (c, i) { return courtCard(s, r, c, i, true); })),
                 r.sitting.length ? h('p', { class: 'hint' }, 'Sat out: ' + r.sitting.map(teamNameOf).join(', ')) : null]);
             })
           ])) : null
         ]),
-        h('div', { class: 'stack' }, [boardPanel(s, 'Tonight'), teamsPanel(s, false)])
+        h('div', { class: 'stack' }, [wheel ? poolPanel(s) : null, boardPanel(s, wheel ? 'Today' : 'Tonight'), teamsPanel(s, false)])
       ])
     ]);
   }
@@ -815,7 +924,7 @@
           s.rounds.length ? h('div', { class: 'panel' }, h('details', { class: 'prev', open: state.ui.prevOpen, ontoggle: function (e) { state.ui.prevOpen = e.target.open; } }, [
             h('summary', null, 'Rounds (tap a score to correct it)'),
             s.rounds.slice().reverse().map(function (r) {
-              return h('div', null, [h('h2', { style: 'margin-top:12px' }, 'Round ' + r.n), h('div', { class: 'courtcards' }, r.courts.map(function (c, i) { return courtCard(s, r, c, i, true); }))]);
+              return h('div', null, [h('h2', { style: 'margin-top:12px' }, roundName(r)), h('div', { class: 'courtcards' }, r.courts.map(function (c, i) { return courtCard(s, r, c, i, true); }))]);
             })
           ])) : null
         ])
@@ -849,19 +958,20 @@
       var curR = E.currentRound(s), same = JSON.stringify(m.courts) === JSON.stringify(s.courts);
       var teamsN = E.activeTeams(s).length, Wc = words(s), kk = Math.min(m.courts.length, Math.floor(teamsN / Wc.per));
       var effect = !m.courts.length ? 'Pick at least one court.' : same ? 'These are the courts in use now.' :
+        E.isWheel(s) ? 'Matches that are not scored yet move to these courts now. With fewer courts than matches, the extra matches wait for a court to come free.' :
         (curR && !E.roundHasScores(curR)) ? 'Round ' + curR.n + ' has no scores yet, so it will be drawn again on these courts.' :
         m.courts.length === s.courts.length ? 'Matches in round ' + (curR ? curR.n : 1) + ' that are not scored yet move to the new court numbers now. Every later round uses them too.' :
         'Round ' + (curR ? curR.n : 1) + ' finishes on the courts it is on. The new courts start with the next round.';
       var applyCourts = function () {
         var out = commit(function (x) { return E.setCourts(x, m.courts); });
         state.ui.modal = null;
-        toast(out.redrawn ? 'Round redrawn on the new courts.' : out.moved ? out.moved + (out.moved === 1 ? ' match' : ' matches') + ' moved to the new court numbers.' : 'New courts start with the next round.');
+        toast(E.isWheel(s) ? 'Courts changed.' : out.redrawn ? 'Round redrawn on the new courts.' : out.moved ? out.moved + (out.moved === 1 ? ' match' : ' matches') + ' moved to the new court numbers.' : 'New courts start with the next round.');
         render();
       };
       body = [h('h3', null, 'Courts for tonight'),
-        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Tap from the bottom court up to King’s Court. You can change the numbers, or use more or fewer courts.'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, E.isWheel(s) ? 'Tap the courts you have today. The last one you tap is the main court: finals are played there.' : 'Tap from the bottom court up to King’s Court. You can change the numbers, or use more or fewer courts.'),
         courtPicker(m.courts, function (next) { m.courts = next; render(); }),
-        h('div', { class: 'notice' }, [effect, m.courts.length ? h('div', { style: 'margin-top:6px' }, teamsN + ' ' + Wc.many + ' on ' + kk + (kk === 1 ? ' court' : ' courts') + ': ' + (Wc.per * kk) + ' play, ' + (teamsN - Wc.per * kk) + ' sit out each round.') : null]),
+        h('div', { class: 'notice' }, [effect, m.courts.length && !E.isWheel(s) ? h('div', { style: 'margin-top:6px' }, teamsN + ' ' + Wc.many + ' on ' + kk + (kk === 1 ? ' court' : ' courts') + ': ' + (Wc.per * kk) + ' play, ' + (teamsN - Wc.per * kk) + ' sit out each round.') : null]),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Use these courts', 'primary', applyCourts, { disabled: same || !m.courts.length, id: 'applyCourts' })])];
     } else if (m.type === 'rename') {
       // WPR Social rating beside each name on the TV's leaderboards; empty means NR (not rated)
@@ -1015,7 +1125,7 @@
       var pick = function (side, v) { m[side] = v; if (m.sa !== m.sb) m.w = null; render(); };
       var digits = function (side) {
         var out = [];
-        for (var v = 0; v <= (s.setTo || 4); v++) (function (v) {
+        for (var v = 0; v <= E.roundSetTo(s, r); v++) (function (v) {
           out.push(h('button', { type: 'button', class: m[side] === v ? 'on' : '', 'data-side': side, 'data-v': v, 'aria-pressed': m[side] === v ? 'true' : 'false', onclick: function () { pick(side, v); } }, String(v)));
         })(v);
         return out;
@@ -1027,17 +1137,18 @@
         var out = commit(function (x) { return E.setScore(x, n, m.i, m.sa, m.sb, m.w); });
         state.ui.modal = null;
         if (!out.ok) toast(out.error);
-        else if (out.regenerated) toast('Round ' + (n + 1) + ' has been redone with the corrected result.');
+        else if (out.regenerated) toast(E.isWheel(s) ? 'The next matches have been redone with the corrected result.' : 'Round ' + (n + 1) + ' has been redone with the corrected result.');
         else if (out.tooLate) toast('Points corrected. Court positions stay as they were played.');
-        else if (out.advanced && wasLast) toast('Round ' + (n + 1) + ' is up on the TV.');
+        else if (out.advanced && wasLast) toast((E.isWheel(s) ? roundTitle(E.currentRound(state.session)) : 'Round ' + (n + 1)) + ' is up on the TV.');
+        else if (wasLast && E.wheelState(state.session) === 'spin') toast('That set is done. Time to spin the wheel.');
         render();
       };
       body = [
-        h('h3', null, 'Round ' + m.n + ' · Court ' + c.court + (E.isKingsCourt(s, r, c) ? ' · King’s Court' : '')),
-        h('p', { class: 'hint', style: 'margin:-8px 0 0' }, 'Sets to ' + (s.setTo || 4) + ' games. A point for every game won.'),
+        h('h3', null, roundTitle(r) + ' · Court ' + c.court + (c.label ? ' · ' + c.label : !E.isWheel(s) && E.isKingsCourt(s, r, c) ? ' · King’s Court' : '')),
+        h('p', { class: 'hint', style: 'margin:-8px 0 0' }, 'Sets to ' + E.roundSetTo(s, r) + ' games. A point for every game won.'),
         h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, sideNameOf(c, 'a')), h('div', { class: 'digits' }, digits('sa'))]),
         h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, sideNameOf(c, 'b')), h('div', { class: 'digits' }, digits('sb'))]),
-        level ? h('div', { class: 'notice' }, [h('div', { style: 'margin-bottom:8px;font-weight:600' }, E.isSolo(s) ? 'Level on games. Which pair moves up?' : 'Level on games. Which team moves up?'), h('div', { class: 'row' }, [
+        level ? h('div', { class: 'notice' }, [h('div', { style: 'margin-bottom:8px;font-weight:600' }, E.isWheel(s) ? 'Level on games. Which pair won?' : E.isSolo(s) ? 'Level on games. Which pair moves up?' : 'Level on games. Which team moves up?'), h('div', { class: 'row' }, [
           btn(sideNameOf(c, 'a'), m.w === 'a' ? 'primary small' : 'small', function () { m.w = 'a'; render(); }),
           btn(sideNameOf(c, 'b'), m.w === 'b' ? 'primary small' : 'small', function () { m.w = 'b'; render(); })])]) : null,
         h('div', { class: 'row end' }, [

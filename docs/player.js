@@ -127,7 +127,7 @@
     return null;
   }
   function send(mine) {
-    var f = st.form, s = st.session, max = s.setTo === 6 ? 6 : 4;
+    var f = st.form, s = st.session, max = E.roundSetTo(s, mine.round);
     if (!f || f.us === null || f.them === null || st.sending) return;
     if (f.us === f.them && !f.w) return;
     if (f.us > max || f.them > max) return;
@@ -199,6 +199,7 @@
     var s = st.session, cur = s ? E.currentRound(s) : null;
     if (!s) return '';
     if (s.status === 'ended') return 'Night finished';
+    if (s.status === 'live' && cur && E.isWheel(s)) { var ws = E.wheelState(s); return ws === 'spin' ? 'New partners coming up' : ws === 'done' ? 'All matches played' : (cur.title || 'Round ' + cur.n) + ' · sets to ' + E.roundSetTo(s, cur); }
     if (s.status === 'live' && cur) return 'Round ' + cur.n + ' · sets to ' + (s.setTo || 4);
     return 'Starting soon';
   }
@@ -220,7 +221,7 @@
     if (!st.me && st.role !== 'player') return roleChoice();
     if (!st.me) return chooseTeam(s);
     var out = [];
-    if (s.status === 'setup') out.push(note('You are checked in', 'Round 1 will appear here when the night starts.'));
+    if (s.status === 'setup') out.push(note('You are checked in', E.isWheel(s) ? 'Your partner and court appear here when the wheel has been spun. Watch the screen!' : 'Round 1 will appear here when the night starts.'));
     else if (s.status === 'ended') out.push(note('Night finished', 'Thanks for playing. Final standings are on the screen.'));
     else out.push(roundCard(s));
     out.push(standing(s));
@@ -300,24 +301,31 @@
     var cur = E.currentRound(s), me = s.teams[st.me];
     if (me && me.left) return note('You are not in tonight’s draw', 'If that is a mistake, see the organizer.');
     if (!cur) return note('Starting soon');
-    var mine = myCourt();
+    var mine = myCourt(), wheel = E.isWheel(s), wst = wheel ? E.wheelState(s) : 'none';
+    if (wst === 'spin' && !(mine && !mine.entered)) return note('Time for new partners', 'Watch the screen: the wheel is about to spin. Your new partner and court appear here.');
+    if (wst === 'done') return note('All matches played', 'Thanks for playing. The standings are on the screen.');
+    if (!mine && wheel) {
+      var paired = ((s.wheel || {}).teams || []).some(function (tm) { return tm.indexOf(st.me) >= 0; });
+      return paired ? note('You rest this round', 'Your next court appears here as soon as this round finishes.')
+        : note('You sit out for now', 'The wheel gives you a partner the next time it spins.');
+    }
     if (!mine) {
       if (cur.sitting.indexOf(st.me) >= 0) return note('You are sitting out round ' + cur.n, 'Your next court appears here as soon as this round finishes.');
       return note('You join in the next round', 'Your court appears here when round ' + (cur.n + 1) + ' starts.');
     }
-    var c = mine.court, max = s.setTo === 6 ? 6 : 4;
+    var c = mine.court, max = E.roundSetTo(s, cur);
     var other = mine.side === 'a' ? 'b' : 'a', solo = E.isSolo(s);
     var partner = E.sideIds(c, mine.side).filter(function (id) { return id !== st.me; })[0];
-    var head = h('div', { class: 'pl-court' + (mine.king ? ' king' : '') }, [h('span', null, mine.king ? 'King’s Court' : 'Court'), h('b', null, String(c.court))]);
+    var head = h('div', { class: 'pl-court' + (mine.king ? ' king' : '') }, [h('span', null, wheel ? (c.label ? c.label + ' · court' : c.wait && !c.w ? 'Next on court' : 'Court') : mine.king ? 'King’s Court' : 'Court'), h('b', null, String(c.court))]);
     var versus = h('div', { class: 'pl-vs' }, [h('div', { class: 'us' }, solo ? ['You', partner ? ' & ' + teamName(partner) : ''] : E.sideName(s, c, mine.side)), h('div', { class: 'v' }, 'vs'), h('div', null, E.sideName(s, c, other))]);
-    if (c.void) return h('div', { class: 'pl-card' }, [head, versus, h('p', null, 'No match on this court this round. You keep your place.')]);
+    if (c.void) return h('div', { class: 'pl-card' }, [head, versus, h('p', null, wheel ? 'No match this round: one pair is a player short.' : 'No match on this court this round. You keep your place.')]);
 
     if (mine.entered && !st.changing) {
       var e = mine.entered;
       var us = mine.side === 'a' ? e.sa : e.sb, th = mine.side === 'a' ? e.sb : e.sa;
       return h('div', { class: 'pl-card done' }, [head, versus,
         h('div', { class: 'pl-score' }, [h('b', null, String(us)), h('span', null, '–'), h('b', null, String(th))]),
-        h('p', { class: 'ok' }, 'Score is in. The next round appears here when every court has finished.'),
+        h('p', { class: 'ok' }, wheel ? 'Score is in. What comes next appears here when every match has finished.' : 'Score is in. The next round appears here when every court has finished.'),
         h('button', { type: 'button', class: 'pl-link', id: 'change', onclick: function () { st.changing = true; st.form = { us: us, them: th, w: null }; render(); } }, 'Wrong score? Change it')
       ]);
     }
@@ -336,7 +344,7 @@
     return h('div', { class: 'pl-card' }, [head, versus,
       h('div', { class: 'pl-row' }, [h('label', null, 'Your games'), digits('us')]),
       h('div', { class: 'pl-row' }, [h('label', null, 'Their games'), digits('them')]),
-      level ? h('div', { class: 'pl-row' }, [h('label', null, 'Level on games. Who moves up?'), h('div', { class: 'pl-two' }, [
+      level ? h('div', { class: 'pl-row' }, [h('label', null, wheel ? 'Level on games. Who won?' : 'Level on games. Who moves up?'), h('div', { class: 'pl-two' }, [
         h('button', { type: 'button', class: f.w === 'us' ? 'on' : '', onclick: function () { f.w = 'us'; render(); } }, 'We do'),
         h('button', { type: 'button', class: f.w === 'them' ? 'on' : '', onclick: function () { f.w = 'them'; render(); } }, 'They do')])]) : null,
       st.error ? h('p', { class: 'err', role: 'alert' }, st.error) : null,
@@ -351,7 +359,7 @@
     var key = E.entityKey(me.players), rows = E.leaderboard(s);
     var row = rows.filter(function (r) { return r.key === key; })[0];
     return h('div', { class: 'pl-foot' }, [
-      h('div', null, [h('b', null, me.name), row && row.played ? h('span', null, row.points + (row.points === 1 ? ' point' : ' points') + ' tonight · place ' + row.rank + ' of ' + rows.length) : h('span', null, 'No points yet tonight')]),
+      h('div', null, [h('b', null, me.name), row && row.played ? h('span', null, row.points + (row.points === 1 ? ' point' : ' points') + (E.isWheel(s) ? ' today' : ' tonight') + ' · place ' + row.rank + ' of ' + rows.length) : h('span', null, E.isWheel(s) ? 'No points yet today' : 'No points yet tonight')]),
       h('button', { type: 'button', class: 'pl-link', id: 'notme', onclick: function () { S.pref(meKey(), null); st.me = null; st.role = null; st.form = null; st.changing = false; render(); } }, 'Not you?')
     ]);
   }

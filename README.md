@@ -96,6 +96,32 @@ goes to a scenario in the club's Make account, which asks Gemini to write the na
 **Monthly leaderboards:** every event's table restarts each calendar month. The club flyers slideshow includes a
 slide with the month's top three of every social, counted from the nights that have ended.
 
+## The format: Wheel of Fortune
+
+Players sign up alone. While they check in, the TV shows one wheel with every name. When the organizer presses
+**Spin the wheel**, two wheels fill the TV, half the players on each; the names that stop under the two pointers
+are partners. How the day runs is decided by how many players are on the list at that moment:
+
+| Players | Teams | What is played |
+|---|---|---|
+| 4 | 2 | One set to 6, then the wheel spins again (three spins give everyone each partner once) |
+| 5 | 2, one player sits | Two sets to 6 with the same teams, then a new spin and someone else sits. The organizer can tap who sits first (an ambassador, say); otherwise whoever has sat least |
+| 6 / 7 | 3 (with 7, one sits) | Each team plays the other two, sets to 4, one team resting each round; then a new spin |
+| 8 / 9 | 4 | Same partner all day: 3 pool rounds to 4, semifinals (1st v 4th, 2nd v 3rd) to 4, final to 6 |
+| 10 / 11 | 5 | 5 pool rounds to 4 (one team rests each round), then 4th v 5th, semifinals (winner v 1st, 2nd v 3rd) and final, all to 4 |
+| 12 and more | 6+ | 5 pool rounds to 4, then medal matches to 6: 1st v 2nd, 3rd v 4th, 5th v 6th, and so on |
+
+- With an odd number from 9 up, one team has three players who take turns resting.
+- Pool ranking: matches won, then games won, then fewest games lost, then the match between the two.
+- More matches than courts: the extra match shows as "Next on court N" and is played when that court is free.
+- Points are per player: every game a pair wins is a point for both, play-offs included. Daily and monthly
+  leaderboards are per player.
+- A player added after a spin waits for the next spin, unless a pair has lost a player: then she takes that place.
+- The wheel can be spun again at any time between rounds (new teams, the block starts over; points stay).
+  **Restart night** goes back to the list of players.
+
+Rules live in `docs/engine.js` (`wheelPlan`, `wheelSpin`, `wheelRound`); tests in `test/wheel.test.js` and `test/e2e-wheel.js`.
+
 ## Files
 
 | Path | What it is |

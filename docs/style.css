@@ -97,7 +97,7 @@ input[type=text], input[type=password] { border: 1px solid var(--rule); border-r
 .ratings .rating { display: grid; gap: 4px; font-size: 15px; color: var(--muted); }
 .ratings .rating input { width: 110px; }
 /* choosing the format when an event is created */
-.fmtpick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.fmtpick { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-top: 8px; }
 .fmtpick .fmt { text-align: left; border: 2px solid var(--rule); background: #fff; border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; align-content: start; }
 .fmtpick .fmt b { font-size: 17px; color: var(--court-deep); }
 .fmtpick .fmt span { font-size: 14px; line-height: 1.35; color: var(--muted); }
@@ -272,6 +272,7 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .tvcourt.king .cn span { color: var(--ink); font-weight: 600; }
 .tvcourt .tm { font-family: var(--display); font-weight: 600; font-size: 5.6vh; line-height: 1.04; min-width: 0; max-height: 100%; overflow: hidden; overflow-wrap: break-word; }
 .tvcourt .tm.b { text-align: right; }
+.tvcourt .tm .pn { white-space: nowrap; }   /* a player's name is never broken in two; the text is made smaller instead */
 .tvcourt .tm.lost { opacity: .6; }
 .tvcourt .mid { font-family: var(--display); font-size: 3vh; letter-spacing: .1em; color: #cfe0f3; text-align: center; min-width: 5vw; }
 .tvcourt .mid.score { font-size: 6.4vh; font-weight: 700; color: #fff; letter-spacing: .02em; }
@@ -569,3 +570,52 @@ body.pl.hello .pl-role.pressed { background: #fff; }
 .tvitem select, .tvadd select { border: 1px solid var(--rule); border-radius: 8px; padding: 10px; font-size: 16px; min-height: 46px; background: #fff; min-width: 0; width: 100%; }
 .tvadd { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-top: 10px; }
 @media (max-width: 599px) { .tvitem { grid-template-columns: auto minmax(0, 1fr); } .tvadd { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- Wheel of Fortune ------------------------------------------------------------------------ */
+/* iPad */
+.setupgrid.wheel { grid-template-areas: "courts courts" "r1 r1" "teams teams" "start start"; }
+@media (max-width: 599px) { .setupgrid.wheel { grid-template-areas: "courts" "r1" "teams" "start"; } }
+@media (min-width: 861px) and (orientation: landscape) { .setupgrid.wheel { grid-template-rows: auto auto auto 1fr; grid-template-areas: "teams courts" "teams r1" "teams start" "teams ."; } }
+.sitpick { margin-top: 14px; }
+.regulars button.on { background: var(--court); color: #fff; border-style: solid; }
+.wheelnext { border: 2px solid var(--gold); background: linear-gradient(90deg, #fff7e2, #fff 60%); }
+.wheelnext .btn.gold { min-height: 56px; min-width: 190px; font-size: 19px; }
+.pooltable td.pair { font-weight: 600; }
+/* TV: the wheel while players check in */
+.tvwheel { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3vw; align-items: center; min-height: 0; }
+.wheelidle { width: min(60vh, 34vw); aspect-ratio: 1; filter: drop-shadow(0 1.4vh 2.4vh rgba(0,0,0,.45)); }
+.wheelidle svg { display: block; width: 100%; height: 100%; animation: wheelturn 90s linear infinite; }
+@keyframes wheelturn { to { transform: rotate(360deg); } }
+.wheelidle text, .wheelshow text { font-family: var(--display); font-weight: 700; }
+.tvwheel .ttl { font-family: var(--display); font-size: 7vh; font-weight: 700; line-height: 1; text-transform: uppercase; }
+.tvwheel .how { font-family: var(--display); font-size: 3.7vh; line-height: 1.25; color: #cfe0f3; margin-top: 2vh; text-wrap: balance; }
+/* TV: courts of a wheel day */
+.tvcourt .cn span.lbl { font-size: 1.9vh; letter-spacing: .07em; padding: 0 .3vw; text-align: center; }
+.tvcourt.wait { opacity: .78; }
+.inter .num.text { font-size: 26vh; text-transform: uppercase; letter-spacing: .02em; }
+/* TV: the spin. Two wheels, a pointer on each, the pair that has just been drawn between them. */
+.wheelshow { position: fixed; inset: 0; z-index: 11; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; gap: 1.2vh; padding: 2.6vh 2vw 3vh; text-align: center; color: #fff; overflow: hidden;
+  background: radial-gradient(ellipse 80% 90% at 50% 45%, #12508f 0%, #0a2f57 45%, #071a30 100%); animation: interin .3s ease-out both; }
+.wheelshow.out { animation: interout .45s ease-in both; }
+.wheelshow .wtitle { font-family: var(--script); font-size: 6.6vh; line-height: 1.2; letter-spacing: .03em; text-transform: uppercase; color: var(--gold); text-shadow: .4vh .5vh 0 rgba(3,12,24,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wheelshow .wsub { font-family: var(--display); font-size: 3.2vh; letter-spacing: .22em; text-transform: uppercase; color: #cfe0f3; }
+.wstage { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 3vw; min-height: 0; padding: 0 2vw; }
+.wbox { position: relative; width: min(50vh, 31vw); aspect-ratio: 1; filter: drop-shadow(0 1.4vh 2.6vh rgba(0,0,0,.5)); }
+.wheelshow[data-teams="6"] .wbox, .wheelshow[data-teams="7"] .wbox, .wheelshow[data-teams="8"] .wbox, .wheelshow[data-teams="9"] .wbox, .wheelshow[data-teams="10"] .wbox { width: min(44vh, 30vw); }
+.wrot { width: 100%; height: 100%; transition: transform 1.8s cubic-bezier(.12, .6, .1, 1); will-change: transform; }
+.wrot svg { display: block; width: 100%; height: 100%; }
+.wptr { position: absolute; top: 50%; width: 0; height: 0; border: 2.3vh solid transparent; transform: translateY(-50%); filter: drop-shadow(0 .4vh .5vh rgba(0,0,0,.6)); }
+.wbox.l .wptr { right: -3.2vh; border-right: 4.6vh solid #fff; border-left-width: 0; }
+.wbox.r .wptr { left: -3.2vh; border-left: 4.6vh solid #fff; border-right-width: 0; }
+.wnow { font-family: var(--display); font-weight: 700; line-height: 1.04; opacity: 0; overflow-wrap: anywhere; }
+.wnow .a, .wnow .b { font-size: 7.4vh; text-transform: uppercase; letter-spacing: .01em; }
+.wnow .amp { font-size: 5.4vh; color: var(--gold); margin: .6vh 0; }
+.wnow.pop { animation: wpop .55s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes wpop { 0% { opacity: 0; transform: scale(.3); } 100% { opacity: 1; transform: none; } }
+.wpairs { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 1vh 1vw; min-height: 13vh; }
+.wpair { font-family: var(--display); font-weight: 600; font-size: 3.6vh; line-height: 1.1; padding: .8vh 1.2vw .9vh; border: .25vh solid var(--gold); border-radius: 1vh; background: rgba(7,26,48,.55); animation: wchip .45s cubic-bezier(.2, 1.5, .4, 1) both; }
+.wpair small { font-size: .82em; color: var(--gold); font-weight: 500; }
+.wheelshow[data-teams="6"] .wpair, .wheelshow[data-teams="7"] .wpair, .wheelshow[data-teams="8"] .wpair, .wheelshow[data-teams="9"] .wpair, .wheelshow[data-teams="10"] .wpair { font-size: 3vh; }
+@keyframes wchip { 0% { opacity: 0; transform: translateY(2vh) scale(.8); } 100% { opacity: 1; transform: none; } }
+.wextra { font-family: var(--display); font-size: 3vh; line-height: 1.2; min-height: 3.6vh; color: #cfe0f3; }
+@media (prefers-reduced-motion: reduce) { .wheelidle svg, .wheelshow, .wnow.pop, .wpair { animation: none !important; } .wrot { transition: none; } .wnow { opacity: 1; } }

@@ -50,7 +50,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await tv.waitForSelector('.tvhead .round:text("Round 1")', { timeout: 6000 });
   step('TV showed round 1 after ' + (Date.now() - t0) + ' ms');
   assert.equal(await tv.locator('.tvcourt').count(), 5);
-  assert.equal(await tv.locator('.tvsit .names span').count(), 4);
+  assert.equal((await tv.textContent('.tvsit .names')).split('\u00b7').length, 4);
   assert.match(await tv.textContent('.tvcourt.king .cn'), /King.s Court\s*7/);
   await tv.screenshot({ path: SHOTS + 'tv-round1.png' });
 

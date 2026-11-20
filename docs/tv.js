@@ -125,9 +125,11 @@
       ]);
     });
     var waiting = E.activeTeams(s).filter(function (t) { return r.sitting.indexOf(t.id) < 0 && !r.courts.some(function (c) { return c.a === t.id || c.b === t.id; }); });
-    var names = r.sitting.map(function (id) { return h('span', null, name(id)); }).concat(waiting.map(function (t) { return h('span', null, t.name + ' (next round)'); }));
+    // keep each team's name on one line, let the list wrap between teams
+    var keep = function (txt) { return txt.replace(/ /g, '\u00a0'); };
+    var names = r.sitting.map(function (id) { return keep(name(id)); }).concat(waiting.map(function (t) { return keep(t.name + ' (next round)'); })).join('  \u00b7  ');
     return h('div', 'tvleft', [head('Round ' + r.n, flash), h('div', 'tvcourts', courts),
-      names.length ? h('div', 'tvsit', [h('div', 'lab', 'Sitting out this round'), h('div', 'names', names)]) : h('div')]);
+      names ? h('div', 'tvsit', [h('div', 'lab', 'Sitting out this round'), h('div', 'names', names)]) : h('div')]);
   }
   function endedLeft(s) {
     var rows = E.leaderboard(s).slice(0, 5);

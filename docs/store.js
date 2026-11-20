@@ -71,6 +71,7 @@
     // Address of one of the pages, for links and QR codes. kind: 'admin', 'tv', 'player' or 'flyers'.
     link: function (kind, query) {
       var parts = [];
+      if (params.get('db')) parts.push('db=' + encodeURIComponent(params.get('db')));   // a test database stays a test database
       if (pub && kind === 'tv') parts.push('v=tv');
       if (pub && kind === 'player') parts.push('v=p');
       if (pub && kind === 'flyers') parts.push('v=flyers');

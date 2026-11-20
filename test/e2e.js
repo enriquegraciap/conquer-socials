@@ -73,7 +73,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await tv.screenshot({ path: SHOTS + 'tv-round1.png' });
 
   // 4b. the TV shows a QR code for players; one of them sends in the bottom court's score from a phone
-  assert.ok((await tv.getAttribute('.tvqr svg', 'data-qr')).endsWith('/p/?s=lehi-date-night'), 'players\' QR points at the score page for this social');
+  assert.match(await tv.getAttribute('.tvqr svg', 'data-qr'), /\/p\/\?(db=[^&]+&)?s=lehi-date-night$/, 'players\' QR points at the score page for this social');
   const bottomTeam = (await admin.locator('.courtcard[data-court="3"] .tm div').first().textContent()).trim();
   const phoneCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const player = await phoneCtx.newPage();
@@ -89,7 +89,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await player.fill('#adminKey', 'test-key');
   await player.click('#keyGo');
   await player.waitForSelector('.roundhead .big', { timeout: 10000 });
-  assert.match(player.url(), /\/\?s=lehi-date-night$/, 'the right key opens the admin page for this social');
+  assert.match(player.url(), /:8787\/\?db=[^&]+&s=lehi-date-night$/, 'the right key opens the admin page for this social (and stays on the test database)');
   assert.ok(await player.locator('#endNight, #changeCourts').count() >= 2, 'with all the admin controls');
   await player.goto(BASE + '/p/?db=' + DB + '&s=lehi-date-night');
   await player.waitForSelector('#rolePlayer');
@@ -318,7 +318,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await tv2.waitForSelector('.tvmenu .code');                       // two socials now: a TV with nothing chosen opens on its main menu
   const code = (await tv2.textContent('.tvmenu .code')).trim();
   assert.match(code, /^[A-Z2-9]{4}$/);
-  assert.ok((await tv2.getAttribute('.tvmenu .side svg', 'data-qr')).endsWith('/?tv=' + code), 'the menu\'s QR opens the admin page for this TV');
+  assert.match(await tv2.getAttribute('.tvmenu .side svg', 'data-qr'), new RegExp('/\\?(db=[^&]+&)?tv=' + code + '$'), 'the menu\'s QR opens the admin page for this TV');
   assert.deepEqual(await tv2.locator('.tvmenu .pickbtn b').allTextContents(), ['Lehi Date Night', 'Tempe Mixer', 'Club flyers'], 'the menu lists every social and the club flyers');
   assert.equal(await tv2.textContent('#bartitle'), 'Main menu');
   await tv2.screenshot({ path: SHOTS + 'tv-pairing.png' });

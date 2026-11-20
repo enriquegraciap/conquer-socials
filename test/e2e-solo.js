@@ -78,7 +78,7 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   await tv.waitForTimeout(1000);
   const x2 = await tv.evaluate(() => document.querySelector('.tvsit.sign .track').getBoundingClientRect().x);
   assert.ok(x2 < x1 - 30 && x2 > x1 - 160, 'the letters run from right to left, unhurried (' + Math.round(x1) + ' -> ' + Math.round(x2) + ' px in a second)');
-  assert.ok(await tv.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.tvsit.sign .track')).fontSize) > innerHeight * 0.055), 'in large letters');
+  assert.ok(await tv.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.tvsit.sign .track')).fontSize) > innerHeight * 0.035), 'in clear letters');
   await tv.screenshot({ path: SHOTS + 'tv-sign-ads.png' });
   const tAds = Date.now();
   await tv.waitForSelector('.tvsit.sign[data-phase="wait"]', { timeout: 40000 });

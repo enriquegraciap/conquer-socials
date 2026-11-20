@@ -277,10 +277,10 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .tvsit.sign { padding: 1vh 0 1.2vh; gap: .2vh; overflow: hidden; }
 .tvsit.sign .lab { padding: 0 1.2vw; font-size: 2.4vh; }
 .tvsit.sign .win { overflow: hidden; white-space: nowrap; min-width: 0; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 3%, #000 97%, transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 3%, #000 97%, transparent 100%); }
-.tvsit.sign .track { display: inline-block; white-space: nowrap; font-family: var(--display); font-size: 6.4vh; font-weight: 600; line-height: 1.3; will-change: transform; padding-left: 1.2vw; }
+.tvsit.sign .track { display: inline-block; white-space: nowrap; font-family: var(--display); font-size: 3.85vh; font-weight: 600; line-height: 1.3; will-change: transform; padding-left: 1.2vw; }
 .tvsit.sign .track .ad b { font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
 .tvsit.sign .track .ad .when { color: var(--gold); margin-left: .5em; }
-.tvsit.sign .track .ad small { font-size: .5em; font-weight: 500; letter-spacing: .06em; color: #cfe0f3; margin-left: 1em; text-transform: uppercase; }
+.tvsit.sign .track .ad small { font-size: .62em; font-weight: 500; letter-spacing: .06em; color: #cfe0f3; margin-left: 1em; text-transform: uppercase; }
 .tvsit.sign .track .sep { display: inline-block; margin: 0 1.1em; color: var(--gold); font-size: .6em; vertical-align: middle; }
 .tvsit.sign.wait .track { font-weight: 500; }
 /* WPR Social rating after a name on the leaderboards */

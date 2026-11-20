@@ -1,0 +1,21 @@
+{
+  "name": "Padel Socials Tempe",
+  "short_name": "Socials Tempe",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f6fa",
+  "theme_color": "#0a2f57",
+  "icons": [
+    {
+      "src": "../icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "../icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

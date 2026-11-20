@@ -164,9 +164,9 @@
     if (hello) {
       kids = [h('header', { class: 'pl-top center' }, h('div', null, [h('b', null, st.seriesName || 'Conquer Padel Club'), h('span', null, headline())])),
         h('main', { class: 'pl-main' }, body()),
-        h('footer', { class: 'pl-logo' }, h('img', { src: '../logo-p.png?v=10', alt: 'Conquer Padel Club' }))];
+        h('footer', { class: 'pl-logo' }, h('img', { src: S.asset('logo-p.png?v=10'), alt: 'Conquer Padel Club' }))];
     } else {
-      kids = [h('header', { class: 'pl-top' }, [h('img', { src: '../logo-p.png?v=10', alt: '' }), h('div', null, [h('b', null, st.seriesName || 'Conquer Padel Club'), h('span', null, headline())])]),
+      kids = [h('header', { class: 'pl-top' }, [h('img', { src: S.asset('logo-p.png?v=10'), alt: '' }), h('div', null, [h('b', null, st.seriesName || 'Conquer Padel Club'), h('span', null, headline())])]),
         h('main', { class: 'pl-main' }, body())];
     }
     document.body.classList.toggle('hello', hello);

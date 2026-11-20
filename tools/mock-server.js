@@ -12,6 +12,8 @@ const path = require('path');
 
 const PORT = Number(process.argv[2] || 8787);
 const KEY = process.argv[3] || 'test-key';
+// Each club's part of the database and the admin key that may write there (as in database.rules.json).
+const ROOTS = { pub: KEY, tempe: process.argv[4] || 'tempe-key' };
 const APP = path.join(__dirname, '..', 'docs');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
@@ -76,7 +78,7 @@ http.createServer((req, res) => {
     req.on('end', () => {
       const f = new URLSearchParams(raw), audio = f.get('audio') || '';
       voiceSeen = { key: f.get('key'), format: f.get('format'), known: f.get('known'), audioChars: audio.length, wav: Buffer.from(audio.slice(0, 16), 'base64').toString('latin1').slice(0, 4), type: req.headers['content-type'] };
-      if (f.get('key') !== KEY) return send(res, 200, { ok: false, status: 'key' });
+      if (!Object.values(ROOTS).includes(f.get('key'))) return send(res, 200, { ok: false, status: 'key' });
       if (u.searchParams.get('fail')) return send(res, 200, { ok: false, status: 400 });
       const teams = [['Carter Maclean', 'Kasey Maclean'], ['Lexi Mecham', 'Spencer Mecham'], ['Jodi Ream', 'Tess Dunn']];
       send(res, 200, { ok: true, result: f.get('format') === 'solo' ? { teams: [], players: ['Ana Lopez', 'Bruno Diaz', 'Zoe Hart'] } : { teams, players: teams.flat() } });
@@ -88,7 +90,7 @@ http.createServer((req, res) => {
     if (!u.pathname.endsWith('.json')) return send(res, 404, { error: 'append .json' });
     const parts = u.pathname.slice(4, -5).split('/').filter(Boolean).map(decodeURIComponent);
     if (req.method === 'GET') {
-      if (parts[0] !== 'pub') return send(res, 401, { error: 'Permission denied' });
+      if (!ROOTS[parts[0]]) return send(res, 401, { error: 'Permission denied' });
       return send(res, 200, JSON.stringify(arrays(getPath(db, parts))));
     }
     let raw = '';
@@ -99,14 +101,15 @@ http.createServer((req, res) => {
       const updates = req.method === 'PATCH' ? Object.keys(body).map(k => [parts.concat(k.split('/').filter(Boolean)), body[k]]) : [[parts, body]];
       // what a player's phone may write without the admin key, as in database.rules.json
       const okScore = v => v === null || (v && typeof v.sa === 'number' && typeof v.sb === 'number' && typeof v.at === 'number' && v.sa >= 0 && v.sa <= 6 && v.sb >= 0 && v.sb <= 6);
-      const isPublic = ([p, v]) => (p[0] === 'pub' && p[1] === 'scores' && p.length === 6 && okScore(v)) || (p[0] === 'pub' && p[1] === 'live' && p.length === 4 && p[3] === 'ping' && typeof v === 'number');
+      const isPublic = ([p, v]) => (ROOTS[p[0]] && p[1] === 'scores' && p.length === 6 && okScore(v)) || (ROOTS[p[0]] && p[1] === 'live' && p.length === 4 && p[3] === 'ping' && typeof v === 'number');
       if (updates.length && updates.every(isPublic)) { updates.forEach(([p, v]) => setPath(db, p, v)); writes++; return send(res, 200, body); }
-      const gateBefore = getPath(db, ['gate', KEY]);
+      // a club's part may be written only together with a change to that club's own key under "gate"
       const gateWrite = updates.filter(([p]) => p[0] === 'gate');
-      const okGate = gateWrite.length === 1 && gateWrite[0][0].length === 2 && gateWrite[0][0][1] === KEY && gateWrite[0][1] !== gateBefore;
-      if (updates.some(([p]) => p[0] !== 'pub' && p[0] !== 'gate') || gateWrite.some(([p]) => p[1] !== KEY) || (!okGate && updates.some(([p]) => p[0] === 'pub')) || (!gateWrite.length)) {
-        return send(res, 401, { error: 'Permission denied' });
-      }
+      const keys = Object.values(ROOTS);
+      const turned = k => gateWrite.some(([p, v]) => p.length === 2 && p[1] === k && typeof v === 'number' && v !== getPath(db, ['gate', k]));
+      const denied = !gateWrite.length || gateWrite.some(([p]) => p.length !== 2 || !keys.includes(p[1])) ||
+        updates.some(([p]) => p[0] !== 'gate' && (!ROOTS[p[0]] || !turned(ROOTS[p[0]])));
+      if (denied) return send(res, 401, { error: 'Permission denied' });
       updates.forEach(([p, v]) => setPath(db, p, v));
       writes++;
       send(res, 200, body);

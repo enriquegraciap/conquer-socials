@@ -24,8 +24,36 @@
         }
       }
     },
+    "tempe": {
+      ".read": true,
+      ".write": "newData.parent().child('gate').child('TEMPE-ADMIN-KEY').val() !== data.parent().child('gate').child('TEMPE-ADMIN-KEY').val()",
+      "scores": {
+        "$series": {
+          "$session": {
+            "$round": {
+              "$court": {
+                ".write": true,
+                ".validate": "newData.hasChildren(['sa', 'sb', 'at']) && newData.child('sa').isNumber() && newData.child('sa').val() >= 0 && newData.child('sa').val() <= 6 && newData.child('sb').isNumber() && newData.child('sb').val() >= 0 && newData.child('sb').val() <= 6 && newData.child('at').isNumber()"
+              }
+            }
+          }
+        }
+      },
+      "live": {
+        "$series": {
+          "ping": {
+            ".write": true,
+            ".validate": "newData.isNumber()"
+          }
+        }
+      }
+    },
     "gate": {
       "YOUR-ADMIN-KEY": {
+        ".write": true,
+        ".validate": "newData.isNumber()"
+      },
+      "TEMPE-ADMIN-KEY": {
         ".write": true,
         ".validate": "newData.isNumber()"
       }

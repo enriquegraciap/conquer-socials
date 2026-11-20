@@ -182,13 +182,13 @@ table.board td.pts { font-family: var(--display); font-size: 24px; font-weight: 
 .patchips { display: flex; flex-wrap: wrap; gap: 8px; }
 .patchips .chip { min-height: 44px; padding: 0 14px; font-family: var(--body); font-size: 16px; }
 /* A true-to-scale copy of the TV's top banner (10% of the screen height, as on the TV) */
-.lookbar { height: 10vh; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 2vw; padding: 0 1.8vw; border-radius: 8px; overflow: hidden;
-  background-color: #0a2f41; border-bottom: .35vh solid var(--gold); color: #fff; }
-.lookbar img { height: 5vh; width: auto; filter: brightness(0) invert(1) drop-shadow(0 .2vh .5vh rgba(0,0,0,.5)); }
-.lookbar img.w { height: 3.4vh; filter: drop-shadow(0 .2vh .5vh rgba(0,0,0,.5)); }
-.lookbar .c { text-align: center; min-width: 0; text-shadow: 0 .2vh .8vh rgba(0,0,0,.65); }
-.lookbar .c b { display: block; font-family: var(--display); font-weight: 700; font-size: 3vh; line-height: 1; letter-spacing: .07em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lookbar .c span { display: block; font-family: var(--display); font-size: 1.3vh; letter-spacing: .2em; text-transform: uppercase; margin-top: .6vh; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lookbar { height: 10vmin; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 2vw; padding: 0 1.8vw; border-radius: 8px; overflow: hidden;
+  background-color: #0a2f41; border-bottom: .35vmin solid var(--gold); color: #fff; }
+.lookbar img { height: 5vmin; width: auto; filter: brightness(0) invert(1) drop-shadow(0 .2vmin .5vmin rgba(0,0,0,.5)); }
+.lookbar img.w { height: 3.4vmin; filter: drop-shadow(0 .2vmin .5vmin rgba(0,0,0,.5)); }
+.lookbar .c { text-align: center; min-width: 0; text-shadow: 0 .2vmin .8vmin rgba(0,0,0,.65); }
+.lookbar .c b { display: block; font-family: var(--display); font-weight: 700; font-size: 3vmin; line-height: 1; letter-spacing: .07em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lookbar .c span { display: block; font-family: var(--display); font-size: 1.3vmin; letter-spacing: .2em; text-transform: uppercase; margin-top: .6vmin; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tvlink { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 10px; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
 
 /* Portrait iPad: one column, so the court cards and score buttons can be bigger. */
@@ -226,40 +226,40 @@ table.board td.pts { font-family: var(--display); font-size: 24px; font-weight: 
 /* ------------------------------------------------------------------ TV display */
 body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 /* Top banner: P symbol left, event title centre, club wordmark right. Takes 10% of the screen height. */
-.tvbar { flex: 0 0 10vh; height: 10vh; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 2vw; padding: 0 1.8vw;
-  background: #0a2f41; border-bottom: .35vh solid var(--gold); }
+.tvbar { flex: 0 0 10vmin; height: 10vmin; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 2vw; padding: 0 1.8vw;
+  background: #0a2f41; border-bottom: .35vmin solid var(--gold); }
 .tvbar-l { justify-self: start; display: flex; align-items: center; }
-.tvbar-l img { height: 7.2vh; width: auto; display: block; filter: brightness(0) invert(1); }   /* always shown in white */
+.tvbar-l img { height: 7.2vmin; width: auto; display: block; filter: brightness(0) invert(1); }   /* always shown in white */
 .tvbar-c { text-align: center; max-width: 62vw; min-width: 0; }
-#bartitle { font-family: var(--display); font-weight: 700; font-size: 5.2vh; line-height: 1; letter-spacing: .07em; text-transform: uppercase;
+#bartitle { font-family: var(--display); font-weight: 700; font-size: 5.2vmin; line-height: 1; letter-spacing: .07em; text-transform: uppercase;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the format the social is played in, small, under its name */
-#barsub { font-family: var(--display); font-weight: 500; font-size: 2.1vh; line-height: 1; letter-spacing: .24em; text-transform: uppercase; color: #cfe0f3; margin-top: .7vh;
+#barsub { font-family: var(--display); font-weight: 500; font-size: 2.1vmin; line-height: 1; letter-spacing: .24em; text-transform: uppercase; color: #cfe0f3; margin-top: .7vmin;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #barsub:empty { display: none; }
 .tvbar-r { justify-self: end; }
 /* a social with a flyer paints the banner in the flyer's colours (look.js); soft shadows keep the white readable */
-.tvbar[data-pattern] #bartitle, .tvbar[data-pattern] #barsub { text-shadow: 0 .25vh 1vh rgba(0,0,0,.7), 0 0 .4vh rgba(0,0,0,.5); }
+.tvbar[data-pattern] #bartitle, .tvbar[data-pattern] #barsub { text-shadow: 0 .25vmin 1vmin rgba(0,0,0,.7), 0 0 .4vmin rgba(0,0,0,.5); }
 .tvbar[data-pattern] #barsub { color: #fff; }
-.tvbar[data-pattern] .tvbar-l img { filter: brightness(0) invert(1) drop-shadow(0 .25vh .7vh rgba(0,0,0,.55)); }
-.tvbar[data-pattern] .tvbar-r img { filter: drop-shadow(0 .25vh .7vh rgba(0,0,0,.55)); }
-.tvbar-r img { height: 6.2vh; width: auto; display: block; }
+.tvbar[data-pattern] .tvbar-l img { filter: brightness(0) invert(1) drop-shadow(0 .25vmin .7vmin rgba(0,0,0,.55)); }
+.tvbar[data-pattern] .tvbar-r img { filter: drop-shadow(0 .25vmin .7vmin rgba(0,0,0,.55)); }
+.tvbar-r img { height: 6.2vmin; width: auto; display: block; }
 #tv { flex: 1 1 auto; min-height: 0; }
-.tvroot { height: 100%; width: 100vw; display: grid; grid-template-columns: 2fr 1fr; gap: 1.6vw; padding: 2.2vh 1.8vw; }
-.tvleft { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 1.6vh; min-width: 0; min-height: 0; padding-bottom: 3.6vh; }
-.tvhead { display: flex; align-items: flex-end; gap: 1.6vw; border-bottom: .35vh solid var(--line); padding-bottom: 1vh; }
-.tvhead .round { font-family: var(--display); font-weight: 700; font-size: 8vh; line-height: .9; text-transform: uppercase; letter-spacing: .02em; }
+.tvroot { height: 100%; width: 100vw; display: grid; grid-template-columns: 2fr 1fr; gap: 1.6vw; padding: 2.2vmin 1.8vw; }
+.tvleft { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 1.6vmin; min-width: 0; min-height: 0; padding-bottom: 3.6vmin; }
+.tvhead { display: flex; align-items: flex-end; gap: 1.6vw; border-bottom: .35vmin solid var(--line); padding-bottom: 1vmin; }
+.tvhead .round { font-family: var(--display); font-weight: 700; font-size: 8vmin; line-height: .9; text-transform: uppercase; letter-spacing: .02em; }
 .tvhead .round.flash { animation: flash 2.4s ease-out 1; }
 @keyframes flash { 0%, 30% { color: var(--gold); transform: scale(1.06); transform-origin: left bottom; } 100% { color: #fff; transform: none; } }
-.tvhead .event { font-family: var(--display); font-size: 3.6vh; letter-spacing: .12em; text-transform: uppercase; color: #a9c3e0; padding-bottom: .8vh; flex: 1; min-width: 0;
+.tvhead .event { font-family: var(--display); font-size: 3.6vmin; letter-spacing: .12em; text-transform: uppercase; color: #a9c3e0; padding-bottom: .8vmin; flex: 1; min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tvhead .clock { font-family: var(--display); font-size: 3.6vh; color: #a9c3e0; padding-bottom: .8vh; }
-.tvcourts { display: grid; grid-auto-rows: minmax(0, 1fr); gap: 1.2vh; min-height: 0; }
-.tvcourt { display: grid; grid-template-columns: 11vw minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 1.2vw; background: var(--court); border-radius: 1vh;
-  border: .3vh solid rgba(255,255,255,.55); padding: 0 1.4vw 0 0; min-height: 0; overflow: hidden; }
+.tvhead .clock { font-family: var(--display); font-size: 3.6vmin; color: #a9c3e0; padding-bottom: .8vmin; }
+.tvcourts { display: grid; grid-auto-rows: minmax(0, 1fr); gap: 1.2vmin; min-height: 0; }
+.tvcourt { display: grid; grid-template-columns: 11vw minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 1.2vw; background: var(--court); border-radius: 1vmin;
+  border: .3vmin solid rgba(255,255,255,.55); padding: 0 1.4vw 0 0; min-height: 0; overflow: hidden; }
 .tvcourt .cn { align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--court-deep); font-family: var(--display); line-height: .95; }
-.tvcourt .cn span { font-size: 2.1vh; letter-spacing: .16em; text-transform: uppercase; color: #a9c3e0; }
-.tvcourt .cn b { font-size: 8.4vh; font-weight: 700; }
+.tvcourt .cn span { font-size: 2.1vmin; letter-spacing: .16em; text-transform: uppercase; color: #a9c3e0; }
+.tvcourt .cn b { font-size: 8.4vmin; font-weight: 700; }
 /* Still to play: white with dark names. Score in: green with white names. */
 .tvcourt:not(.done) { background: #ffffff; color: #082a3c; border-color: #ffffff; }
 .tvcourt:not(.done) .cn { color: #fff; }
@@ -270,118 +270,118 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .tvcourt.king { border-color: var(--gold); }
 .tvcourt.king .cn { background: var(--gold); color: var(--ink); }
 .tvcourt.king .cn span { color: var(--ink); font-weight: 600; }
-.tvcourt .tm { font-family: var(--display); font-weight: 600; font-size: 5.6vh; line-height: 1.04; min-width: 0; max-height: 100%; overflow: hidden; overflow-wrap: break-word; }
+.tvcourt .tm { font-family: var(--display); font-weight: 600; font-size: 5.6vmin; line-height: 1.04; min-width: 0; max-height: 100%; overflow: hidden; overflow-wrap: break-word; }
 .tvcourt .tm.b { text-align: right; }
 .tvcourt .tm .pn { white-space: nowrap; }   /* a player's name is never broken in two; the text is made smaller instead */
 .tvcourt .tm.lost { opacity: .6; }
-.tvcourt .mid { font-family: var(--display); font-size: 3vh; letter-spacing: .1em; color: #cfe0f3; text-align: center; min-width: 5vw; }
-.tvcourt .mid.score { font-size: 6.4vh; font-weight: 700; color: #fff; letter-spacing: .02em; }
+.tvcourt .mid { font-family: var(--display); font-size: 3vmin; letter-spacing: .1em; color: #cfe0f3; text-align: center; min-width: 5vw; }
+.tvcourt .mid.score { font-size: 6.4vmin; font-weight: 700; color: #fff; letter-spacing: .02em; }
 .tvbottom { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.2vw; align-items: stretch; min-height: 0; }
-.tvbottom .tvsit { grid-template-columns: minmax(0, 1fr); gap: .5vh; align-content: center; }   /* label above the names, so the names get the full width */
-.tvqr { display: flex; align-items: center; gap: 1vw; background: #fff; color: var(--ink); border-radius: 1vh; padding: .7vh .7vh .7vh 1.2vw; }
-.tvqr .cap { font-family: var(--display); font-weight: 700; font-size: 2.9vh; line-height: 1.05; letter-spacing: .05em; text-transform: uppercase; max-width: 8.5vw; }
-.tvqr .cap small { display: block; margin-top: .7vh; font-weight: 500; font-size: 1.9vh; letter-spacing: .03em; text-transform: none; color: var(--muted); }
-.tvqr svg { height: 13.5vh; width: 13.5vh; display: block; }
-.tvsit { background: rgba(255,255,255,.07); border-radius: 1vh; padding: 1.2vh 1.2vw; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1.2vw; align-items: baseline; }
-.tvsit .lab { font-family: var(--display); font-size: 2.8vh; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); white-space: nowrap; }
-.tvsit .names { font-family: var(--display); font-size: 3.8vh; font-weight: 500; line-height: 1.15; min-width: 0; overflow: hidden; overflow-wrap: break-word; }
+.tvbottom .tvsit { grid-template-columns: minmax(0, 1fr); gap: .5vmin; align-content: center; }   /* label above the names, so the names get the full width */
+.tvqr { display: flex; align-items: center; gap: 1vw; background: #fff; color: var(--ink); border-radius: 1vmin; padding: .7vmin .7vmin .7vmin 1.2vw; }
+.tvqr .cap { font-family: var(--display); font-weight: 700; font-size: 2.9vmin; line-height: 1.05; letter-spacing: .05em; text-transform: uppercase; max-width: 8.5vw; }
+.tvqr .cap small { display: block; margin-top: .7vmin; font-weight: 500; font-size: 1.9vmin; letter-spacing: .03em; text-transform: none; color: var(--muted); }
+.tvqr svg { height: 13.5vmin; width: 13.5vmin; display: block; }
+.tvsit { background: rgba(255,255,255,.07); border-radius: 1vmin; padding: 1.2vmin 1.2vw; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1.2vw; align-items: baseline; }
+.tvsit .lab { font-family: var(--display); font-size: 2.8vmin; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); white-space: nowrap; }
+.tvsit .names { font-family: var(--display); font-size: 3.8vmin; font-weight: 500; line-height: 1.15; min-width: 0; overflow: hidden; overflow-wrap: break-word; }
 /* The sign under the courts: a still line that changes every 10 seconds. Who is sitting out, taking turns with
    the club's next events (name on one line; day, time and spots left under it). */
-.tvsit.sign { padding: 1vh 1.2vw 1.1vh; gap: .3vh; overflow: hidden; align-content: center; }
-.tvsit.sign .lab { font-size: 2.3vh; }
+.tvsit.sign { padding: 1vmin 1.2vw 1.1vmin; gap: .3vmin; overflow: hidden; align-content: center; }
+.tvsit.sign .lab { font-size: 2.3vmin; }
 .tvsit.sign .line { min-width: 0; font-family: var(--display); }
 .tvsit.sign .line.swap { animation: signswap .6s ease-out; }
-@keyframes signswap { from { opacity: 0; transform: translateY(.8vh); } to { opacity: 1; transform: none; } }
-.tvsit.sign .line .ev { font-size: 4.6vh; font-weight: 700; line-height: 1.2; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
-.tvsit.sign .line .det { font-size: 3.4vh; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; }
+@keyframes signswap { from { opacity: 0; transform: translateY(.8vmin); } to { opacity: 1; transform: none; } }
+.tvsit.sign .line .ev { font-size: 4.6vmin; font-weight: 700; line-height: 1.2; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+.tvsit.sign .line .det { font-size: 3.4vmin; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; }
 .tvsit.sign .line .det .when { color: var(--gold); }
 .tvsit.sign .line .det .spots { margin-left: 1.2em; padding: 0 .5em; border-radius: .3em; background: rgba(255,255,255,.14); color: #fff; font-size: .82em; letter-spacing: .05em; text-transform: uppercase; }
 .tvsit.sign .line .det .spots.full { background: rgba(244,182,63,.25); color: var(--gold); }
-.tvsit.sign .line .who { font-size: 4.2vh; font-weight: 500; line-height: 1.22; max-height: 2.5em; overflow: hidden; overflow-wrap: break-word; }
+.tvsit.sign .line .who { font-size: 4.2vmin; font-weight: 500; line-height: 1.22; max-height: 2.5em; overflow: hidden; overflow-wrap: break-word; }
 @media (prefers-reduced-motion: reduce) { .tvsit.sign .line.swap { animation: none; } }
 /* WPR Social rating after a name on the leaderboards: plain green figures, the green of a court whose score is
    in, a little brighter so it reads on the dark board. No rating: (NR) in a darker blue. */
 .tvrow .nm .rt { font-size: .68em; font-weight: inherit; color: #35b877; margin-left: .3em; letter-spacing: .02em; }
 .tvrow .nm .rt.nr { color: #54749c; }
 
-.tvright { display: flex; flex-direction: column; gap: 1.6vh; min-width: 0; min-height: 0; }
-.tvboard { background: rgba(255,255,255,.07); border-radius: 1vh; padding: 1.2vh 1vw 1vh; display: flex; flex-direction: column; min-height: 0; flex: 1 1 0; }
-.tvboard h2 { font-family: var(--display); font-size: 3.2vh; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 .6vh; color: var(--gold); display: flex; justify-content: space-between; gap: 1vw; }
-.tvboard h2 small { font-size: 2.2vh; color: #a9c3e0; letter-spacing: .1em; font-weight: 400; }
+.tvright { display: flex; flex-direction: column; gap: 1.6vmin; min-width: 0; min-height: 0; }
+.tvboard { background: rgba(255,255,255,.07); border-radius: 1vmin; padding: 1.2vmin 1vw 1vmin; display: flex; flex-direction: column; min-height: 0; flex: 1 1 0; }
+.tvboard h2 { font-family: var(--display); font-size: 3.2vmin; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 .6vmin; color: var(--gold); display: flex; justify-content: space-between; gap: 1vw; }
+.tvboard h2 small { font-size: 2.2vmin; color: #a9c3e0; letter-spacing: .1em; font-weight: 400; }
 .tvrows { flex: 1; min-height: 0; display: grid; grid-auto-rows: minmax(0, 1fr); }
 .tvrows.two { grid-template-columns: 1fr 1fr; grid-auto-flow: column; column-gap: 1vw; }
-.tvrow { display: grid; grid-template-columns: 1.5em 1.5em minmax(0, 1fr) auto; align-items: center; gap: .5em; border-top: .12vh solid rgba(255,255,255,.14); font-family: var(--display); min-height: 0; }
+.tvrow { display: grid; grid-template-columns: 1.5em 1.5em minmax(0, 1fr) auto; align-items: center; gap: .5em; border-top: .12vmin solid rgba(255,255,255,.14); font-family: var(--display); min-height: 0; }
 .tvrow .md { text-align: center; font-size: 1.02em; line-height: 1; }
 .tvrow .md.gold { font-size: 1.3em; }   /* the gold medal is a little larger than silver and bronze */
 .tvrow .rk { color: #a9c3e0; text-align: right; font-size: .9em; }
 .tvrow .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 .tvrow .pt { font-weight: 700; font-variant-numeric: tabular-nums; }
 .tvrow.lead .nm, .tvrow.lead .pt { color: var(--gold); }
-.tvempty { color: #a9c3e0; font-family: var(--display); font-size: 2.8vh; padding: 1vh 0; }
-.tvbig { display: flex; flex-direction: column; justify-content: center; gap: 2vh; min-height: 0; }
-.tvbig .ttl { font-family: var(--display); font-size: 7vh; font-weight: 700; text-transform: uppercase; }
-.tvbig .teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1vh 2vw; font-family: var(--display); font-size: 4.2vh; }
-.tvbig .teams div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: .12vh solid rgba(255,255,255,.18); padding-bottom: .4vh; }
-.podium { display: grid; gap: 1.4vh; }
-.podium div { display: grid; grid-template-columns: 9vw minmax(0, 1fr) auto; align-items: center; gap: 1.4vw; background: var(--court); border-radius: 1vh; padding: 1.4vh 1.6vw; font-family: var(--display); font-size: 6vh; font-weight: 600; }
-.podium div:first-child { background: var(--gold); color: var(--ink); font-size: 8vh; }
+.tvempty { color: #a9c3e0; font-family: var(--display); font-size: 2.8vmin; padding: 1vmin 0; }
+.tvbig { display: flex; flex-direction: column; justify-content: center; gap: 2vmin; min-height: 0; }
+.tvbig .ttl { font-family: var(--display); font-size: 7vmin; font-weight: 700; text-transform: uppercase; }
+.tvbig .teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1vmin 2vw; font-family: var(--display); font-size: 4.2vmin; }
+.tvbig .teams div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: .12vmin solid rgba(255,255,255,.18); padding-bottom: .4vmin; }
+.podium { display: grid; gap: 1.4vmin; }
+.podium div { display: grid; grid-template-columns: 9vw minmax(0, 1fr) auto; align-items: center; gap: 1.4vw; background: var(--court); border-radius: 1vmin; padding: 1.4vmin 1.6vw; font-family: var(--display); font-size: 6vmin; font-weight: 600; }
+.podium div:first-child { background: var(--gold); color: var(--ink); font-size: 8vmin; }
 .podium .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the winner's crown: hidden beside the name while its double dances around the screen, then it pops back in */
 .tvcourt .tm .crown { display: inline-block; }
 .tvcourt .tm .crown.away { visibility: hidden; }
 .tvcourt .tm .crown.landed { animation: crownland .5s ease-out; }
 @keyframes crownland { 0% { transform: scale(1.9) rotate(-14deg); } 55% { transform: scale(.82) rotate(6deg); } 100% { transform: none; } }
-.crownfly { position: fixed; left: 0; top: 0; z-index: 12; pointer-events: none; line-height: 1; will-change: transform; filter: drop-shadow(0 .6vh 1vh rgba(0,0,0,.45)); }
+.crownfly { position: fixed; left: 0; top: 0; z-index: 12; pointer-events: none; line-height: 1; will-change: transform; filter: drop-shadow(0 .6vmin 1vmin rgba(0,0,0,.45)); }
 .tvfx { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 11; }   /* fireworks are drawn here, above the scoreboard */
 /* Bottom right, until the page is in full screen: Main menu, then Full screen. */
-.tvbtns { position: fixed; right: 1.2vw; bottom: 1.6vh; z-index: 13; display: flex; gap: 1vw; }
-.fsbtn { border: .2vh solid rgba(255,255,255,.6); background: rgba(7,26,48,.85); color: #fff; border-radius: 1vh;
-  font-family: var(--display); font-size: 2.6vh; letter-spacing: .1em; text-transform: uppercase; padding: 1vh 1.2vw; }
-.fsbtn:focus { outline: .4vh solid var(--gold); background: var(--court); }
-body.tv.hasbtn .tvroot { padding-bottom: 8.6vh; }   /* room for the Full screen button until it is used */
+.tvbtns { position: fixed; right: 1.2vw; bottom: 1.6vmin; z-index: 13; display: flex; gap: 1vw; }
+.fsbtn { border: .2vmin solid rgba(255,255,255,.6); background: rgba(7,26,48,.85); color: #fff; border-radius: 1vmin;
+  font-family: var(--display); font-size: 2.6vmin; letter-spacing: .1em; text-transform: uppercase; padding: 1vmin 1.2vw; }
+.fsbtn:focus { outline: .4vmin solid var(--gold); background: var(--court); }
+body.tv.hasbtn .tvroot { padding-bottom: 8.6vmin; }   /* room for the Full screen button until it is used */
 /* Today's date and a running clock, bottom left, under the courts. The right column is left to the leaderboards. */
-.tvdate { position: fixed; left: 1.8vw; bottom: 1.1vh; z-index: 8; font-family: var(--display); font-size: 2.8vh; line-height: 1; letter-spacing: .1em;
+.tvdate { position: fixed; left: 1.8vw; bottom: 1.1vmin; z-index: 8; font-family: var(--display); font-size: 2.8vmin; line-height: 1; letter-spacing: .1em;
   text-transform: uppercase; color: #cfe0f3; white-space: nowrap; }
 body.tv.hasbtn .tvleft { padding-bottom: 0; }
-body.tv.hasbtn .tvdate { bottom: 3.2vh; }
+body.tv.hasbtn .tvdate { bottom: 3.2vmin; }
 .tvdate #timetext { display: inline-block; min-width: 6.4em; text-align: left; margin-left: 1em; color: #fff; font-weight: 600; }   /* fixed width so the seconds do not make the line jump */
 .tvstatus { margin-left: 1.2em; color: var(--gold); letter-spacing: .04em; text-transform: none; }
-.tvcode { position: fixed; right: .5vw; top: 10.6vh; z-index: 8; font-family: var(--display); font-size: 1.5vh; letter-spacing: .14em; color: #55708f; }
+.tvcode { position: fixed; right: .5vw; top: 10.6vmin; z-index: 8; font-family: var(--display); font-size: 1.5vmin; letter-spacing: .14em; color: #55708f; }
 /* Main menu: the socials and the club flyers as big buttons on the left; QR and TV code on the right for choosing from the iPad. */
-.tvmenu { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4vw; align-items: center; padding: 3vh 5vw 9vh; }
+.tvmenu { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4vw; align-items: center; padding: 3vmin 5vw 9vmin; }
 .tvmenu .list { min-width: 0; max-height: 100%; display: flex; flex-direction: column; }
-.tvmenu h1 { font-family: var(--display); font-size: 6vh; line-height: 1; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 2.6vh; }
-.tvmenu .items { display: grid; gap: 1.6vh; min-height: 0; }
-.tvmenu .items.two { grid-template-columns: 1fr 1fr; gap: 1.4vh 1.2vw; }
-.pickbtn { display: flex; flex-direction: column; align-items: flex-start; gap: .6vh; text-align: left; width: 100%; min-width: 0; padding: 1.6vh 2vw; border-radius: 1.2vh;
-  border: .35vh solid rgba(255,255,255,.35); background: var(--court); color: #fff; cursor: pointer; }
-.pickbtn b { font-family: var(--display); font-weight: 700; font-size: 4.6vh; line-height: 1; letter-spacing: .05em; text-transform: uppercase; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pickbtn span { font-size: 2.2vh; line-height: 1.1; color: #cfe0f3; }
-.items.two .pickbtn b { font-size: 3.6vh; }
+.tvmenu h1 { font-family: var(--display); font-size: 6vmin; line-height: 1; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 2.6vmin; }
+.tvmenu .items { display: grid; gap: 1.6vmin; min-height: 0; }
+.tvmenu .items.two { grid-template-columns: 1fr 1fr; gap: 1.4vmin 1.2vw; }
+.pickbtn { display: flex; flex-direction: column; align-items: flex-start; gap: .6vmin; text-align: left; width: 100%; min-width: 0; padding: 1.6vmin 2vw; border-radius: 1.2vmin;
+  border: .35vmin solid rgba(255,255,255,.35); background: var(--court); color: #fff; cursor: pointer; }
+.pickbtn b { font-family: var(--display); font-weight: 700; font-size: 4.6vmin; line-height: 1; letter-spacing: .05em; text-transform: uppercase; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pickbtn span { font-size: 2.2vmin; line-height: 1.1; color: #cfe0f3; }
+.items.two .pickbtn b { font-size: 3.6vmin; }
 .pickbtn[data-pick^="@"] { background: #0a2f41; }
-.pickbtn:focus, .pickbtn:hover { outline: none; border-color: var(--gold); background: #1b6fc2; box-shadow: 0 0 0 .5vh var(--gold); }
+.pickbtn:focus, .pickbtn:hover { outline: none; border-color: var(--gold); background: #1b6fc2; box-shadow: 0 0 0 .5vmin var(--gold); }
 .tvmenu .side { width: 26vw; text-align: center; }
-.tvmenu .qrbox { display: inline-block; background: #fff; border-radius: 1.6vh; padding: 1.2vh; }
-.tvmenu .qrbox svg { display: block; height: 30vh; width: 30vh; }
-.tvmenu .side p { font-size: 2.3vh; line-height: 1.3; color: #a9c3e0; margin: 2vh 0 1.2vh; }
-.tvmenu .code { font-family: var(--display); font-weight: 700; font-size: 9vh; line-height: 1; letter-spacing: .22em; color: var(--gold); }
+.tvmenu .qrbox { display: inline-block; background: #fff; border-radius: 1.6vmin; padding: 1.2vmin; }
+.tvmenu .qrbox svg { display: block; height: 30vmin; width: 30vmin; }
+.tvmenu .side p { font-size: 2.3vmin; line-height: 1.3; color: #a9c3e0; margin: 2vmin 0 1.2vmin; }
+.tvmenu .code { font-family: var(--display); font-weight: 700; font-size: 9vmin; line-height: 1; letter-spacing: .22em; color: var(--gold); }
 /* Club flyers: nothing but the flyer, edge to edge. */
 /* One of the slides is made here rather than uploaded: this month's top three of every social. */
-.tvflyers .lb { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--night); opacity: 0; transition: opacity 1.2s ease; padding: 0 0 3vh; }
+.tvflyers .lb { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--night); opacity: 0; transition: opacity 1.2s ease; padding: 0 0 3vmin; }
 .tvflyers .lb.on { opacity: 1; }
-.lbhead { flex: 0 0 13vh; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 2vw; padding: 0 2.4vw; background: #0a2f41; border-bottom: .4vh solid var(--gold); }
-.lbhead img.p { height: 8.4vh; width: auto; justify-self: start; filter: brightness(0) invert(1); }
-.lbhead img.w { height: 7vh; width: auto; justify-self: end; }
+.lbhead { flex: 0 0 13vmin; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 2vw; padding: 0 2.4vw; background: #0a2f41; border-bottom: .4vmin solid var(--gold); }
+.lbhead img.p { height: 8.4vmin; width: auto; justify-self: start; filter: brightness(0) invert(1); }
+.lbhead img.w { height: 7vmin; width: auto; justify-self: end; }
 .lbhead .t { text-align: center; }
-.lbhead h1 { font-family: var(--display); font-weight: 700; font-size: 6.4vh; line-height: 1.1; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
-.lbhead span { display: block; font-family: var(--display); font-weight: 300; font-size: 2.3vh; letter-spacing: .26em; text-transform: uppercase; color: #cfe0f3; }
-.lbgrid { flex: 1 1 auto; min-height: 0; display: grid; gap: 2.4vh 1.6vw; padding: 3vh 2.4vw 0; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
-.lbcard { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: #17293f; border-radius: 1.6vh; overflow: hidden; }
-.lbname { padding: 1.6vh 1.4vw; background-color: #0a2f41; border-bottom: .35vh solid var(--gold); text-shadow: 0 .25vh 1vh rgba(0,0,0,.7); }
-.lbname b { display: block; font-family: var(--display); font-weight: 700; font-size: calc(4.4vh * var(--k, 1)); line-height: 1.15; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lbname span { display: block; font-family: var(--display); font-weight: 300; font-size: calc(2vh * var(--k, 1)); letter-spacing: .2em; text-transform: uppercase; color: #fff; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lbrows { flex: 1 1 auto; min-height: 0; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); padding: .6vh 1.4vw 1vh; }
-.lbrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 1vw; font-family: var(--display); font-size: calc(5vh * var(--k, 1)); border-top: .12vh solid rgba(255,255,255,.14); }
+.lbhead h1 { font-family: var(--display); font-weight: 700; font-size: 6.4vmin; line-height: 1.1; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+.lbhead span { display: block; font-family: var(--display); font-weight: 300; font-size: 2.3vmin; letter-spacing: .26em; text-transform: uppercase; color: #cfe0f3; }
+.lbgrid { flex: 1 1 auto; min-height: 0; display: grid; gap: 2.4vmin 1.6vw; padding: 3vmin 2.4vw 0; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
+.lbcard { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: #17293f; border-radius: 1.6vmin; overflow: hidden; }
+.lbname { padding: 1.6vmin 1.4vw; background-color: #0a2f41; border-bottom: .35vmin solid var(--gold); text-shadow: 0 .25vmin 1vmin rgba(0,0,0,.7); }
+.lbname b { display: block; font-family: var(--display); font-weight: 700; font-size: calc(4.4vmin * var(--k, 1)); line-height: 1.15; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lbname span { display: block; font-family: var(--display); font-weight: 300; font-size: calc(2vmin * var(--k, 1)); letter-spacing: .2em; text-transform: uppercase; color: #fff; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lbrows { flex: 1 1 auto; min-height: 0; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); padding: .6vmin 1.4vw 1vmin; }
+.lbrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 1vw; font-family: var(--display); font-size: calc(5vmin * var(--k, 1)); border-top: .12vmin solid rgba(255,255,255,.14); }
 .lbrow:first-child { border-top: 0; }
 .lbrow .md { font-size: 1.05em; line-height: 1; }
 .lbrow:first-child .md { font-size: 1.3em; }
@@ -393,24 +393,24 @@ body.tv.mode-flyers .tvbar, body.tv.mode-flyers .tvdate, body.tv.mode-flyers .tv
 .tvflyers { position: fixed; inset: 0; background: #000; }
 .tvflyers .flyer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 1.2s ease; }
 .tvflyers .flyer.on { opacity: 1; }
-.flymsg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.4vh; text-align: center; padding: 6vh; }
+.flymsg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.4vmin; text-align: center; padding: 6vmin; }
 .flymsg[hidden] { display: none; }
-.flymsg h1 { font-family: var(--display); font-size: 7vh; text-transform: uppercase; margin: 0; }
-.flymsg p { font-size: 2.8vh; line-height: 1.3; color: #a9c3e0; max-width: 60vw; margin: 0; }
-.flymsg .qrbox { background: #fff; border-radius: 1.6vh; padding: 1.2vh; }
-.flymsg .qrbox svg { display: block; height: 30vh; width: 30vh; }
-.tvpick { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; padding: 4vh; text-align: center; }
-.tvpick h1 { font-family: var(--display); font-size: 7vh; text-transform: uppercase; margin: 0; }
-.tvpick p { font-size: 2.8vh; color: #a9c3e0; max-width: 70vw; margin: 0; }
-.tvpick button { font-family: var(--display); font-size: 5vh; padding: 1.6vh 3vw; border-radius: 1vh; border: .3vh solid #fff; background: var(--court); color: #fff; min-width: 40vw; }
-.tvpick button:focus { outline: .5vh solid var(--gold); }
+.flymsg h1 { font-family: var(--display); font-size: 7vmin; text-transform: uppercase; margin: 0; }
+.flymsg p { font-size: 2.8vmin; line-height: 1.3; color: #a9c3e0; max-width: 60vw; margin: 0; }
+.flymsg .qrbox { background: #fff; border-radius: 1.6vmin; padding: 1.2vmin; }
+.flymsg .qrbox svg { display: block; height: 30vmin; width: 30vmin; }
+.tvpick { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vmin; padding: 4vmin; text-align: center; }
+.tvpick h1 { font-family: var(--display); font-size: 7vmin; text-transform: uppercase; margin: 0; }
+.tvpick p { font-size: 2.8vmin; color: #a9c3e0; max-width: 70vw; margin: 0; }
+.tvpick button { font-family: var(--display); font-size: 5vmin; padding: 1.6vmin 3vw; border-radius: 1vmin; border: .3vmin solid #fff; background: var(--court); color: #fff; min-width: 40vw; }
+.tvpick button:focus { outline: .5vmin solid var(--gold); }
 @media (prefers-reduced-motion: reduce) { .tvhead .round.flash { animation: none; } }
 
 /* The name of a social is set in a lively brush script (in the spirit of the lettering on the club's flyers);
    everything else keeps the condensed display face. The names are in capitals; the format under the banner's
    title is in sentence case ("Fixed partner, king's court"). */
-body.tv #bartitle.social { font-family: var(--script); font-weight: 400; font-size: 5.1vh; line-height: 1.14; letter-spacing: .03em; text-transform: uppercase; padding: 0 .35em; }
-body.tv #bartitle.social + #barsub { text-transform: none; letter-spacing: .16em; font-size: 2.3vh; line-height: 1.35; margin-top: 0; padding-bottom: .2vh; }   /* room for the tails of g, p and y */
+body.tv #bartitle.social { font-family: var(--script); font-weight: 400; font-size: 5.1vmin; line-height: 1.14; letter-spacing: .03em; text-transform: uppercase; padding: 0 .35em; }
+body.tv #bartitle.social + #barsub { text-transform: none; letter-spacing: .16em; font-size: 2.3vmin; line-height: 1.35; margin-top: 0; padding-bottom: .2vmin; }   /* room for the tails of g, p and y */
 body.tv .tvbar .tvbar-c:has(#bartitle.social) #barsub { margin-top: 0; }
 .pickbtn:not([data-pick^="@"]) b { font-family: var(--script); font-weight: 400; letter-spacing: .03em; text-transform: uppercase; line-height: 1.25; padding: 0 .1em; }
 .lbname b { font-family: var(--script); font-weight: 400; letter-spacing: .03em; text-transform: uppercase; line-height: 1.3; }
@@ -429,18 +429,18 @@ body.tv .tvbar .tvbar-c:has(#bartitle.social) #barsub { margin-top: 0; }
 .inter img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none; }
 .inter.pic img { display: block; }
 .inter .shade { position: absolute; inset: 0; background: radial-gradient(ellipse 70% 75% at 50% 52%, rgba(3,12,24,.72) 0%, rgba(3,12,24,.45) 55%, rgba(3,12,24,.12) 100%); }
-.inter .say { position: absolute; top: 0; left: 0; right: 0; bottom: 24vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--display); font-weight: 700;
+.inter .say { position: absolute; top: 0; left: 0; right: 0; bottom: 24vmin; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--display); font-weight: 700;
   text-transform: uppercase; line-height: .86; }
-.inter .word { font-size: 13vh; letter-spacing: .16em; margin-right: -.16em; color: #fff; text-shadow: .5vh .6vh 0 rgba(3,12,24,.9), 0 0 3vh rgba(0,0,0,.6); }
-.inter .num { font-size: 44vh; color: var(--gold); text-shadow: .9vh 1vh 0 #071a30, -.3vh -.3vh 0 #fff, 0 0 5vh rgba(0,0,0,.55); display: inline-block; }
-.inter .ball { position: absolute; left: 0; top: 0; width: 13vh; height: 13vh; border-radius: 50%; display: none;
-  background: radial-gradient(circle at 34% 30%, #f6ff9a 0%, #d6ef1f 55%, #9db800 100%); box-shadow: inset -1vh -1.2vh 2vh rgba(0,0,0,.25), 0 1vh 2.4vh rgba(0,0,0,.45); }
-.inter .ball::before, .inter .ball::after { content: ""; position: absolute; left: 6%; right: 6%; height: 70%; border: .6vh solid rgba(255,255,255,.85); border-radius: 50%; }
+.inter .word { font-size: 13vmin; letter-spacing: .16em; margin-right: -.16em; color: #fff; text-shadow: .5vmin .6vmin 0 rgba(3,12,24,.9), 0 0 3vmin rgba(0,0,0,.6); }
+.inter .num { font-size: 44vmin; color: var(--gold); text-shadow: .9vmin 1vmin 0 #071a30, -.3vmin -.3vmin 0 #fff, 0 0 5vmin rgba(0,0,0,.55); display: inline-block; }
+.inter .ball { position: absolute; left: 0; top: 0; width: 13vmin; height: 13vmin; border-radius: 50%; display: none;
+  background: radial-gradient(circle at 34% 30%, #f6ff9a 0%, #d6ef1f 55%, #9db800 100%); box-shadow: inset -1vmin -1.2vmin 2vmin rgba(0,0,0,.25), 0 1vmin 2.4vmin rgba(0,0,0,.45); }
+.inter .ball::before, .inter .ball::after { content: ""; position: absolute; left: 6%; right: 6%; height: 70%; border: .6vmin solid rgba(255,255,255,.85); border-radius: 50%; }
 .inter .ball::before { top: -46%; } .inter .ball::after { bottom: -46%; }
 /* slam: the word drops in and bounces, the number is stamped on with a shake */
 .inter.slam .word { animation: i-drop .9s cubic-bezier(.3,1.4,.5,1) both; }
 .inter.slam .num { animation: i-stamp .7s .35s cubic-bezier(.2,1.5,.4,1) both, i-groove 1.2s 1.1s ease-in-out infinite alternate; }
-@keyframes i-drop { 0% { transform: translateY(-90vh) rotate(-8deg); } 60% { transform: translateY(0) rotate(2deg); } 78% { transform: translateY(-5vh) rotate(-1deg); } 100% { transform: none; } }
+@keyframes i-drop { 0% { transform: translateY(-90vmin) rotate(-8deg); } 60% { transform: translateY(0) rotate(2deg); } 78% { transform: translateY(-5vmin) rotate(-1deg); } 100% { transform: none; } }
 @keyframes i-stamp { 0% { transform: scale(5) rotate(-12deg); opacity: 0; } 55% { transform: scale(.86) rotate(5deg); opacity: 1; } 75% { transform: scale(1.1) rotate(-3deg); } 100% { transform: none; opacity: 1; } }
 /* spin: the number whirls in from nothing, the word slides in sideways */
 .inter.spin .word { animation: i-slide .7s cubic-bezier(.2,1.3,.4,1) both; }
@@ -451,37 +451,37 @@ body.tv .tvbar .tvbar-c:has(#bartitle.social) #barsub { margin-top: 0; }
 .inter.smash .ball { display: block; animation: i-ball 1.5s linear both; }
 .inter.smash .word { animation: i-pop .5s cubic-bezier(.2,1.6,.4,1) both; }
 .inter.smash .num { animation: i-pop .45s .1s cubic-bezier(.2,1.6,.4,1) both, i-jelly .9s .62s ease-out both, i-groove 1.2s 1.6s ease-in-out infinite alternate; }
-@keyframes i-ball { 0% { transform: translate(-16vw, 82vh) rotate(0); } 22% { transform: translate(14vw, 20vh) rotate(200deg); } 42% { transform: translate(40vw, 38vh) rotate(420deg); }
-  43% { transform: translate(40vw, 38vh) rotate(430deg) scale(1.25, .8); } 70% { transform: translate(72vw, 2vh) rotate(700deg); } 100% { transform: translate(112vw, -24vh) rotate(1000deg); } }
+@keyframes i-ball { 0% { transform: translate(-16vw, 82vmin) rotate(0); } 22% { transform: translate(14vw, 20vmin) rotate(200deg); } 42% { transform: translate(40vw, 38vmin) rotate(420deg); }
+  43% { transform: translate(40vw, 38vmin) rotate(430deg) scale(1.25, .8); } 70% { transform: translate(72vw, 2vmin) rotate(700deg); } 100% { transform: translate(112vw, -24vmin) rotate(1000deg); } }
 @keyframes i-pop { 0% { transform: scale(0); } 100% { transform: none; } }
 @keyframes i-jelly { 0% { transform: none; } 14% { transform: translateX(5vw) scale(.78, 1.22) rotate(9deg); } 34% { transform: translateX(-2vw) scale(1.18, .86) rotate(-6deg); } 56% { transform: scale(.94, 1.07) rotate(3deg); } 78% { transform: scale(1.04, .97) rotate(-1deg); } 100% { transform: none; } }
 @keyframes i-groove { from { transform: rotate(-2.5deg) scale(1); } to { transform: rotate(2.5deg) scale(1.04); } }
 /* padel balls raining down behind the number */
 .inter .rain { position: absolute; inset: 0; overflow: hidden; }
-.inter .rain i { position: absolute; top: -8vh; border-radius: 50%; background: radial-gradient(circle at 34% 30%, #f6ff9a 0%, #d6ef1f 55%, #9db800 100%); box-shadow: 0 .5vh 1.2vh rgba(0,0,0,.35); opacity: .92; }
+.inter .rain i { position: absolute; top: -8vmin; border-radius: 50%; background: radial-gradient(circle at 34% 30%, #f6ff9a 0%, #d6ef1f 55%, #9db800 100%); box-shadow: 0 .5vmin 1.2vmin rgba(0,0,0,.35); opacity: .92; }
 .inter.on .rain i { animation: i-rain 1.7s cubic-bezier(.45,0,.9,.55) both; }
-@keyframes i-rain { 0% { transform: translateY(0) rotate(0); } 100% { transform: translateY(118vh) rotate(540deg); } }
+@keyframes i-rain { 0% { transform: translateY(0) rotate(0); } 100% { transform: translateY(118vmin) rotate(540deg); } }
 /* a padel ball rolls in, the line of the round appears beside it, and a racket bats it away */
-.inter .buddy { position: absolute; left: 14vw; bottom: 4vh; width: 19vh; height: 19vh; filter: drop-shadow(0 1vh 1.6vh rgba(0,0,0,.5)); }
+.inter .buddy { position: absolute; left: 14vw; bottom: 4vmin; width: 19vmin; height: 19vmin; filter: drop-shadow(0 1vmin 1.6vmin rgba(0,0,0,.5)); }
 .inter .buddy .hop, .inter .buddy svg { display: block; width: 100%; height: 100%; }
 .inter.on .buddy { animation: i-roll 1s 1.4s cubic-bezier(.2,.9,.3,1) both, i-fly .8s 4.72s cubic-bezier(.2,.6,.6,1) forwards; }
 @keyframes i-roll { 0% { transform: translateX(-40vw) rotate(-360deg); } 100% { transform: none; } }
 
-@keyframes i-fly { 0% { transform: none; } 100% { transform: translate(-60vw, -120vh) rotate(-540deg) scale(.6); } }
+@keyframes i-fly { 0% { transform: none; } 100% { transform: translate(-60vw, -120vmin) rotate(-540deg) scale(.6); } }
 /* what the ball has to say */
-.inter .pun { position: absolute; left: calc(14vw + 17vh); bottom: 15vh; max-width: 58vw; padding: 1.8vh 2.4vw 2.1vh; background: #fff; color: #0c1f33; border-radius: 3vh 3vh 3vh .6vh;
-  font-family: var(--script); font-size: 6.2vh; line-height: 1.15; box-shadow: 0 1.2vh 3vh rgba(0,0,0,.45); transform-origin: 0 100%; }
-.inter .pun::after { content: ""; position: absolute; left: -2.2vh; bottom: 0; border: 1.3vh solid transparent; border-right-color: #fff; border-bottom-color: #fff; }
+.inter .pun { position: absolute; left: calc(14vw + 17vmin); bottom: 15vmin; max-width: 58vw; padding: 1.8vmin 2.4vw 2.1vmin; background: #fff; color: #0c1f33; border-radius: 3vmin 3vmin 3vmin .6vmin;
+  font-family: var(--script); font-size: 6.2vmin; line-height: 1.15; box-shadow: 0 1.2vmin 3vmin rgba(0,0,0,.45); transform-origin: 0 100%; }
+.inter .pun::after { content: ""; position: absolute; left: -2.2vmin; bottom: 0; border: 1.3vmin solid transparent; border-right-color: #fff; border-bottom-color: #fff; }
 .inter.on .pun { animation: i-say .5s 2.4s cubic-bezier(.2,1.7,.4,1) both, i-shush .25s 4.4s ease-in forwards; }
 @keyframes i-say { 0% { transform: scale(0) rotate(-12deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
 @keyframes i-shush { to { transform: scale(0) rotate(8deg); opacity: 0; } }
 /* the racket that ends the conversation */
-.inter .racket { position: absolute; left: calc(14vw + 15vh); bottom: 1vh; width: 20vh; height: 36vh; transform-origin: 50% 96%; opacity: 0; filter: drop-shadow(0 1vh 1.6vh rgba(0,0,0,.5)); }
+.inter .racket { position: absolute; left: calc(14vw + 15vmin); bottom: 1vmin; width: 20vmin; height: 36vmin; transform-origin: 50% 96%; opacity: 0; filter: drop-shadow(0 1vmin 1.6vmin rgba(0,0,0,.5)); }
 .inter .racket svg { display: block; width: 100%; height: 100%; }
 .inter.on .racket { animation: i-swing .62s 4.25s cubic-bezier(.5,0,.3,1) both, i-leave .5s 5s ease-in forwards; }
-@keyframes i-swing { 0% { transform: translate(60vw, -34vh) rotate(110deg); opacity: 0; } 25% { opacity: 1; } 62% { transform: translate(5vw, -3vh) rotate(62deg); opacity: 1; }
+@keyframes i-swing { 0% { transform: translate(60vw, -34vmin) rotate(110deg); opacity: 0; } 25% { opacity: 1; } 62% { transform: translate(5vw, -3vmin) rotate(62deg); opacity: 1; }
   80% { transform: rotate(-48deg); opacity: 1; } 100% { transform: rotate(-72deg); opacity: 1; } }
-@keyframes i-leave { from { transform: rotate(-72deg); opacity: 1; } to { transform: translate(-10vw, 60vh) rotate(-140deg); opacity: 0; } }
+@keyframes i-leave { from { transform: rotate(-72deg); opacity: 1; } to { transform: translate(-10vw, 60vmin) rotate(-140deg); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .inter, .inter * { animation: none !important; } .inter .racket, .inter .rain { display: none; } }
 
 /* ------------------------------------------------------------------ players' phone page */
@@ -583,41 +583,41 @@ body.pl.hello .pl-role.pressed { background: #fff; }
 .pooltable td.pair { font-weight: 600; }
 /* TV: the wheel while players check in */
 .tvwheel { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3vw; align-items: center; min-height: 0; }
-.wheelidle { width: min(60vh, 34vw); aspect-ratio: 1; filter: drop-shadow(0 1.4vh 2.4vh rgba(0,0,0,.45)); }
+.wheelidle { width: min(60vmin, 34vw); aspect-ratio: 1; filter: drop-shadow(0 1.4vmin 2.4vmin rgba(0,0,0,.45)); }
 .wheelidle svg { display: block; width: 100%; height: 100%; animation: wheelturn 90s linear infinite; }
 @keyframes wheelturn { to { transform: rotate(360deg); } }
 .wheelidle text, .wheelshow text { font-family: var(--display); font-weight: 700; }
-.tvwheel .ttl { font-family: var(--display); font-size: 7vh; font-weight: 700; line-height: 1; text-transform: uppercase; }
-.tvwheel .how { font-family: var(--display); font-size: 3.7vh; line-height: 1.25; color: #cfe0f3; margin-top: 2vh; text-wrap: balance; }
+.tvwheel .ttl { font-family: var(--display); font-size: 7vmin; font-weight: 700; line-height: 1; text-transform: uppercase; }
+.tvwheel .how { font-family: var(--display); font-size: 3.7vmin; line-height: 1.25; color: #cfe0f3; margin-top: 2vmin; text-wrap: balance; }
 /* TV: courts of a wheel day */
-.tvcourt .cn span.lbl { font-size: 1.9vh; letter-spacing: .07em; padding: 0 .3vw; text-align: center; }
+.tvcourt .cn span.lbl { font-size: 1.9vmin; letter-spacing: .07em; padding: 0 .3vw; text-align: center; }
 .tvcourt.wait { opacity: .78; }
-.inter .num.text { font-size: 26vh; text-transform: uppercase; letter-spacing: .02em; }
+.inter .num.text { font-size: 26vmin; text-transform: uppercase; letter-spacing: .02em; }
 /* TV: the spin. Two wheels, a pointer on each, the pair that has just been drawn between them. */
-.wheelshow { position: fixed; inset: 0; z-index: 11; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; gap: 1.2vh; padding: 2.6vh 2vw 3vh; text-align: center; color: #fff; overflow: hidden;
+.wheelshow { position: fixed; inset: 0; z-index: 11; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; gap: 1.2vmin; padding: 2.6vmin 2vw 3vmin; text-align: center; color: #fff; overflow: hidden;
   background: radial-gradient(ellipse 80% 90% at 50% 45%, #12508f 0%, #0a2f57 45%, #071a30 100%); animation: interin .3s ease-out both; }
 .wheelshow.out { animation: interout .45s ease-in both; }
-.wheelshow .wtitle { font-family: var(--script); font-size: 6.6vh; line-height: 1.2; letter-spacing: .03em; text-transform: uppercase; color: var(--gold); text-shadow: .4vh .5vh 0 rgba(3,12,24,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wheelshow .wsub { font-family: var(--display); font-size: 3.2vh; letter-spacing: .22em; text-transform: uppercase; color: #cfe0f3; }
+.wheelshow .wtitle { font-family: var(--script); font-size: 6.6vmin; line-height: 1.2; letter-spacing: .03em; text-transform: uppercase; color: var(--gold); text-shadow: .4vmin .5vmin 0 rgba(3,12,24,.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wheelshow .wsub { font-family: var(--display); font-size: 3.2vmin; letter-spacing: .22em; text-transform: uppercase; color: #cfe0f3; }
 .wstage { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 3vw; min-height: 0; padding: 0 2vw; }
-.wbox { position: relative; width: min(50vh, 31vw); aspect-ratio: 1; filter: drop-shadow(0 1.4vh 2.6vh rgba(0,0,0,.5)); }
-.wheelshow[data-teams="6"] .wbox, .wheelshow[data-teams="7"] .wbox, .wheelshow[data-teams="8"] .wbox, .wheelshow[data-teams="9"] .wbox, .wheelshow[data-teams="10"] .wbox { width: min(44vh, 30vw); }
+.wbox { position: relative; width: min(50vmin, 31vw); aspect-ratio: 1; filter: drop-shadow(0 1.4vmin 2.6vmin rgba(0,0,0,.5)); }
+.wheelshow[data-teams="6"] .wbox, .wheelshow[data-teams="7"] .wbox, .wheelshow[data-teams="8"] .wbox, .wheelshow[data-teams="9"] .wbox, .wheelshow[data-teams="10"] .wbox { width: min(44vmin, 30vw); }
 .wrot { width: 100%; height: 100%; transition: transform 1.8s cubic-bezier(.12, .6, .1, 1); will-change: transform; }
 .wrot svg { display: block; width: 100%; height: 100%; }
-.wptr { position: absolute; top: 50%; width: 0; height: 0; border: 2.3vh solid transparent; transform: translateY(-50%); filter: drop-shadow(0 .4vh .5vh rgba(0,0,0,.6)); }
-.wbox.l .wptr { right: -3.2vh; border-right: 4.6vh solid #fff; border-left-width: 0; }
-.wbox.r .wptr { left: -3.2vh; border-left: 4.6vh solid #fff; border-right-width: 0; }
+.wptr { position: absolute; top: 50%; width: 0; height: 0; border: 2.3vmin solid transparent; transform: translateY(-50%); filter: drop-shadow(0 .4vmin .5vmin rgba(0,0,0,.6)); }
+.wbox.l .wptr { right: -3.2vmin; border-right: 4.6vmin solid #fff; border-left-width: 0; }
+.wbox.r .wptr { left: -3.2vmin; border-left: 4.6vmin solid #fff; border-right-width: 0; }
 .wnow { font-family: var(--display); font-weight: 700; line-height: 1.04; opacity: 0; overflow-wrap: anywhere; }
-.wnow .a, .wnow .b { font-size: 7.4vh; text-transform: uppercase; letter-spacing: .01em; }
-.wnow .amp { font-size: 5.4vh; color: var(--gold); margin: .6vh 0; }
+.wnow .a, .wnow .b { font-size: 7.4vmin; text-transform: uppercase; letter-spacing: .01em; }
+.wnow .amp { font-size: 5.4vmin; color: var(--gold); margin: .6vmin 0; }
 .wnow.pop { animation: wpop .55s cubic-bezier(.2, 1.6, .4, 1) both; }
 @keyframes wpop { 0% { opacity: 0; transform: scale(.3); } 100% { opacity: 1; transform: none; } }
-.wpairs { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 1vh 1vw; min-height: 13vh; }
-.wpair { font-family: var(--display); font-weight: 600; font-size: 3.6vh; line-height: 1.1; padding: .8vh 1.2vw .9vh; border: .25vh solid var(--gold); border-radius: 1vh; background: rgba(7,26,48,.55); animation: wchip .45s cubic-bezier(.2, 1.5, .4, 1) both; }
+.wpairs { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 1vmin 1vw; min-height: 13vmin; }
+.wpair { font-family: var(--display); font-weight: 600; font-size: 3.6vmin; line-height: 1.1; padding: .8vmin 1.2vw .9vmin; border: .25vmin solid var(--gold); border-radius: 1vmin; background: rgba(7,26,48,.55); animation: wchip .45s cubic-bezier(.2, 1.5, .4, 1) both; }
 .wpair small { font-size: .82em; color: var(--gold); font-weight: 500; }
-.wheelshow[data-teams="6"] .wpair, .wheelshow[data-teams="7"] .wpair, .wheelshow[data-teams="8"] .wpair, .wheelshow[data-teams="9"] .wpair, .wheelshow[data-teams="10"] .wpair { font-size: 3vh; }
-@keyframes wchip { 0% { opacity: 0; transform: translateY(2vh) scale(.8); } 100% { opacity: 1; transform: none; } }
-.wextra { font-family: var(--display); font-size: 3vh; line-height: 1.2; min-height: 3.6vh; color: #cfe0f3; }
+.wheelshow[data-teams="6"] .wpair, .wheelshow[data-teams="7"] .wpair, .wheelshow[data-teams="8"] .wpair, .wheelshow[data-teams="9"] .wpair, .wheelshow[data-teams="10"] .wpair { font-size: 3vmin; }
+@keyframes wchip { 0% { opacity: 0; transform: translateY(2vmin) scale(.8); } 100% { opacity: 1; transform: none; } }
+.wextra { font-family: var(--display); font-size: 3vmin; line-height: 1.2; min-height: 3.6vmin; color: #cfe0f3; }
 @media (prefers-reduced-motion: reduce) { .wheelidle svg, .wheelshow, .wnow.pop, .wpair { animation: none !important; } .wrot { transition: none; } .wnow { opacity: 1; } }
 
 /* ---- A social's own colours on the whole TV screen (Flyer and look: "Whole screen in the flyer's colours") ----
@@ -631,7 +631,7 @@ body.tv.themed #barsub { color: var(--t-pale); }
 body.tv.themed .tvhead { border-bottom-color: var(--t-mid); }
 body.tv.themed .tvhead .event, body.tv.themed .tvhead .clock, body.tv.themed .tvboard h2 small, body.tv.themed .tvrow .rk, body.tv.themed .tvempty, body.tv.themed .tvdate, body.tv.themed .tvwheel .how { color: var(--t-soft); }
 body.tv.themed .tvcode { color: var(--t-dim); }
-body.tv.themed .tvboard, body.tv.themed .tvsit { background: var(--t-panel); box-shadow: inset 0 0 0 .2vh var(--t-main); }
+body.tv.themed .tvboard, body.tv.themed .tvsit { background: var(--t-panel); box-shadow: inset 0 0 0 .2vmin var(--t-main); }
 body.tv.themed .tvrow { border-top-color: rgba(255,255,255,.18); }
 body.tv.themed .tvrow .nm .rt { color: var(--t-mid); }
 body.tv.themed .tvrow .nm .rt.nr { color: var(--t-dim); }
@@ -655,7 +655,61 @@ body.tv.themed .tvpick button { background: var(--t-main); }
 body.tv.themed .wheelshow { background: radial-gradient(ellipse 80% 90% at 50% 45%, var(--t-main) 0%, var(--t-panel) 48%, var(--t-bg) 100%); }
 body.tv.themed .wheelshow .wsub, body.tv.themed .wextra { color: var(--t-pale); }
 body.tv.themed .wpair { border-color: var(--t-mid); background: var(--t-ink); }
-body.tv.themed .wptr { filter: drop-shadow(0 .4vh .5vh rgba(0,0,0,.5)); }
+body.tv.themed .wptr { filter: drop-shadow(0 .4vmin .5vmin rgba(0,0,0,.5)); }
 body.tv.themed .wbox.l .wptr { border-right-color: var(--t-pale); }
 body.tv.themed .wbox.r .wptr { border-left-color: var(--t-pale); }
 body.tv.themed .inter { background: var(--t-bg); }
+
+/* ---- TV on a portrait screen ------------------------------------------------------------------
+   The same things as on a landscape TV, stacked: banner, the round and its courts, the sign with who is sitting
+   out or what is coming up beside the QR code, then tonight's and the month's leaderboards side by side.
+   Sizes above are in vmin (the screen's shorter side), so the lettering is as big as on a landscape TV of the
+   same panel; only what depends on the width is set again here. */
+@media (orientation: portrait) {
+  body.tv .tvbar { padding: 0 3vw; gap: 2vw; }
+  body.tv .tvbar-c { max-width: 50vw; }
+  body.tv .tvbar-r img { height: 5.4vmin; }
+  body.tv .tvroot { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.5fr) minmax(0, 1fr); gap: 2vmin; padding: 2.2vmin 2.6vw 6.2vmin; }
+  body.tv .tvrow .nm { white-space: normal; line-height: 1.06; }
+  body.tv .tvsit.sign .line .who { max-height: 3.75em; overflow-wrap: normal; }      /* a name is never cut in two: the text gets smaller instead */
+  body.tv .tvbig .teams { font-size: 3.3vmin; }
+  body.tv .podium div { font-size: 4.2vmin; }
+  body.tv .podium div:first-child { font-size: 5.2vmin; }
+  body.tv.hasbtn .tvroot { padding-bottom: 9.4vmin; }
+  body.tv .tvleft, body.tv.hasbtn .tvleft { padding-bottom: 0; }
+  body.tv .tvright { flex-direction: row; gap: 2.2vw; }
+  body.tv .tvright .tvboard { flex: 1 1 0 !important; min-width: 0; padding: 1.4vmin 2vw 1.2vmin; }
+  body.tv .tvcourt { grid-template-columns: 17vw minmax(0, 1fr) auto minmax(0, 1fr); gap: 2.2vw; padding-right: 2.6vw; }
+  body.tv .tvcourt .mid { min-width: 8vw; }
+  body.tv .tvbottom { gap: 2.2vw; }
+  body.tv .tvsit { padding: 1.2vmin 2.4vw; }
+  body.tv .tvqr { gap: 2vw; padding-left: 2.4vw; }
+  body.tv .tvqr .cap { max-width: 20vw; }
+  body.tv .tvdate { left: 2.6vw; }
+  body.tv .tvbtns { right: 2.6vw; }
+  body.tv .tvbig .teams { gap: 1vmin 4vw; }
+  body.tv .podium div { grid-template-columns: 15vw minmax(0, 1fr) auto; gap: 2.4vw; padding: 1.4vmin 3vw; }
+  /* main menu: the list, then the code to pair this screen */
+  body.tv .tvmenu { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 3vmin; padding: 3vmin 5vw 10vmin; align-items: start; }
+  body.tv .tvmenu .items.two { grid-template-columns: 1fr; }
+  body.tv .tvmenu .side { width: auto; }
+  body.tv .tvmenu .qrbox svg { height: 24vmin; width: 24vmin; }
+  body.tv .pickbtn { padding: 1.6vmin 4vw; }
+  /* the month's top three of every social: one under the other */
+  body.tv .lbgrid { grid-template-columns: minmax(0, 1fr); padding: 3vmin 4vw 0; }
+  body.tv .lbhead { padding: 0 3vw; }
+  body.tv .lbhead img.w { height: 5.4vmin; }
+  body.tv .lbhead h1 { font-size: 5vmin; }
+  body.tv .lbname, body.tv .lbrows { padding-left: 3vw; padding-right: 3vw; }
+  body.tv .flymsg p { max-width: 84vw; }
+  /* between rounds */
+  body.tv .inter .buddy { left: 5vw; }
+  body.tv .inter .pun { left: calc(5vw + 17vmin); max-width: 70vw; }
+  body.tv .inter .racket { left: calc(5vw + 15vmin); }
+  /* Wheel of Fortune: the two wheels one above the other, the pair between them */
+  body.tv .tvwheel { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
+  body.tv .wstage { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; justify-items: center; gap: 2vmin; }
+  body.tv .wbox, body.tv .wheelshow[data-teams] .wbox { width: min(30vh, 70vw); }
+  body.tv .wbox.l .wptr { right: auto; left: 50%; top: auto; bottom: -3.2vmin; transform: translateX(-50%) rotate(-90deg); }
+  body.tv .wbox.r .wptr { left: 50%; top: -3.2vmin; transform: translateX(-50%) rotate(-90deg); }
+}

@@ -152,7 +152,7 @@
     return 'url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + hgt + '" viewBox="0 0 ' + w + ' ' + hgt + '">' + body + '</svg>') + '")';
   }
   var HEART = 'M0 -5.2C-2.6 -10.4 -11 -8.4 -11 -1.6C-11 3.6 -4.6 7.6 0 12C4.6 7.6 11 3.6 11 -1.6C11 -8.4 2.6 -10.4 0 -5.2Z';
-  // The banner's background as CSS: { color, image, size }. Sizes are in vh so the motif scales with the TV.
+  // The banner's background as CSS: { color, image, size }. Sizes are in vmin (the screen's shorter side) so the motif scales with the TV.
   function banner(look) {
     var c = colours(look), id = (look && look.pattern) || 'stripes', img, size;
     var o1 = 0.5, o2 = 0.38;
@@ -160,22 +160,22 @@
       img = tile(80, 60,
         '<g fill="' + c.a1 + '" fill-opacity="' + o1 + '"><path transform="translate(20 17) rotate(-14) scale(1.15)" d="' + HEART + '"/><path transform="translate(60 47) rotate(12) scale(.8)" d="' + HEART + '"/></g>' +
         '<g fill="' + c.a2 + '" fill-opacity="' + o2 + '"><path transform="translate(60 14) rotate(16) scale(.62)" d="' + HEART + '"/><path transform="translate(22 46) rotate(-8) scale(.95)" d="' + HEART + '"/></g>');
-      size = '13.3vh 10vh';
+      size = '13.3vmin 10vmin';
     } else if (id === 'confetti') {
       img = tile(120, 60,
         '<g fill="' + c.a1 + '" fill-opacity="' + o1 + '"><rect x="8" y="9" width="12" height="5" rx="1" transform="rotate(28 14 11)"/><circle cx="52" cy="15" r="4"/><rect x="92" y="33" width="13" height="5" rx="1" transform="rotate(-36 98 35)"/><path d="M30 42l7 3-6 5z"/><circle cx="74" cy="50" r="3"/></g>' +
         '<g fill="' + c.a2 + '" fill-opacity="' + o2 + '"><circle cx="30" cy="20" r="3"/><rect x="66" y="26" width="12" height="5" rx="1" transform="rotate(62 72 28)"/><path d="M100 10l8 2-5 7z"/><rect x="46" y="40" width="12" height="5" rx="1" transform="rotate(-18 52 42)"/><circle cx="110" cy="52" r="3.5"/><path d="M8 34l6 6-8 2z"/></g>');
-      size = '20vh 10vh';
+      size = '20vmin 10vmin';
     } else if (id === 'waves') {
       img = tile(80, 40,
         '<path d="M0 10q10 -9 20 0t20 0t20 0t20 0" fill="none" stroke="' + c.a1 + '" stroke-opacity="' + o1 + '" stroke-width="4" stroke-linecap="round"/>' +
         '<path d="M-10 30q10 -9 20 0t20 0t20 0t20 0t20 0" fill="none" stroke="' + c.a2 + '" stroke-opacity="' + o2 + '" stroke-width="4" stroke-linecap="round"/>');
-      size = '10vh 5vh';
+      size = '10vmin 5vmin';
     } else if (id === 'diamonds') {
       img = tile(48, 48,
         '<path d="M24 3L45 24L24 45L3 24Z" fill="' + c.a1 + '" fill-opacity="' + (o1 * 0.7) + '"/><path d="M24 14L34 24L24 34L14 24Z" fill="' + c.a2 + '" fill-opacity="' + o2 + '"/>' +
         '<path d="M0 0L48 48M48 0L0 48" stroke="' + c.a2 + '" stroke-opacity=".22" stroke-width="1.5"/>');
-      size = '5vh 5vh';
+      size = '5vmin 5vmin';
     } else if (id === 'balls') {
       var ball = function (x, y, r, col, op) {
         return '<g transform="translate(' + x + ' ' + y + ')"><circle r="' + r + '" fill="' + col + '" fill-opacity="' + op + '"/>' +
@@ -183,12 +183,12 @@
           '<path d="M' + (-r * 0.86) + ' ' + (r * 0.5) + 'q' + (r * 0.86) + ' ' + (-r * 0.9) + ' ' + (r * 1.72) + ' 0" fill="none" stroke="' + c.base + '" stroke-opacity=".7" stroke-width="1.6"/></g>';
       };
       img = tile(90, 60, ball(20, 18, 11, c.a1, o1) + ball(66, 44, 9, c.a2, o2) + ball(70, 10, 5, c.a2, o2 * 0.8) + ball(22, 50, 5, c.a1, o1 * 0.8));
-      size = '15vh 10vh';
+      size = '15vmin 10vmin';
     } else if (id === 'plain') {
       img = 'linear-gradient(100deg, ' + c.base + ' 0%, ' + c.base + ' 40%, ' + c.a1 + ' 140%)';
       size = '100% 100%';
     } else {
-      img = 'repeating-linear-gradient(118deg, transparent 0 2.2vh, ' + rgba(c.a1, o1 * 0.8) + ' 2.2vh 3.4vh, transparent 3.4vh 5.4vh, ' + rgba(c.a2, o2 * 0.8) + ' 5.4vh 6vh)';
+      img = 'repeating-linear-gradient(118deg, transparent 0 2.2vmin, ' + rgba(c.a1, o1 * 0.8) + ' 2.2vmin 3.4vmin, transparent 3.4vmin 5.4vmin, ' + rgba(c.a2, o2 * 0.8) + ' 5.4vmin 6vmin)';
       size = 'auto';
     }
     return { color: c.base, image: img, size: size, line: c.a1, colours: c };

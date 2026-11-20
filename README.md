@@ -130,6 +130,38 @@ Events → **Flyer** → *Whole TV screen* → **Flyer's colours** turns the who
 flyer's main colour (`look.theme = 'flyer'`; tones are worked out in `docs/look.js`, `Look.theme`). Yellow lettering,
 the white "Enter your score" box and the green of a court whose score is in stay as they are. **Club colours** goes back.
 
+## A second club (Tempe)
+
+The Tempe club has its own copy of every page, one folder down, and its own part of the database with its own admin key:
+
+| | Lehi | Tempe |
+|---|---|---|
+| Admin (iPad) | `…/conquer-socials/` | `…/conquer-socials/tempe/` |
+| TV | `…/conquer-socials/tv/` | `…/conquer-socials/tempe/tv/` |
+| Players' phones | `…/conquer-socials/p/` | `…/conquer-socials/tempe/p/` |
+| Flyers | `…/conquer-socials/flyers/` | `…/conquer-socials/tempe/flyers/` |
+| Data in the database | `pub/…` | `tempe/…` |
+| Admin key | `gate/<Lehi key>` | `gate/<Tempe key>` |
+
+Nothing is shared: events, nights, leaderboards, TVs and their pairing codes, flyers, ratings and the list of coming
+events are each club's own, and the database rules (`database.rules.json`) only accept a club's key for that club's
+part. A device remembers each club's key separately. Tempe offers the two King's Court formats (no Wheel of Fortune).
+
+The Tempe pages are made from the Lehi ones by `node tools/make-club-pages.js` (run it after changing an
+`index.html` or the version number). The clubs are listed in `docs/config.js` (`clubs`); the code says `pub/...`
+everywhere and `docs/store.js` sends it to the club's own part.
+
+For players to see a club address instead of this site's: make a page on the club's site that loads
+`…/conquer-socials/tempe/wrap.js` and put its address in `docs/config.js` (`clubs.tempe.publicURL`).
+
+## TV on a portrait screen
+
+The TV page adapts by itself to the shape of the screen. On a portrait screen the same things are stacked: banner,
+the round and its courts, the sign (who sits out, what is coming up) beside the QR code, then tonight's and the
+month's leaderboards side by side, with the date and clock at the foot. Sizes are in `vmin` (the screen's shorter
+side), so lettering is as large as on a landscape TV of the same panel; the portrait arrangement is one block at the
+end of `docs/style.css`.
+
 ## Files
 
 | Path | What it is |
@@ -164,8 +196,8 @@ pub/series/{event}/look                 the social's flyer colours, banner patte
 pub/eventflyers/{event}/wide, /phone    the social's flyer for the TV (between rounds) and for phones
 ```
 
-The admin key is **not** in this repository. It is set in the Firebase rules (replace `YOUR-ADMIN-KEY` in
-`database.rules.json` when pasting them into the Firebase console) and typed once on each admin device.
+The admin keys are **not** in this repository. They are set in the Firebase rules (replace `YOUR-ADMIN-KEY` and
+`TEMPE-ADMIN-KEY` in `database.rules.json` when pasting them into the Firebase console) and typed once on each admin device.
 
 ## Later
 

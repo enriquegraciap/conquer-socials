@@ -161,7 +161,7 @@
   }
   function render() {
     var active = document.activeElement, focusId = active && active.id;
-    var kids = [h('div', { class: 'topbar' }, [h('h1', null, SET.title), h('span', { class: 'spacer' }), h('span', { class: 'sync' }, state.busy),
+    var kids = [h('div', { class: 'topbar' }, [h('h1', null, SET.title + (S.club.name ? ' · ' + S.club.name : '')), h('span', { class: 'spacer' }), h('span', { class: 'sync' }, state.busy),
       h('a', { class: 'linkbtn', href: S.here('admin'), target: S.framed ? '_top' : null }, 'Socials')])];
     var body = [];
     if (state.phase === 'boot') body.push(h('p', { class: 'hint' }, 'Loading…'));

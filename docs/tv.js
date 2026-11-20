@@ -44,9 +44,11 @@
   // One side of a court: a couple, or (individual format) the two players paired for this round.
   // two players paired for a round: each name stays in one piece, so a long side breaks after the "&"
   function side(c, which) {
-    var ids = E.sideIds(c, which), out = [];
-    if (ids.length < 2) return ids.map(name).join(' & ');
-    ids.forEach(function (id, i) { if (i) out.push(' & '); out.push(h('span', 'pn', name(id))); });
+    var ids = E.sideIds(c, which), out = [], t = ids.length === 1 ? st.session.teams[ids[0]] : null;
+    // the two names of a side (a fixed team, or two players paired for the round)
+    var parts = ids.length > 1 ? ids.map(name) : t && t.players && t.players.length > 1 && t.players.join(' & ') === t.name ? t.players : null;
+    if (!parts) return ids.map(name).join(' & ');
+    parts.forEach(function (nm, i) { if (i) out.push(' & '); out.push(h('span', 'pn', nm)); });
     return out;
   }
 
@@ -302,7 +304,7 @@
     }));
     grid.style.setProperty('--cols', String(cols)); grid.style.setProperty('--k', String(k));
     var p = h('img', 'p'), w = h('img', 'w');
-    p.src = '../logo-p.png'; p.alt = ''; w.src = '../conquer-wordmark-white.png'; w.alt = 'Conquer Padel Club';
+    p.src = S.asset('logo-p.png'); p.alt = ''; w.src = S.asset('conquer-wordmark-white.png'); w.alt = 'Conquer Padel Club';
     fl.board.replaceChildren(h('div', 'lbhead', [p, h('div', 't', [h('h1', null, mName + ' leaderboards'), h('span', null, 'Top three of every social')]), w]), grid);
     // long names are made a little smaller rather than cut off
     Array.prototype.forEach.call(fl.board.querySelectorAll('.lbname b, .lbrow .nm'), function (el) {
@@ -420,10 +422,12 @@
   // "Carter (4.37) & Casey (NR)": each player's WPR Social rating after their name, NR when there is none.
   function rated(row) {
     var players = row.players && row.players.length ? row.players : [row.name], out = [];
+    // on a portrait screen the boards are narrow: a team goes on two lines, broken after the "&" and nowhere else
+    var tall = window.innerHeight > window.innerWidth;
     players.forEach(function (p, i) {
       var r = (st.ratings || {})[E.keyOf(p)], has = !!r && typeof r.s === 'number';
-      if (i) out.push(' & ');
-      out.push(p, h('span', 'rt' + (has ? '' : ' nr'), '(' + (has ? r.s.toFixed(2) : 'NR') + ')'));
+      if (i) out.push(tall ? '\u00a0& ' : ' & ');
+      out.push(tall ? p.replace(/ /g, '\u00a0') : p, h('span', 'rt' + (has ? '' : ' nr'), '(' + (has ? r.s.toFixed(2) : 'NR') + ')'));
     });
     return out;
   }
@@ -631,7 +635,8 @@
     ]);
   }
   function board(title, sub, rows, count, empty) {
-    var two = rows.length > 16;
+    // a long list goes in two columns; on a portrait screen the boards are half as wide, so a single column goes on longer
+    var two = rows.length > (window.innerHeight > window.innerWidth ? 24 : 16);
     var list = h('div', 'tvrows' + (two ? ' two' : ''), rows.map(function (r) {
       // gold, silver and bronze for places 1 to 3 once there are points; teams level on points share a medal
       var medal = r.points > 0 && r.rank <= 3 ? MEDALS[r.rank - 1] : '';
@@ -645,7 +650,7 @@
   }
   // Size the text to the space each row actually has, whatever the number of teams or courts.
   function fit() {
-    var vh = window.innerHeight / 100;
+    var vh = Math.min(window.innerWidth, window.innerHeight) / 100;
     Array.prototype.forEach.call(document.querySelectorAll('.tvrows'), function (list) {
       var per = Number(list.getAttribute('data-per')) || 1;
       var rowH = list.clientHeight / per;
@@ -655,7 +660,10 @@
       var names = list.querySelectorAll('.nm');
       var tight = function () {
         var worst = 1;
-        Array.prototype.forEach.call(names, function (n) { if (n.scrollWidth > n.clientWidth + 1) worst = Math.min(worst, n.clientWidth / n.scrollWidth); });
+        Array.prototype.forEach.call(names, function (n) {
+          if (n.scrollWidth > n.clientWidth + 1) worst = Math.min(worst, n.clientWidth / n.scrollWidth);
+          if (n.scrollHeight > rowH + 1) worst = Math.min(worst, rowH / n.scrollHeight);       // a name on two lines (portrait) has to fit its row
+        });
         return worst;
       };
       for (var w = tight(); w < 1 && size > floor && guard++ < 8; w = tight()) { size = Math.max(floor, size * Math.max(w, 0.8) * 0.985); list.style.fontSize = size + 'px'; }
@@ -684,7 +692,7 @@
   function fireworks(x, y, width) {
     if (!fxCtx || calm) return;
     if (fx.width !== window.innerWidth || fx.height !== window.innerHeight) fxSize();
-    var vh = window.innerHeight / 100;
+    var vh = Math.min(window.innerWidth, window.innerHeight) / 100;
     var spread = Math.max(width * 0.3, 6 * vh);
     boom(x, y, 80, 52 * vh, 0);                                          // the big one, right on the name
     boom(x - spread, y - 2 * vh, 36, 34 * vh, 160);                      // two smaller ones either side, a beat later
@@ -697,7 +705,7 @@
   function boom(cx, cy, count, power, delay) {
     if (!fxCtx || calm) return;
     if (fx.width !== window.innerWidth || fx.height !== window.innerHeight) fxSize();
-    var vh = window.innerHeight / 100, now = performance.now();
+    var vh = Math.min(window.innerWidth, window.innerHeight) / 100, now = performance.now();
     flashes.push({ x: cx, y: cy, t0: now + delay, life: 260, r: power * 0.2 });
     for (var i = 0; i < count; i++) {
       var a = Math.random() * Math.PI * 2, sp = power * (0.35 + Math.random() * 0.65);
@@ -747,7 +755,7 @@
   var SIGN_FIRST = 30000, SIGN_SWAP = 10000, SIGN_NAMES = 10000, SIGN_EVENTS = 3;
   var sign = { el: null, lab: null, line: null, round: '', since: 0, names: '', shown: '' };
   function loadPromo() {
-    var id = st.seriesId, club = ((st.series[id] || {}).club || 'lehi');
+    var id = st.seriesId, club = S.club.id;                   // each club's coming sessions are in its own part of the database
     S.get('pub/promo/' + club).then(function (p) { if (id === st.seriesId) { st.promo = p || null; signUpdate(); } }).catch(function () { /* next time */ });
   }
   function clock12(t) {
@@ -867,7 +875,7 @@
     var rain = h('div', 'rain'), spots = [6, 17, 29, 41, 52, 63, 74, 85, 94, 12, 58, 80];
     spots.forEach(function (left, i) {
       var b = h('i');
-      b.style.left = left + 'vw'; b.style.width = b.style.height = (3 + (i * 7) % 4) + 'vh';
+      b.style.left = left + 'vw'; b.style.width = b.style.height = (3 + (i * 7) % 4) + 'vmin';
       b.style.animationDelay = (0.5 + ((i * 5) % 12) * 0.27).toFixed(2) + 's'; b.style.animationDuration = (1.5 + (i % 4) * 0.25).toFixed(2) + 's';
       rain.appendChild(b);
     });
@@ -1079,7 +1087,7 @@
       var spot = crownSpot(f);
       if (spot) {                                                         // landed: show the real crown again, with a pop and a few sparks
         spot.el.classList.remove('away'); spot.el.classList.add('landed');
-        boom(spot.x, spot.y, 22, 20 * window.innerHeight / 100, 0);
+        boom(spot.x, spot.y, 22, 20 * Math.min(window.innerWidth, window.innerHeight) / 100, 0);
       }
       return false;
     });
@@ -1128,7 +1136,7 @@
   document.addEventListener('webkitfullscreenchange', fullChanged);
   document.addEventListener('keydown', function (e) { if (e.metaKey || e.ctrlKey) return; if (e.key === 'f' || e.key === 'F') toggleFull(); else if ((e.key === 'm' || e.key === 'M') && st.mode !== 'menu') choose(MENU); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
-  window.addEventListener('resize', function () { fit(); fitTitle(); });
+  window.addEventListener('resize', function () { if (st.mode === 'show' && st.shown) draw(); else fit(); fitTitle(); });      // also when a screen is turned
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { fit(); fitTitle(); });
   setInterval(showDate, 1000);
   showDate();

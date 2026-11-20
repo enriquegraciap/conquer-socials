@@ -297,7 +297,7 @@
     }
     var sync = state.saveError ? h('span', { class: 'sync bad' }, state.saveError) : h('span', { class: 'sync' }, state.saving || state.dirty ? 'Saving…' : (state.phase === 'night' ? 'Saved' : ''));
     return h('div', { class: 'topbar' }, [
-      h('h1', null, state.phase === 'night' ? (meta.name || 'Padel Socials') : 'Padel Socials'),
+      h('h1', null, state.phase === 'night' ? (meta.name || 'Padel Socials') : 'Padel Socials' + (S.club.name ? ' · ' + S.club.name : '')),
       pill, h('span', { class: 'spacer' }), sync,
       state.phase === 'night' ? h('button', { class: 'linkbtn', type: 'button', onclick: function () { state.ui.modal = { type: 'tv' }; render(); } }, 'TV screen') : null,
       state.phase === 'night' ? h('button', { class: 'linkbtn', type: 'button', onclick: function () { state.phase = 'series'; loadScreens(); render(); } }, 'Events') : null
@@ -333,14 +333,14 @@
       ]) : null,
       h('div', { class: 'panel' }, [
         h('h2', null, ids.length ? 'Add another event' : 'Name your first event'),
-        h('p', { class: 'hint' }, 'One event per weekly social and club, for example “Lehi Date Night”. Each event keeps its own monthly leaderboard.'),
+        h('p', { class: 'hint' }, 'One event per weekly social, for example “Padel Date Night”. Each event keeps its own monthly leaderboard.'),
         h('div', { class: 'row', style: 'margin-top:10px' }, [
           h('input', { type: 'text', id: 'newSeries', placeholder: 'Event name', value: state.ui.newSeries, maxlength: 60, style: 'flex:1',
             oninput: function (e) { state.ui.newSeries = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') create(); } }),
           btn('Create', 'primary', create)
         ]),
         h('div', { style: 'margin-top:12px;font-weight:600' }, 'Format'),
-        h('div', { class: 'fmtpick' }, Object.keys(E.FORMATS).map(function (f) {
+        h('div', { class: 'fmtpick' }, Object.keys(E.FORMATS).filter(function (f) { return !S.club.formats || S.club.formats.indexOf(f) >= 0; }).map(function (f) {
           var on = state.ui.newFormat === f;
           return h('button', { type: 'button', class: 'fmt' + (on ? ' on' : ''), 'data-format': f, 'aria-pressed': on ? 'true' : 'false', onclick: function () { state.ui.newFormat = f; render(); } }, [
             h('b', null, E.FORMATS[f].name),
@@ -1068,9 +1068,9 @@
             ])])
         ]);
       };
-      var bar = h('div', { class: 'lookbar', id: 'lookbar' }, [h('img', { src: 'logo-p.png', alt: '' }),
+      var bar = h('div', { class: 'lookbar', id: 'lookbar' }, [h('img', { src: S.asset('logo-p.png'), alt: '' }),
         h('div', { class: 'c' }, [h('b', null, state.series[m.id].name), h('span', null, (function (f) { return f.charAt(0).toUpperCase() + f.slice(1).toLowerCase(); })(E.formatOf(state.series[m.id].format).name))]),
-        h('img', { class: 'w', src: 'conquer-wordmark-white.png', alt: '' })]);
+        h('img', { class: 'w', src: S.asset('conquer-wordmark-white.png'), alt: '' })]);
       L.paint(bar, has || lk.pattern ? lk : null);
       body = [h('h3', null, 'Flyer and look'),
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'For ' + state.series[m.id].name + '. The TV shows the wide flyer between rounds, phones show the flyer for a few seconds when players scan the QR code, and the TV’s top banner takes its colours from it.'),

@@ -13,6 +13,12 @@ Players' phones: `https://enriquegraciap.github.io/conquer-socials/p/` (the TV s
 **Club flyers:** `https://enriquegraciap.github.io/conquer-socials/flyers/` is where staff add photos. A TV shows
 them as a slideshow, a new flyer every 15 seconds.
 
+**Each social's flyer:** on the iPad, Events → **Flyer** next to the social. Upload the wide (landscape) flyer and,
+if you have one, the tall (portrait) one. Then:
+- phones show the flyer for a few seconds when a player scans the TV's QR code;
+- the TV's top banner takes its colours from the flyer, with a pattern you pick (hearts, confetti, stripes, ...);
+- between rounds the TV turns to the wide flyer for about three seconds while the new round's number makes an entrance.
+
 **TV main menu:** whenever the TV page is not in full screen, a **Main menu** button sits beside **Full screen**
 (on a TV remote: Back leaves full screen, then choose Main menu). The menu lists every social and the club flyers.
 With one social and nothing chosen, the TV shows that social by itself.
@@ -64,6 +70,7 @@ supported for future formats where points belong to each player.
 | `docs/qr.js` | QR code generator (MIT licence, Kazuhiko Arase) |
 | `docs/engine.js` | rotation, sit-outs, scoring, leaderboards (no browser code; shared with the tests) |
 | `docs/store.js` | reads and writes the Firebase Realtime Database |
+| `docs/look.js` | reads a flyer's colours and draws the TV banner pattern from them |
 | `docs/awake.js` | keeps the iPad and TV screens on while the page is open |
 | `docs/config.js` | the database address |
 | `database.rules.json` | database rules: anyone can read, only a device with the admin key can write |
@@ -81,6 +88,8 @@ pub/scores/{event}/{night}/r{n}/c{i}    a score sent from a phone (open to write
 pub/screens/{tvCode}                    what a TV was last told to show from the admin page (a social, or the flyers)
 pub/flyers/club/index/{id}              one line per flyer: name, order, small preview; pub/flyers/club/rev changes with the set
 pub/flyers/club/data/{id}               the flyer itself, resized to fit 1920 x 1080
+pub/series/{event}/look                 the social's flyer colours, banner pattern and small previews
+pub/eventflyers/{event}/wide, /phone    the social's flyer for the TV (between rounds) and for phones
 ```
 
 The admin key is **not** in this repository. It is set in the Firebase rules (replace `YOUR-ADMIN-KEY` in

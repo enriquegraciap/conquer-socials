@@ -10,7 +10,7 @@
  */
 (function () {
   'use strict';
-  var E = window.Engine, S = window.Store;
+  var E = window.Engine, S = window.Store, L = window.Look;
   var root = document.getElementById('tv'), statusEl = document.getElementById('status'), codeEl = document.getElementById('tvcode'), fsBtn = document.getElementById('fs'), menuBtn = document.getElementById('menu');
   var POLL_MS = 2000, MONTH_ROWS = 10;
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -24,7 +24,7 @@
 
   var st = { id: tvId(), mode: 'boot', series: {}, seriesId: null, seriesName: '', rev: null, ping: 0, session: null, pending: {},
     month: null, monthKey: null, busy: false, lastOk: 0, lastRound: 0, shown: false, ticks: 0, pendingSince: 0, menuShown: '',
-    seenKey: '', seen: {}, cheer: [], fly: {} };
+    seenKey: '', seen: {}, cheer: [], fly: {}, flyer: '', flyerKey: '', lastSession: '', lastStatus: '', holdSince: 0, announce: 0 };
 
   function h(tag, cls, kids) {
     var el = document.createElement(tag);
@@ -131,14 +131,27 @@
     var id = st.seriesId;
     S.get('pub/series/' + id).then(function (meta) {
       if (!meta || id !== st.seriesId) return;
-      st.series[id] = meta; st.seriesName = meta.name || ''; barTitle();
+      st.series[id] = meta; st.seriesName = meta.name || ''; barTitle(); loadEventFlyer();
     }).catch(function () { /* next time */ });
+  }
+  // The social's wide flyer, for the moment between rounds. Fetched once, and again only when it is replaced.
+  function loadEventFlyer() {
+    var id = st.seriesId, look = (st.series[id] || {}).look || {}, key = id + ':' + (look.wide ? look.rev : 'none');
+    if (key === st.flyerKey) return;
+    st.flyerKey = key;
+    var pic = document.getElementById('interpic');
+    if (!look.wide) { st.flyer = ''; if (pic) pic.removeAttribute('src'); return; }
+    S.get('pub/eventflyers/' + id + '/wide').then(function (data) {
+      if (st.flyerKey !== key) return;
+      st.flyer = typeof data === 'string' && /^data:image\//.test(data) ? data : '';
+      if (pic) { if (st.flyer) pic.src = st.flyer; else pic.removeAttribute('src'); }
+    }).catch(function () { if (st.flyerKey === key) st.flyerKey = ''; /* tried again in half a minute */ });
   }
   function setMode(mode) {
     if (st.mode === 'flyers' && mode !== 'flyers') stopFlyers();
     st.mode = mode;
     if (mode !== 'menu') st.menuShown = '';
-    if (mode !== 'show') { st.seriesId = null; st.seriesName = ''; st.session = null; st.pendingSince = 0; }
+    if (mode !== 'show') { st.seriesId = null; st.seriesName = ''; st.session = null; st.pendingSince = 0; st.flyer = ''; st.flyerKey = ''; endIntro(); }
     document.body.classList.toggle('mode-flyers', mode === 'flyers');
     document.body.classList.toggle('mode-menu', mode === 'menu');
     buttons();
@@ -147,7 +160,9 @@
     setMode('show');
     st.seriesId = id; st.seriesName = (st.series[id] || {}).name || '';
     st.rev = null; st.ping = 0; st.session = null; st.pending = {}; st.shown = false; st.lastRound = 0; st.pendingSince = 0;
+    st.lastSession = ''; st.lastStatus = ''; st.holdSince = 0; st.flyerKey = ''; st.flyer = '';
     barTitle();
+    loadEventFlyer();
     root.replaceChildren(message(st.seriesName, 'Loading…'));
     poll();
   }
@@ -316,6 +331,13 @@
   function draw() {
     if (st.mode !== 'show') return;
     var s = st.session, left;
+    // The next round is ready while the last winner is still being celebrated: let the crown land first.
+    var cur0 = s && !s.discarded && s.status === 'live' ? E.currentRound(s) : null;
+    if (cur0 && st.lastSession === s.id && st.lastRound && cur0.n > st.lastRound && (flyers.length || sparks.length)) {
+      st.holdSince = st.holdSince || Date.now();
+      if (Date.now() - st.holdSince < 5000) { clearTimeout(st.holdTimer); st.holdTimer = setTimeout(draw, 250); return; }
+    }
+    st.holdSince = 0;
     if (!s || s.discarded) left = bigLeft('Tonight', st.seriesName, h('div', 'tvempty', 'The next night has not been set up yet.'));
     else if (s.status === 'setup') left = setupLeft(s);
     else if (s.status === 'ended') left = endedLeft(s);
@@ -323,6 +345,8 @@
     if (!s || s.status !== 'live') st.pendingSince = 0;
     root.replaceChildren(h('div', 'tvroot', [left, rightSide(s)]));
     fit();
+    st.lastSession = s && !s.discarded ? s.id : ''; st.lastStatus = s && !s.discarded ? s.status : '';
+    if (st.announce) { roundIntro(st.announce); st.announce = 0; }
     // a score has just come in: fireworks around the winning team's name, and the crown dances its way onto it
     var cheer = st.cheer; st.cheer = [];
     cheer.forEach(function (c, n) {
@@ -358,6 +382,10 @@
     var b = document.getElementById('bartitle'), sub = document.getElementById('barsub'), meta = st.series[st.seriesId] || {};
     if (b) b.textContent = st.mode === 'menu' ? 'Main menu' : st.seriesName || '';
     if (sub) sub.textContent = st.mode === 'show' ? (FORMATS[meta.format] || '') : '';
+    // a social with a flyer gets a banner in the flyer's colours; everything else keeps the club's own
+    var look = st.mode === 'show' && meta.look && (meta.look.wide || meta.look.tall) ? meta.look : null;
+    var sig = look ? JSON.stringify([look.cands, look.variant, look.pattern]) : '';
+    if (sig !== st.barSig) { st.barSig = sig; L.paint(document.getElementById('tvbar'), look); }
   }
   function bigLeft(title, sub, body) { return h('div', 'tvleft', [head(title, false), h('div', 'tvbig', body), h('div')]); }
 
@@ -372,6 +400,9 @@
     var r = E.currentRound(s);
     if (!r) return bigLeft('Tonight', '', h('div', 'ttl', 'Starting soon'));
     var flash = r.n !== st.lastRound;
+    // A new round this screen watched arrive (the one before it, or the night being set up) gets the full-screen
+    // announcement. Opening the page in the middle of a round does not.
+    if (flash && ((st.lastSession === s.id && st.lastRound && r.n === st.lastRound + 1) || (st.lastSession === s.id && st.lastStatus === 'setup' && r.n === 1))) st.announce = r.n;
     st.lastRound = r.n;
     var top = r.top !== undefined && r.top !== null ? r.top : s.courts.length - 1;
     // scores sent from phones that the organizer's device has not applied yet: shown at once, in green
@@ -537,6 +568,33 @@
   }
   window.addEventListener('resize', fxSize);
   fxSize();
+
+  // ---------------------------------------------------------------- between rounds
+  // The whole screen turns to the social's wide flyer for about three seconds and the new round's number makes an
+  // entrance on top of it, a different one each round. With no flyer uploaded the background is the banner's colour.
+  var inter = document.getElementById('inter'), interTimer = null, INTRO_KINDS = ['slam', 'spin', 'smash'];
+  function endIntro() {
+    clearTimeout(interTimer);
+    if (inter) { inter.hidden = true; inter.className = 'inter'; }
+  }
+  function roundIntro(n) {
+    if (!inter) return;
+    clearTimeout(interTimer);
+    var look = (st.series[st.seriesId] || {}).look, kind = INTRO_KINDS[n % INTRO_KINDS.length];
+    inter.className = 'inter';
+    inter.style.backgroundColor = look && (look.wide || look.tall) ? L.banner(look).color : '';
+    inter.querySelector('.num').textContent = String(n);
+    inter.hidden = false;
+    void inter.offsetWidth;                                             // so the entrance plays again every time
+    inter.className = 'inter on ' + kind + (st.flyer ? ' pic' : '');
+    inter.setAttribute('data-round', String(n));
+    var W = window.innerWidth, H = window.innerHeight, vh = H / 100;
+    setTimeout(function () { if (!inter.hidden) { boom(W * 0.5, H * 0.56, 60, 50 * vh, 0); boom(W * 0.34, H * 0.4, 30, 34 * vh, 180); boom(W * 0.66, H * 0.42, 30, 34 * vh, 320); } }, kind === 'spin' ? 850 : 650);
+    interTimer = setTimeout(function () {
+      inter.classList.add('out');
+      interTimer = setTimeout(endIntro, 460);
+    }, 2700);
+  }
 
   // ---------------------------------------------------------------- the dancing crown
   // When a score comes in, the winner's crown does a happy lap of the screen before it settles: it hops up from

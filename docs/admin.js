@@ -1,7 +1,7 @@
 /* Padel Socials — iPad admin page. */
 (function () {
   'use strict';
-  var E = window.Engine, S = window.Store;
+  var E = window.Engine, S = window.Store, L = window.Look;
   var root = document.getElementById('app');
   var MAX_COURT = 7;         // the club has courts 1 to 7
 
@@ -187,6 +187,64 @@
     }).catch(function () { /* tried again on the next change */ });
   }
 
+  // ---- Each social's flyer and look (see look.js). The pictures go to pub/eventflyers/{id}; the rest sits with the social.
+  function lookOf(id) { return E.clone((state.series[id] || {}).look || {}); }
+  function saveLook(id, look, extra, okMsg) {
+    var up = {};
+    Object.keys(extra || {}).forEach(function (k) { up['pub/eventflyers/' + id + '/' + k] = extra[k]; });
+    Object.keys(look).forEach(function (k) { if (look[k] === null || look[k] === undefined || look[k] === false) delete look[k]; });
+    up['pub/series/' + id + '/look'] = Object.keys(look).length ? look : null;
+    var again = function () { saveLook(id, look, extra, okMsg); };
+    state.ui.lookBusy = extra ? 'Saving…' : ''; render();
+    return S.write(up).then(function () {
+      state.series[id].look = look; state.ui.lookBusy = '';
+      if (okMsg) toast(okMsg);
+      render();
+    }).catch(function (err) {
+      state.ui.lookBusy = '';
+      if (err.status === 401 || err.status === 403) { var back = state.ui.modal; state.ui.modal = { type: 'key', wrong: !!S.getKey(), then: function () { state.ui.modal = back; again(); } }; render(); }
+      else { toast('Could not save: ' + err.message); render(); }
+    });
+  }
+  // kind: 'wide' (landscape: the TV between rounds, and the banner's colours) or 'tall' (portrait: players' phones)
+  function addFlyer(id, kind, file) {
+    if (!file || state.ui.lookBusy) return;
+    state.ui.lookBusy = 'Preparing the picture…'; render();
+    L.readImage(file).then(function (img) {
+      var look = lookOf(id), extra = {};
+      if (kind === 'wide') {
+        extra.wide = L.fitted(img, 1920, 1080);
+        look.wide = true; look.thumbW = L.shrink(img, 360, 360, 0.7);
+        look.cands = L.palette(img); look.variant = 0;
+        if (!look.tall) extra.phone = L.fitted(img, 1200, 1200);       // phones show the wide flyer until there is a tall one
+      } else {
+        extra.phone = L.fitted(img, 1080, 1920);
+        look.tall = true; look.thumbT = L.shrink(img, 360, 360, 0.7);
+        if (!look.wide) { look.cands = L.palette(img); look.variant = 0; }
+      }
+      if (!look.pattern) look.pattern = 'confetti';
+      look.rev = Date.now();
+      URL.revokeObjectURL(img.src);
+      state.ui.lookBusy = '';
+      return saveLook(id, look, extra, kind === 'wide' ? 'Flyer saved. The TV banner now follows its colours.' : 'Phone flyer saved.');
+    }).catch(function (err) { state.ui.lookBusy = ''; toast((err && err.message) || 'That picture could not be used.'); render(); });
+  }
+  function removeFlyer(id, kind) {
+    if (state.ui.lookBusy) return;
+    var look = lookOf(id), extra = {}, other = kind === 'wide' ? 'tall' : 'wide';
+    look[kind] = null; look[kind === 'wide' ? 'thumbW' : 'thumbT'] = null; look.rev = Date.now();
+    if (kind === 'wide') extra.wide = null;
+    if (!look[other]) { extra.phone = null; look.cands = null; look.variant = null; return saveLook(id, look, extra, 'Flyer removed.'); }
+    if (kind === 'wide') return saveLook(id, look, extra, 'Wide flyer removed.');      // phones keep the tall one
+    // the tall one goes: phones fall back to the wide flyer, made phone-sized from the stored copy
+    state.ui.lookBusy = 'Saving…'; render();
+    S.get('pub/eventflyers/' + id + '/wide').then(function (data) { return L.fromDataUrl(data); }).then(function (img) {
+      extra.phone = L.fitted(img, 1200, 1200);
+      state.ui.lookBusy = '';
+      return saveLook(id, look, extra, 'Phone flyer removed. Phones show the wide flyer again.');
+    }).catch(function (err) { state.ui.lookBusy = ''; toast('Could not do that: ' + ((err && err.message) || err)); render(); });
+  }
+
   // ---- TVs: which event each paired screen shows
   function loadScreens() {
     return S.get('pub/screens').then(function (all) { state.screens = all || {}; render(); }).catch(function () { /* optional */ });
@@ -262,6 +320,7 @@
         h('div', { class: 'serieslist' }, ids.map(function (id) {
           return h('div', { class: 'seriesrow' }, [
             btn([state.series[id].name, h('span', { class: 'hint' }, '  Fixed partner, King’s Court')], '', function () { openSeries(id); }, { 'data-open': id }),
+            btn('Flyer', 'small', function () { state.ui.modal = { type: 'look', id: id }; render(); }, { 'data-look': id }),
             btn('Rename', 'small', function () { state.ui.modal = { type: 'renameSeries', id: id, name: state.series[id].name }; state.ui.focus = 'seriesName'; render(); }, { 'data-rename': id })
           ]);
         }))
@@ -664,6 +723,38 @@
             oninput: function (e) { m.p2 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') saveName(); } })
         ]),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Save names', 'primary', saveName, { id: 'saveNames' })])];
+    } else if (m.type === 'look') {
+      var lk = (state.series[m.id] || {}).look || {}, busy = state.ui.lookBusy, has = !!(lk.wide || lk.tall);
+      var setLook = function (patch) { var next = lookOf(m.id); Object.keys(patch).forEach(function (k) { next[k] = patch[k]; }); saveLook(m.id, next); };
+      var slot = function (kind, title, text, thumb) {
+        var on = !!lk[kind];
+        return h('div', { class: 'flyslot', 'data-slot': kind }, [
+          h('div', { class: 'pic ' + kind }, thumb ? h('img', { src: thumb, alt: '' }) : h('span', null, kind === 'wide' ? 'Wide' : 'Tall')),
+          h('div', { class: 'txt' }, [h('b', null, title), h('p', { class: 'hint', style: 'margin:2px 0 8px' }, text),
+            h('div', { class: 'row' }, [
+              h('label', { class: 'btn small flypick' + (busy ? ' off' : ''), for: 'flyer-' + kind }, on ? 'Replace' : 'Choose photo'),
+              h('input', { type: 'file', id: 'flyer-' + kind, accept: 'image/*', hidden: true, disabled: !!busy,
+                onchange: function (e) { var f = e.target.files && e.target.files[0]; e.target.value = ''; addFlyer(m.id, kind, f); } }),
+              on ? btn('Remove', 'small danger', function () { removeFlyer(m.id, kind); }, { disabled: !!busy, 'data-remove': kind }) : null
+            ])])
+        ]);
+      };
+      var bar = h('div', { class: 'lookbar', id: 'lookbar' }, [h('img', { src: 'logo-p.png', alt: '' }),
+        h('div', { class: 'c' }, [h('b', null, state.series[m.id].name), h('span', null, 'Fixed partner, King’s Court')]),
+        h('img', { class: 'w', src: 'conquer-wordmark-white.png', alt: '' })]);
+      L.paint(bar, has || lk.pattern ? lk : null);
+      body = [h('h3', null, 'Flyer and look'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'For ' + state.series[m.id].name + '. The TV shows the wide flyer between rounds, phones show the flyer for a few seconds when players scan the QR code, and the TV’s top banner takes its colours from it.'),
+        slot('wide', 'Wide flyer (landscape)', 'For the TV. Its colours are used for the banner.', lk.thumbW),
+        slot('tall', 'Tall flyer (portrait), optional', 'For players’ phones. Without it, phones show the wide flyer.', lk.thumbT),
+        h('div', null, [h('b', null, 'TV banner'), h('p', { class: 'hint', style: 'margin:2px 0 8px' }, has ? 'The colours come from the flyer. Pick the pattern you like.' : 'Add a flyer first: the banner takes its colours from it.')]),
+        bar,
+        has ? h('div', { class: 'patchips' }, L.PATTERNS.map(function (p) {
+          return h('button', { type: 'button', class: 'chip' + ((lk.pattern || 'confetti') === p.id ? ' on' : ''), 'data-pattern': p.id, disabled: !!busy, onclick: function () { setLook({ pattern: p.id }); } }, p.name);
+        })) : null,
+        has && L.candidates(lk).length > 1 ? h('div', { class: 'row' }, [btn('Try other colours', 'small', function () { setLook({ variant: ((Number(lk.variant) || 0) + 1) % L.candidates(lk).length }); }, { disabled: !!busy, id: 'otherColours' }),
+          h('span', { class: 'hint', style: 'margin:0' }, 'Steps through the flyer’s main colours.')]) : null,
+        h('div', { class: 'row end' }, [busy ? h('span', { class: 'hint', style: 'margin:0 auto 0 0' }, busy) : null, btn('Done', 'primary', closeModal, { id: 'lookDone' })])];
     } else if (m.type === 'renameSeries') {
       var saveSeries = function () {
         var nm = m.name.replace(/\s+/g, ' ').trim();

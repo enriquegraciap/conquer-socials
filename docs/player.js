@@ -40,13 +40,47 @@
       if (!st.seriesId || !st.series[st.seriesId]) st.seriesId = ids.length === 1 ? ids[0] : null;
       if (st.seriesId) st.seriesName = st.series[st.seriesId].name || '';
       if (!st.seriesId) { st.loaded = true; return render(); }
+      splash();
       poll();
       setInterval(poll, 3000);
     }).catch(function () { st.loaded = true; st.failed = true; render(); setTimeout(function () { location.reload(); }, 8000); });
   }
   function pickEvent(id) {
     st.seriesId = id; st.seriesName = st.series[id].name || ''; st.loaded = false;
+    splash();
     render(); poll(); setInterval(poll, 3000);
+  }
+  // The social's flyer fills the phone for a few seconds when the page is opened (after scanning the TV's QR code),
+  // then gives way to the Player / Admin choice. A tap skips it. Once per visit, not on every reload.
+  var SPLASH_MS = 3200;
+  function splash() {
+    var id = st.seriesId, look = (st.series[id] || {}).look;
+    if (!look || !look.rev || !(look.wide || look.tall)) return;
+    var key = 'socials.splash.' + id + '.' + look.rev;
+    try { if (window.sessionStorage.getItem(key)) return; window.sessionStorage.setItem(key, '1'); } catch (e) { /* private mode: shown each time */ }
+    var img = h('img', { alt: st.seriesName + ' flyer' });
+    var el = h('div', { class: 'pl-splash', id: 'splash', role: 'img', 'aria-label': st.seriesName + ' flyer' }, [h('div', { class: 'wait' }, st.seriesName), img, h('span', { class: 'skip' }, 'Tap to continue')]);
+    var timer = null, gone = false;
+    var close = function () {
+      if (gone) return;
+      gone = true; clearTimeout(timer);
+      el.classList.add('out');
+      setTimeout(function () { el.remove(); }, 480);
+    };
+    try { el.style.backgroundColor = window.Look.colours(look).base; } catch (e) { /* default colour */ }
+    el.addEventListener('click', close);
+    document.body.appendChild(el);
+    timer = setTimeout(close, 4500);                                    // a slow connection never holds anyone up
+    S.get('pub/eventflyers/' + id + '/phone').then(function (data) {
+      if (gone || typeof data !== 'string' || !/^data:image\//.test(data)) return close();
+      img.onload = function () {
+        if (gone) return;
+        el.classList.add('ready');
+        clearTimeout(timer); timer = setTimeout(close, SPLASH_MS);
+      };
+      img.onerror = close;
+      img.src = data;
+    }).catch(close);
   }
   function poll() {
     if (st.busy || document.hidden || !st.seriesId) return;

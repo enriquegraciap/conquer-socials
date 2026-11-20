@@ -55,6 +55,11 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   assert.equal((await tv.textContent('.tvsit .names')).split('\u00b7').length, 4);
   assert.match(await tv.textContent('.tvcourt.king .cn'), /King.s Court\s*7/);
   assert.match(await tv.textContent('.tvhead .event'), /Sets to 6/);
+  assert.equal(await tv.textContent('#bartitle'), 'Lehi Date Night', 'event name is in the top banner');
+  assert.ok(await tv.evaluate(() => { const i = document.querySelector('.tvbar-l img'); return !i.hidden && i.naturalWidth > 0; }), 'P symbol is showing top left');
+  assert.match(await tv.textContent('#date'), /^(Sun|Mon|Tues|Wednes|Thurs|Fri|Satur)day, [A-Z][a-z]+ \d{1,2}, \d{4}$/, 'date is showing');
+  const dateBox = await tv.locator('#date').boundingBox();
+  assert.ok(dateBox.x + dateBox.width <= 1920 && dateBox.y + dateBox.height <= 1080 && dateBox.y > 1000, 'date sits at the bottom of the screen');
   assert.equal(await tv.locator('#fs').isVisible(), true, 'Full screen button is showing');
   await tv.waitForTimeout(9000);
   assert.equal(await tv.evaluate(() => getComputedStyle(document.getElementById('fs')).opacity), '1', 'and it has not faded after 9 seconds');

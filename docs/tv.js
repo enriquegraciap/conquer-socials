@@ -99,6 +99,9 @@
     barTitle();
     return h('div', 'tvhead', [h('div', 'round' + (flash ? ' flash' : ''), title), h('div', 'event', sets), clockEl()]);
   }
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function dateText() { var d = new Date(); return DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); }
+  function showDate() { var el = document.getElementById('date'); if (el) el.textContent = dateText(); }
   function barTitle() { var b = document.getElementById('bartitle'); if (b) b.textContent = st.seriesName || ''; }
   function clockEl() { var c = h('div', 'clock', clockText()); c.id = 'clock'; return c; }
   function clockText() {
@@ -217,7 +220,8 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
   window.addEventListener('resize', fit);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
-  setInterval(function () { var c = document.getElementById('clock'); if (c) c.textContent = clockText(); status(); }, 5000);
+  setInterval(function () { var c = document.getElementById('clock'); if (c) c.textContent = clockText(); showDate(); status(); }, 5000);
+  showDate();
 
   window.Awake.start();      // screen stays on for as long as this page is open
   fullChanged();

@@ -1,0 +1,30 @@
+14 teams, courts 3, 4, 5, 6, 7 (court 7 = King's Court), 8 rounds, sets to 4
+Each cell: court number + W (won) or L (lost).  --- = sitting out.  Team 05 is set to win every match.
+
+Team     R1    R2    R3    R4    R5    R6    R7    R8    Sat out  Played  Points
+Team 01  6L    5L    ---   5L    4L    3L    ---   3L    2        6       6
+Team 02  3L    3W    ---   4W    5L    ---   5W    6W    2        6       20
+Team 03  ---   5W    6W    ---   6W    6L    4L    ---   3        5       16
+Team 04  5W    ---   6L    4L    ---   4W    4W    5W    2        6       20
+Team 05  ---   7W    7W    ---   7W    7W    7W    ---   3        5       20
+Team 06  ---   4W    5L    3L    3L    ---   3L    3W    2        6       13
+Team 07  3W    ---   4W    5W    ---   6W    6L    ---   3        5       16
+Team 08  6W    7L    ---   7W    7L    ---   7L    7L    2        6       12
+Team 09  7L    6W    ---   7L    6L    ---   6W    7W    2        6       17
+Team 10  4W    ---   5W    6W    ---   7L    5L    ---   3        5       15
+Team 11  4L    3L    3L    ---   3W    3W    ---   4W    2        6       14
+Team 12  5L    4L    3W    ---   4W    5W    ---   6L    2        6       15
+Team 13  7W    ---   7L    6L    5W    5L    ---   5L    2        6       14
+Team 14  ---   6L    4L    3W    ---   4L    3W    4L    2        6       12
+
+Sitting out each round:
+  R1: Team 05, Team 14, Team 03, Team 06
+  R2: Team 04, Team 07, Team 10, Team 13
+  R3: Team 01, Team 02, Team 08, Team 09
+  R4: Team 03, Team 05, Team 11, Team 12
+  R5: Team 04, Team 07, Team 10, Team 14
+  R6: Team 02, Team 06, Team 08, Team 09
+  R7: Team 01, Team 11, Team 12, Team 13
+  R8: Team 03, Team 05, Team 07, Team 10
+
+Sit-out spread: 10 teams sat 2 times, 4 teams sat 3 times

@@ -3,7 +3,7 @@
   'use strict';
   var E = window.Engine, S = window.Store;
   var root = document.getElementById('app');
-  var MAX_COURT = 14, MAX_SCORE = 7;
+  var MAX_COURT = 14;
 
   var state = {
     phase: 'boot',            // boot | nodb | error | series | night
@@ -112,7 +112,7 @@
     var meta = state.series[state.seriesId] || {};
     state.session = E.newSession({
       seriesId: state.seriesId, seriesName: meta.name || '', format: meta.format, scoring: meta.scoring,
-      courts: prev ? prev.courts : (meta.courts || []), round1: prev ? prev.round1 : 'random'
+      courts: prev ? prev.courts : (meta.courts || []), round1: prev ? prev.round1 : 'random', setTo: prev ? prev.setTo : 4
     });
     state.remote = null; state.remoteResults = null;
     touch();
@@ -259,6 +259,12 @@
             ]),
             h('p', { class: 'hint' }, s.round1 === 'seeded' ? 'Seeded: the team list order is the seeding. Teams 1 and 2 start on King’s Court. Use the arrows to reorder.' : 'Random: teams are drawn onto courts at random.')
           ])),
+        h('div', { class: 'a-sets' },
+          h('div', { class: 'panel' }, [
+            h('h2', null, ['Sets', h('small', null, 'played to')]),
+            setsControl(s),
+            h('p', { class: 'hint' }, 'Every game won is a point, so a set to ' + s.setTo + ' is worth up to ' + s.setTo + ' points.')
+          ])),
         h('div', { class: 'a-start' },
           h('div', { class: 'panel startbar' }, [
             h('p', { class: 'sitlist' }, summary),
@@ -269,6 +275,14 @@
           ]))
       ])
     ]);
+  }
+
+  function setsControl(s) {
+    var opt = function (n) {
+      return h('button', { type: 'button', class: s.setTo === n ? 'on' : '', 'data-sets': n, 'aria-pressed': s.setTo === n ? 'true' : 'false',
+        onclick: function () { commit(function (x) { x.setTo = n; }); } }, n + ' games');
+    };
+    return h('div', { class: 'seg' }, [opt(4), opt(6)]);
   }
 
   function courtsPanel(s) {
@@ -395,6 +409,7 @@
             cur && cur.sitting.length ? h('p', { class: 'sitlist' }, [h('b', null, 'Sitting out: '), cur.sitting.map(teamNameOf).join(', ')]) : null,
             waiting.length ? h('p', { class: 'sitlist' }, [h('b', null, 'Joining next round: '), waiting.map(function (t) { return t.name; }).join(', ')]) : null,
             h('div', { class: 'row end', style: 'margin-top:8px' }, [
+              h('span', { class: 'hint', style: 'margin:0' }, 'Sets to'), setsControl(s), h('span', { style: 'flex:1' }),
               cur && !E.roundHasScores(cur) ? btn('Re-draw this round', 'small', function () {
                 state.ui.modal = { type: 'confirm', title: 'Re-draw round ' + cur.n + '?', text: cur.n === 1 ? 'Makes a new draw for round 1.' : 'Chooses again who sits out and where teams play, following the same rules. Use it after adding or removing a team.', ok: 'Re-draw', onOk: function () { commit(function (x) { E.redrawRound(x); }); render(); } };
                 render();
@@ -503,7 +518,7 @@
       var pick = function (side, v) { m[side] = v; if (m.sa !== m.sb) m.w = null; render(); };
       var digits = function (side) {
         var out = [];
-        for (var v = 0; v <= MAX_SCORE; v++) (function (v) {
+        for (var v = 0; v <= (s.setTo || 4); v++) (function (v) {
           out.push(h('button', { type: 'button', class: m[side] === v ? 'on' : '', 'data-side': side, 'data-v': v, 'aria-pressed': m[side] === v ? 'true' : 'false', onclick: function () { pick(side, v); } }, String(v)));
         })(v);
         return out;
@@ -522,6 +537,7 @@
       };
       body = [
         h('h3', null, 'Round ' + m.n + ' · Court ' + c.court + (c.level === s.courts.length - 1 ? ' · King’s Court' : '')),
+        h('p', { class: 'hint', style: 'margin:-8px 0 0' }, 'Sets to ' + (s.setTo || 4) + ' games. A point for every game won.'),
         h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, teamNameOf(c.a)), h('div', { class: 'digits' }, digits('sa'))]),
         h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, teamNameOf(c.b)), h('div', { class: 'digits' }, digits('sb'))]),
         level ? h('div', { class: 'notice' }, [h('div', { style: 'margin-bottom:8px;font-weight:600' }, 'Level on games. Which team moves up?'), h('div', { class: 'row' }, [
@@ -542,5 +558,6 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden) { watch(); flush(); } });
   window.addEventListener('online', flush);
   window.addEventListener('beforeunload', function (e) { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
+  window.Awake.start();      // the iPad screen stays on while this page is open
   boot();
 })();

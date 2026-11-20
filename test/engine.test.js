@@ -255,6 +255,21 @@ test('level scores need a chosen winner', () => {
   assert.equal(st[s.rounds[0].courts[0].a].points, 3);
 });
 
+test('sets are played to 4 or to 6 games: scores above the set length are refused, never 7', () => {
+  const s = makeNight({ teams: 4, courts: [1, 2], seed: 1 });
+  assert.equal(s.setTo, 4, 'sets to 4 by default');
+  E.startNight(s);
+  assert.equal(E.setScore(s, 1, 0, 5, 3).ok, false, '5 is not possible in a set to 4');
+  assert.equal(s.rounds[0].courts[0].w, null, 'a refused score changes nothing');
+  assert.equal(E.setScore(s, 1, 0, 4, 3).ok, true);
+  s.setTo = 6;
+  assert.equal(E.setScore(s, 1, 1, 6, 4).ok, true, '6-4 is fine in a set to 6');
+  assert.equal(E.teamStats(s)[s.rounds[0].courts[1].a].points, 6);
+  assert.equal(E.setScore(s, 2, 0, 7, 5).ok, false, '7 is never possible');
+  assert.equal(E.normalize({ setTo: 9, teams: {}, rounds: [] }).setTo, 4, 'anything other than 6 means 4');
+  assert.equal(E.newSession({ setTo: 6 }).setTo, 6);
+});
+
 test('ending the night drops an unplayed round; monthly table sums the nights of the month', () => {
   const nights = {};
   ['2026-11-06', '2026-11-13', '2026-11-20'].forEach((date, i) => {

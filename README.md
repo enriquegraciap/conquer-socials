@@ -28,6 +28,8 @@ On a TV open the address in the TV's browser and press **Full screen**.
 - A team coming back from a sit-out returns to the court it left, or one higher if it won its last match.
 - When a returning team takes a place that two other teams also earned, a team that just lost gives way
   (it may drop two courts, or stay put). A team that just won is never moved down.
+- Sets are played to 4 games or to 6 games (chosen per night, changeable mid-night). Scores above the set
+  length cannot be entered.
 - Scoring: every game won is a point (lose 2–4 = 2 points). Points belong to the couple.
 
 The rules live in `docs/engine.js` (see `RULES` at the top and `placeCost`). `scoring: 'player'` is already
@@ -41,6 +43,7 @@ supported for future formats where points belong to each player.
 | `docs/tv/index.html`, `docs/tv.js` | TV display page |
 | `docs/engine.js` | rotation, sit-outs, scoring, leaderboards (no browser code; shared with the tests) |
 | `docs/store.js` | reads and writes the Firebase Realtime Database |
+| `docs/awake.js` | keeps the iPad and TV screens on while the page is open |
 | `docs/config.js` | the database address |
 | `database.rules.json` | database rules: anyone can read, only a device with the admin key can write |
 | `test/` | `npm test` (rotation and scoring), `npm run simulate` (prints a night), `npm run e2e` (browser test) |

@@ -93,7 +93,8 @@
     fit();
   }
   function head(title, flash) {
-    return h('div', 'tvhead', [h('div', 'round' + (flash ? ' flash' : ''), title), h('div', 'event', st.seriesName), clockEl()]);
+    var s = st.session, sets = s && !s.discarded && s.status !== 'ended' ? '  \u00b7  Sets to ' + (s.setTo || 4) : '';
+    return h('div', 'tvhead', [h('div', 'round' + (flash ? ' flash' : ''), title), h('div', 'event', st.seriesName + sets), clockEl()]);
   }
   function clockEl() { var c = h('div', 'clock', clockText()); c.id = 'clock'; return c; }
   function clockText() {
@@ -186,6 +187,7 @@
   }
 
   // ---------------------------------------------------------------- full screen, keep-awake, clock
+  var canFull = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
   function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
   function toggleFull() {
     var el = document.documentElement;
@@ -197,28 +199,23 @@
       }
     } catch (e) { /* not supported in this browser */ }
   }
-  function fullChanged() { fsBtn.hidden = isFull(); setTimeout(fit, 150); }
+  // The button stays visible (it never fades) until the page is in full screen. While it is showing, the
+  // layout leaves a strip free at the bottom so the button never covers the leaderboard.
+  function fullChanged() {
+    fsBtn.hidden = isFull() || !canFull;
+    document.body.classList.toggle('hasbtn', !fsBtn.hidden);
+    setTimeout(fit, 150);
+  }
   fsBtn.addEventListener('click', toggleFull);
   document.addEventListener('fullscreenchange', fullChanged);
   document.addEventListener('webkitfullscreenchange', fullChanged);
   document.addEventListener('keydown', function (e) { if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) toggleFull(); });
-  if (!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)) fsBtn.hidden = true;
-  // The button fades out when nobody is touching the remote or mouse, so it never covers the leaderboard.
-  var idleTimer = null;
-  function awake() { fsBtn.classList.remove('idle'); clearTimeout(idleTimer); idleTimer = setTimeout(function () { fsBtn.classList.add('idle'); }, 8000); }
-  ['mousemove', 'keydown', 'touchstart', 'click'].forEach(function (ev) { document.addEventListener(ev, awake); });
-  awake();
-
-  var lock = null;
-  function keepAwake() {
-    if (!navigator.wakeLock || document.hidden) return;
-    navigator.wakeLock.request('screen').then(function (l) { lock = l; }).catch(function () { /* the TV's own sleep setting applies */ });
-  }
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) { keepAwake(); poll(); } });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
   window.addEventListener('resize', fit);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
   setInterval(function () { var c = document.getElementById('clock'); if (c) c.textContent = clockText(); status(); }, 5000);
 
-  keepAwake();
+  window.Awake.start();      // screen stays on for as long as this page is open
+  fullChanged();
   start();
 })();

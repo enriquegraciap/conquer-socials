@@ -32,6 +32,8 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   // 2. setup: courts bottom to top, 14 teams
   for (const c of [3, 4, 5, 6, 7]) await admin.click(`.chip[data-court="${c}"]`);
   assert.match(await admin.textContent('.ladder'), /3 → 4 → 5 → 6 → 7 King/);
+  assert.equal(await admin.getAttribute('.a-sets [data-sets="4"]', 'aria-pressed'), 'true', 'sets to 4 by default');
+  await admin.click('.a-sets [data-sets="6"]');   // tonight: sets to 6 games
   for (const [a, b] of names) { await admin.fill('#p1', a); await admin.fill('#p2', b); await admin.click('#addTeam'); }
   assert.equal(await admin.locator('.teamlist li').count(), 14);
   await admin.waitForSelector('text=14 teams on 5 courts: 10 play, 4 sit out each round.');
@@ -52,6 +54,12 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   assert.equal(await tv.locator('.tvcourt').count(), 5);
   assert.equal((await tv.textContent('.tvsit .names')).split('\u00b7').length, 4);
   assert.match(await tv.textContent('.tvcourt.king .cn'), /King.s Court\s*7/);
+  assert.match(await tv.textContent('.tvhead .event'), /Sets to 6/);
+  assert.equal(await tv.locator('#fs').isVisible(), true, 'Full screen button is showing');
+  await tv.waitForTimeout(9000);
+  assert.equal(await tv.evaluate(() => getComputedStyle(document.getElementById('fs')).opacity), '1', 'and it has not faded after 9 seconds');
+  const btnBox = await tv.locator('#fs').boundingBox(), boardBox = await tv.locator('.tvboard >> nth=1').boundingBox();
+  assert.ok(boardBox.y + boardBox.height <= btnBox.y, 'the button does not cover the leaderboard');
   await tv.screenshot({ path: SHOTS + 'tv-round1.png' });
 
   // 5. enter a round of scores; the next round appears by itself
@@ -63,7 +71,11 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
       const aWins = (n + i) % 2 === 0, lose = (n * 3 + i) % 4;
       await admin.click(`.digits button[data-side="sa"][data-v="${aWins ? 4 : lose}"]`);
       await admin.click(`.digits button[data-side="sb"][data-v="${aWins ? lose : 4}"]`);
-      if (shots && i === 0) await admin.screenshot({ path: SHOTS + 'ipad-score.png' });
+      if (shots && i === 0) {
+        const labels = await admin.locator('.digits button[data-side="sa"]').allTextContents();
+        assert.deepEqual(labels, ['0', '1', '2', '3', '4', '5', '6'], 'score buttons run 0 to 6 for sets to 6, never 7');
+        await admin.screenshot({ path: SHOTS + 'ipad-score.png' });
+      }
       await admin.click('#saveScore');
       if (shots && i === 1) { await tv.waitForSelector('.mid.score'); await tv.screenshot({ path: SHOTS + 'tv-midround.png' }); await admin.screenshot({ path: SHOTS + 'ipad-live.png' }); }
     }
@@ -157,11 +169,20 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   assert.equal(Object.keys(d2.db.pub.results['lehi-date-night'][month]).length, 1);
   step('discarded night no longer counts');
 
-  // 13. phone-width check of the admin page (no sideways scroll)
+  // 13. a night set to 4 games offers 0 to 4 only
+  await admin.click('.a-sets [data-sets="4"]');
+  for (let i = 0; i < 2; i++) await admin.locator('.regulars button').first().click();
+  await admin.click('#startNight');
+  await admin.locator('.courtcard.todo').first().click();
+  assert.deepEqual(await admin.locator('.digits button[data-side="sb"]').allTextContents(), ['0', '1', '2', '3', '4']);
+  await admin.click('text=Cancel');
+  step('score buttons: 0-6 for sets to 6, 0-4 for sets to 4');
+
+  // 14. phone-width check of the admin page (no sideways scroll)
   const phone = await browser.newContext({ viewport: { width: 400, height: 800 }, hasTouch: true });
   const pp = await phone.newPage();
   await pp.goto(BASE + '/?db=' + DB + '#k=test-key');
-  await pp.waitForSelector('text=Courts');
+  await pp.waitForSelector('.roundhead .big');
   const overflow = await pp.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(overflow <= 0, 'no sideways scroll at phone width (overflow ' + overflow + 'px)');
 

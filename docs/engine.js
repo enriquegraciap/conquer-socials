@@ -83,6 +83,7 @@
       status: 'setup',                           // setup -> live -> ended
       courts: (opts.courts || []).slice(),       // bottom -> top; the last one is King's Court
       round1: opts.round1 || 'random',           // 'random' or 'seeded' (seeded = team list order)
+      setTo: opts.setTo === 6 ? 6 : 4,           // sets are played to 4 games or to 6 games
       seed: opts.seed || Math.floor(Math.random() * 1e9),
       teams: {},
       rounds: []
@@ -100,6 +101,7 @@
     s.format = s.format || 'kings-fixed';
     s.scoring = s.scoring || 'team';
     s.round1 = s.round1 || 'random';
+    s.setTo = Number(s.setTo) === 6 ? 6 : 4;
     s.courts = toArray(s.courts);
     s.teams = s.teams && typeof s.teams === 'object' ? s.teams : {};
     Object.keys(s.teams).forEach(function (id) {
@@ -481,6 +483,8 @@
     if (sa === null || sb === null || sa === undefined || sb === undefined) { c.sa = null; c.sb = null; c.w = null; }
     else {
       sa = Number(sa); sb = Number(sb);
+      var max = session.setTo === 6 ? 6 : 4;
+      if (!(sa >= 0 && sb >= 0) || sa > max || sb > max) return { ok: false, error: 'Scores go from 0 to ' + max + ' (sets to ' + max + ' games)' };
       var w = sa > sb ? 'a' : sb > sa ? 'b' : (winner === 'a' || winner === 'b' ? winner : null);
       if (!w) return { ok: false, error: 'Level score: choose which team moves up' };
       c.sa = sa; c.sb = sb; c.w = w;

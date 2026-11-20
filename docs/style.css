@@ -241,6 +241,12 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .podium div { display: grid; grid-template-columns: 9vw minmax(0, 1fr) auto; align-items: center; gap: 1.4vw; background: var(--court); border-radius: 1vh; padding: 1.4vh 1.6vw; font-family: var(--display); font-size: 6vh; font-weight: 600; }
 .podium div:first-child { background: var(--gold); color: var(--ink); font-size: 8vh; }
 .podium .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the winner's crown: hidden beside the name while its double dances around the screen, then it pops back in */
+.tvcourt .tm .crown { display: inline-block; }
+.tvcourt .tm .crown.away { visibility: hidden; }
+.tvcourt .tm .crown.landed { animation: crownland .5s ease-out; }
+@keyframes crownland { 0% { transform: scale(1.9) rotate(-14deg); } 55% { transform: scale(.82) rotate(6deg); } 100% { transform: none; } }
+.crownfly { position: fixed; left: 0; top: 0; z-index: 8; pointer-events: none; line-height: 1; will-change: transform; filter: drop-shadow(0 .6vh 1vh rgba(0,0,0,.45)); }
 .tvfx { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 7; }   /* fireworks are drawn here, above the scoreboard */
 .fsbtn { position: fixed; right: 1.2vw; bottom: 1.6vh; z-index: 9; border: .2vh solid rgba(255,255,255,.6); background: rgba(7,26,48,.85); color: #fff; border-radius: 1vh;
   font-family: var(--display); font-size: 2.6vh; letter-spacing: .1em; text-transform: uppercase; padding: 1vh 1.2vw; }

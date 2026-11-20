@@ -19,7 +19,7 @@
 
   var st = { id: tvId(), mode: 'boot', series: {}, seriesId: null, seriesName: '', rev: null, ping: 0, session: null, pending: {},
     month: null, monthKey: null, busy: false, lastOk: 0, lastRound: 0, shown: false, ticks: 0, pendingSince: 0, pairShown: '',
-    seenKey: '', seen: {}, cheer: [] };
+    seenKey: '', seen: {}, cheer: [], fly: {} };
 
   function h(tag, cls, kids) {
     var el = document.createElement(tag);
@@ -185,15 +185,17 @@
     if (!s || s.status !== 'live') st.pendingSince = 0;
     root.replaceChildren(h('div', 'tvroot', [left, rightSide(s)]));
     fit();
-    // a score has just come in: fireworks around the winning team's name
+    // a score has just come in: fireworks around the winning team's name, and the crown dances its way onto it
     var cheer = st.cheer; st.cheer = [];
-    cheer.forEach(function (c) {
+    cheer.forEach(function (c, n) {
       var el = document.querySelectorAll('.tvcourt')[c.idx];
       el = el && el.querySelector(c.side === 'a' ? '.tm.a' : '.tm.b');
       if (!el) return;
       var range = document.createRange(); range.selectNodeContents(el);
       var box = range.getBoundingClientRect();
-      if (box.width) fireworks(box.left + box.width / 2, box.top + box.height / 2, box.width);
+      if (!box.width) return;
+      fireworks(box.left + box.width / 2, box.top + box.height / 2, box.width);
+      crownDance(c.idx, c.side, n);
     });
   }
   function head(title, flash) {
@@ -233,6 +235,9 @@
     var sent = {};
     E.pendingPlayerScores(s, r.n, st.pending).forEach(function (p) { sent[p.idx] = p; });
     var anySent = false;
+    var roundKey = s.id + ':' + r.n;
+    // the crown sits in its own little box so it can be hidden while its double dances around the screen
+    var crown = function (i) { return h('span', 'crown' + (st.fly[roundKey + ':' + i] ? ' away' : ''), CROWN); };
     var courts = r.courts.map(function (c, i) {
       var done = !!c.w && !c.void, p = !done && !c.void ? sent[i] : null;
       if (p) anySent = true;
@@ -241,16 +246,16 @@
       // green behind the names once the score is in, so it is easy to see which courts are still missing
       return h('div', 'tvcourt' + (c.level === top ? ' king' : '') + (has ? ' done' : ''), [
         h('div', 'cn', [h('span', null, c.level === top ? 'King’s Court' : 'Court'), h('b', null, String(c.court))]),
-        h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), name(c.a) + (has && w === 'a' ? '\u00a0' + CROWN : '')),
+        h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), [name(c.a), has && w === 'a' ? ['\u00a0', crown(i)] : null]),
         c.void ? h('div', 'mid', 'no match') : has ? h('div', 'mid score', sa + ' – ' + sb) : h('div', 'mid', 'vs'),
-        h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), (has && w === 'b' ? CROWN + '\u00a0' : '') + name(c.b))
+        h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), [has && w === 'b' ? [crown(i), '\u00a0'] : null, name(c.b)])
       ]);
     });
     st.pendingSince = anySent ? (st.pendingSince || Date.now()) : 0;
     // Which courts got their score since the last look? Nothing is celebrated on the first look at a round,
     // so reloading the page or joining mid-round does not set off every court at once.
-    var roundKey = s.id + ':' + r.n, first = st.seenKey !== roundKey;
-    if (first) { st.seenKey = roundKey; st.seen = {}; }
+    var first = st.seenKey !== roundKey;
+    if (first) { st.seenKey = roundKey; st.seen = {}; st.fly = {}; }
     r.courts.forEach(function (c, i) {
       var done = !!c.w && !c.void, p = !done && !c.void ? sent[i] : null, w = done ? c.w : p ? p.w : null;
       if (w && !st.seen[i] && !first) st.cheer.push({ idx: i, side: w });
@@ -325,7 +330,8 @@
   }
 
   // ---------------------------------------------------------------- fireworks
-  // A quick burst around a name: a flash, two rings of sparks flying out, then they fall and fade. About 1.6 seconds.
+  // A short show around a name: bursts one after another for about 3.2 seconds, each a flash and a ring of sparks
+  // that fly out, fall and fade.
   var fx = document.getElementById('fx'), fxCtx = fx && fx.getContext ? fx.getContext('2d') : null;
   var sparks = [], flashes = [], fxOn = false, fxLast = 0;
   var FX_COLORS = ['#ffd54a', '#ffffff', '#f4b63f', '#ff7a59', '#7fe3ff', '#ff5fa2', '#b6ff6a'];
@@ -334,19 +340,26 @@
   function fireworks(x, y, width) {
     if (!fxCtx || calm) return;
     if (fx.width !== window.innerWidth || fx.height !== window.innerHeight) fxSize();
-    var vh = window.innerHeight / 100, now = performance.now();
-    var boom = function (cx, cy, count, power, delay) {
-      flashes.push({ x: cx, y: cy, t0: now + delay, life: 260, r: power * 0.2 });
-      for (var i = 0; i < count; i++) {
-        var a = Math.random() * Math.PI * 2, sp = power * (0.35 + Math.random() * 0.65);
-        sparks.push({ x: cx, y: cy, px: cx, py: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - power * 0.12, t0: now + delay,
-          life: 900 + Math.random() * 700, size: vh * (0.4 + Math.random() * 0.55), color: FX_COLORS[Math.floor(Math.random() * FX_COLORS.length)] });
-      }
-    };
+    var vh = window.innerHeight / 100;
     var spread = Math.max(width * 0.3, 6 * vh);
-    boom(x, y, 90, 52 * vh, 0);                                          // the big one, right on the name
-    boom(x - spread, y - 2 * vh, 40, 34 * vh, 160);                      // two smaller ones either side, a beat later
-    boom(x + spread, y + 1 * vh, 40, 34 * vh, 300);
+    boom(x, y, 80, 52 * vh, 0);                                          // the big one, right on the name
+    boom(x - spread, y - 2 * vh, 36, 34 * vh, 160);                      // two smaller ones either side, a beat later
+    boom(x + spread, y + 1 * vh, 36, 34 * vh, 300);
+    boom(x + spread * 0.4, y - 5 * vh, 50, 44 * vh, 750);                // a second wave, a little higher and wider
+    boom(x - spread * 1.5, y + 2 * vh, 36, 34 * vh, 1050);
+    boom(x + spread * 1.5, y - 1 * vh, 36, 34 * vh, 1300);
+    boom(x, y, 70, 50 * vh, 1650);                                       // and a last big one back on the name
+  }
+  function boom(cx, cy, count, power, delay) {
+    if (!fxCtx || calm) return;
+    if (fx.width !== window.innerWidth || fx.height !== window.innerHeight) fxSize();
+    var vh = window.innerHeight / 100, now = performance.now();
+    flashes.push({ x: cx, y: cy, t0: now + delay, life: 260, r: power * 0.2 });
+    for (var i = 0; i < count; i++) {
+      var a = Math.random() * Math.PI * 2, sp = power * (0.35 + Math.random() * 0.65);
+      sparks.push({ x: cx, y: cy, px: cx, py: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - power * 0.12, t0: now + delay,
+        life: 900 + Math.random() * 650, size: vh * (0.4 + Math.random() * 0.55), color: FX_COLORS[Math.floor(Math.random() * FX_COLORS.length)] });
+    }
     if (!fxOn) { fxOn = true; fxLast = now; requestAnimationFrame(fxFrame); }
   }
   function fxFrame(now) {
@@ -381,6 +394,78 @@
   }
   window.addEventListener('resize', fxSize);
   fxSize();
+
+  // ---------------------------------------------------------------- the dancing crown
+  // When a score comes in, the winner's crown does a happy lap of the screen before it settles: it hops up from
+  // the name, swings off the top edge, across the leaderboards, off the bottom edge, and drops back onto the name.
+  // The real crown beside the name is hidden meanwhile (st.fly) and shown again, with a little pop, on landing.
+  var FLY_MS = 3600, flyers = [], flyOn = false;
+  function crownSpot(f) {
+    if (st.seenKey !== f.round) return null;                              // the next round is already on screen
+    var court = document.querySelectorAll('.tvcourt')[f.idx];
+    var el = court && court.querySelector('.tm.' + f.side + ' .crown');
+    var b = el && el.getBoundingClientRect();
+    return b && b.width ? { x: b.left + b.width / 2, y: b.top + b.height / 2, el: el } : null;
+  }
+  function crownDance(idx, side, n) {
+    if (calm) return;
+    var f = { idx: idx, side: side, round: st.seenKey, key: st.seenKey + ':' + idx, t0: performance.now() + n * 280, flip: n % 2 === 1 };
+    var spot = crownSpot(f);
+    if (!spot || st.fly[f.key]) return;
+    st.fly[f.key] = true;
+    spot.el.classList.add('away');
+    f.home = { x: spot.x, y: spot.y };
+    f.el = h('div', 'crownfly', CROWN);
+    f.el.style.fontSize = (parseFloat(getComputedStyle(spot.el).fontSize) || 40) + 'px';
+    f.jx = (Math.random() - 0.5) * 0.08; f.jy = (Math.random() - 0.5) * 0.08;   // no two laps quite the same
+    document.body.appendChild(f.el);
+    flyers.push(f);
+    placeCrown(f, f.t0);
+    if (!flyOn) { flyOn = true; requestAnimationFrame(flyFrame); }
+  }
+  // A smooth curve through the stops of the lap (Catmull-Rom), u from 0 to 1.
+  function along(pts, u) {
+    var n = pts.length - 1, x = Math.max(0, Math.min(1, u)) * n, i = Math.min(n - 1, Math.floor(x)), t = x - i;
+    var p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(n, i + 2)];
+    var c = function (a, b, d, e) { return 0.5 * (2 * b + (d - a) * t + (2 * a - 5 * b + 4 * d - e) * t * t + (3 * b - a - 3 * d + e) * t * t * t); };
+    return { x: c(p0.x, p1.x, p2.x, p3.x), y: c(p0.y, p1.y, p2.y, p3.y) };
+  }
+  function placeCrown(f, now) {
+    var W = window.innerWidth, H = window.innerHeight, t = Math.max(0, Math.min(1, (now - f.t0) / FLY_MS));
+    var spot = crownSpot(f);
+    if (spot) f.home = { x: spot.x, y: spot.y }; else if (f.lostAt === undefined) f.lostAt = t;
+    var T = f.home, X = function (v) { return (f.flip ? 0.94 - v : v) * W; };
+    var pts = [T,
+      { x: T.x + 0.07 * W, y: T.y - 0.20 * H },                           // a hop up off the name
+      { x: X(0.56 + f.jx), y: -0.09 * H },                                // out over the top edge
+      { x: X(0.88), y: (0.42 + f.jy) * H },                               // down across the leaderboards
+      { x: X(0.58 - f.jx), y: 1.09 * H },                                 // out under the bottom edge
+      { x: X(0.14), y: (0.58 - f.jy) * H },                               // back up the far side
+      { x: T.x - 0.05 * W, y: T.y - 0.24 * H },                           // above the name...
+      T];                                                                 // ...and down onto it
+    var ease = t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+    var p = along(pts, 0.45 * t + 0.55 * ease);
+    var swing = Math.min(1, t * 8, (1 - t) * 8);                          // the dance: starts and ends still
+    var beat = Math.sin(t * Math.PI * 2 * 7);
+    var turn = beat * 24 * swing, grow = 1 + 1.7 * Math.sin(Math.PI * t), bob = -Math.abs(beat) * 0.02 * H * swing;
+    f.el.style.transform = 'translate3d(' + p.x.toFixed(1) + 'px,' + (p.y + bob).toFixed(1) + 'px,0) translate(-50%,-50%) rotate(' + turn.toFixed(1) + 'deg) scale(' + grow.toFixed(3) + ')';
+    if (f.lostAt !== undefined) f.el.style.opacity = String(Math.max(0, 1 - (t - f.lostAt) / 0.12));   // its court has gone: fade away
+    return t >= 1;
+  }
+  function flyFrame(now) {
+    flyers = flyers.filter(function (f) {
+      if (!placeCrown(f, now)) return true;
+      f.el.remove();
+      delete st.fly[f.key];
+      var spot = crownSpot(f);
+      if (spot) {                                                         // landed: show the real crown again, with a pop and a few sparks
+        spot.el.classList.remove('away'); spot.el.classList.add('landed');
+        boom(spot.x, spot.y, 22, 20 * window.innerHeight / 100, 0);
+      }
+      return false;
+    });
+    if (flyers.length) requestAnimationFrame(flyFrame); else flyOn = false;
+  }
 
   // ---------------------------------------------------------------- full screen, keep-awake, clock
   var canFull = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);

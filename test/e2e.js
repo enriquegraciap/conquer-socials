@@ -115,15 +115,25 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   assert.ok(during > 50, 'fireworks are on screen right after the score comes in (' + during + ' lit points)');
   await tv.waitForTimeout(250);
   await tv.screenshot({ path: SHOTS + 'tv-fireworks.png' });
-  await tv.waitForTimeout(2100);
-  assert.equal(await lit(), 0, 'and they have faded away about two seconds later');
+  // meanwhile the winner's crown is off dancing around the screen; the one beside the name is hidden until it lands
+  assert.equal(await tv.locator('.crownfly').count(), 1, 'the crown is dancing');
+  assert.equal(await tv.locator('.tvcourt.done .tm.a .crown.away').count(), 1, 'and its place beside the name is kept free');
+  const lap = [];
+  for (let i = 0; i < 28; i++) { lap.push(await tv.evaluate(() => { const e = document.querySelector('.crownfly'); if (!e) return null; const b = e.getBoundingClientRect(); return (b.top + b.bottom) / 2 / innerHeight; })); await tv.waitForTimeout(100); }
+  const ys = lap.filter(v => v !== null);
+  assert.ok(Math.min(...ys) < 0 && Math.max(...ys) > 1, 'the crown swings off the top and the bottom of the screen (' + Math.min(...ys).toFixed(2) + ' to ' + Math.max(...ys).toFixed(2) + ')');
+  await tv.waitForTimeout(1900);
+  assert.equal(await lit(), 0, 'the fireworks have faded away a few seconds later');
+  assert.equal(await tv.locator('.crownfly').count(), 0, 'the crown has landed');
+  assert.equal(await tv.locator('.crown.away').count(), 0, 'and shows beside the winner again');
   assert.match(await tv.textContent('.tvcourt.done .mid'), /6 . 2/);
   assert.equal((await tv.textContent('.tvcourt.done .tm.a')).trim(), bottomTeam + '\u00a0\uD83D\uDC51', 'left side wins: the crown follows the name');
   assert.ok(!(await tv.textContent('.tvcourt.done .tm.b')).includes('\uD83D\uDC51'), 'and not the losing team\'s');
   const medals = await tv.locator('.tvboard >> nth=0 >> .tvrow .md').allTextContents();
   assert.deepEqual(medals.filter(Boolean), ['\uD83E\uDD47', '\uD83E\uDD48'], 'gold for the leader, silver for second; no medal for teams on zero');
   assert.ok(await tv.locator('.tvboard >> nth=0 >> .tvrow .md.gold').count() === 1);
-  await admin.waitForSelector('text=sent from a phone', { timeout: 8000 });
+  // (the organizer's "sent from a phone" note has come and gone while the crown danced; the court itself is the proof)
+  await admin.waitForFunction(() => document.querySelectorAll('.panel')[0].querySelectorAll('.courtcard.todo').length === 4, null, { timeout: 8000 });
   assert.equal(await admin.locator('.panel >> nth=0 >> .courtcard.todo').count(), 4, 'the organizer\'s page picked the score up');
   assert.equal(await player.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) <= 0, true, 'phone page has no sideways scroll');
   await player.screenshot({ path: SHOTS + 'phone-sent.png' });

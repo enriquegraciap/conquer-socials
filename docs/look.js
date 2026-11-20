@@ -194,6 +194,17 @@
     return { color: c.base, image: img, size: size, line: c.a1, colours: c };
   }
   function rgba(h, a) { var c = rgb(h); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+  // The whole TV screen in tones of the flyer's main colour (look.theme === 'flyer'): from a very dark shade for
+  // the background to a very pale one for the courts still to be played. Null when the social does not ask for it.
+  function theme(look) {
+    if (!look || look.theme !== 'flyer' || !candidates(look).length) return null;
+    var m = toHsl(rgb(colours(look).base)), hue = m[0], s = m[1] < 0.12 ? m[1] : Math.max(0.5, Math.min(0.82, m[1]));
+    var t = function (sat, l) { var c = fromHsl(hue, s * sat, l); return hex(c[0], c[1], c[2]); };
+    var ink = t(0.85, 0.17), pale = t(0.9, 0.93);
+    return { bg: t(0.85, 0.12), blob1: t(0.9, 0.2), blob2: t(0.8, 0.16), panel: t(0.85, 0.26), deep: t(0.9, 0.21), main: t(1, 0.53), mid: t(0.95, 0.74), pale: pale,
+      soft: t(0.85, 0.85), ink: ink, dim: t(0.55, 0.62),
+      wheel: [[t(1, 0.53), '#ffffff'], [pale, ink], [t(0.95, 0.38), '#ffffff'], [t(0.95, 0.77), ink], [t(0.85, 0.23), '#ffffff'], [t(1, 0.64), '#ffffff']] };
+  }
   // Paint an element as the banner (or back to the stylesheet's own look when there is nothing to show).
   function paint(el, look) {
     if (!el) return;
@@ -207,5 +218,5 @@
   }
 
   root.Look = { PATTERNS: PATTERNS, readImage: readImage, fromDataUrl: fromDataUrl, shrink: shrink, fitted: fitted, palette: palette,
-    colours: colours, candidates: candidates, banner: banner, paint: paint, luminance: function (h) { return lum(rgb(h)); } };
+    colours: colours, candidates: candidates, banner: banner, paint: paint, theme: theme, luminance: function (h) { return lum(rgb(h)); } };
 })(typeof self !== 'undefined' ? self : this);

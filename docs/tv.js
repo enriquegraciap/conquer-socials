@@ -142,7 +142,7 @@
     var id = st.seriesId;
     S.get('pub/series/' + id).then(function (meta) {
       if (!meta || id !== st.seriesId) return;
-      st.series[id] = meta; st.seriesName = meta.name || ''; barTitle(); loadEventFlyer();
+      st.series[id] = meta; st.seriesName = meta.name || ''; if (barTitle()) draw(); loadEventFlyer();
     }).catch(function () { /* next time */ });
   }
   // The social's wide flyer, for the moment between rounds. Fetched once, and again only when it is replaced.
@@ -162,7 +162,7 @@
     if (st.mode === 'flyers' && mode !== 'flyers') stopFlyers();
     st.mode = mode;
     if (mode !== 'menu') st.menuShown = '';
-    if (mode !== 'show') { st.seriesId = null; st.seriesName = ''; st.session = null; st.pendingSince = 0; st.flyer = ''; st.flyerKey = ''; endIntro(); wheelEnd(); }
+    if (mode !== 'show') { st.seriesId = null; st.seriesName = ''; st.session = null; st.pendingSince = 0; st.flyer = ''; st.flyerKey = ''; endIntro(); wheelEnd(); applyTheme(null); }
     document.body.classList.toggle('mode-flyers', mode === 'flyers');
     document.body.classList.toggle('mode-menu', mode === 'menu');
     buttons();
@@ -438,6 +438,7 @@
 
   function draw() {
     if (st.mode !== 'show') return;
+    barTitle();                                             // (the screen's colours are settled before anything is drawn)
     var s = st.session, left;
     // The next round is ready while the last winner is still being celebrated: let the crown land first.
     var cur0 = s && !s.discarded && s.status === 'live' ? E.currentRound(s) : null;
@@ -509,6 +510,17 @@
     var look = st.mode === 'show' && meta.look && (meta.look.wide || meta.look.tall) ? meta.look : null;
     var sig = look ? JSON.stringify([look.cands, look.variant, look.pattern]) : '';
     if (sig !== st.barSig) { st.barSig = sig; L.paint(document.getElementById('tvbar'), look); }
+    return applyTheme(look ? L.theme(look) : null);        // true when the screen's colours have just changed
+  }
+  // A social can ask for the whole screen in tones of its flyer's colour (Flyer and look, on the organizer's device).
+  var THEME_VARS = ['bg', 'blob1', 'blob2', 'panel', 'deep', 'main', 'mid', 'pale', 'soft', 'ink', 'dim'];
+  function applyTheme(th) {
+    var sig = th ? JSON.stringify(th) : '';
+    if (sig === (st.themeSig || '')) return false;
+    st.themeSig = sig; st.theme = th;
+    document.body.classList.toggle('themed', !!th);
+    THEME_VARS.forEach(function (k) { if (th) document.body.style.setProperty('--t-' + k, th[k]); else document.body.style.removeProperty('--t-' + k); });
+    return true;
   }
   function bigLeft(title, sub, body) { return h('div', 'tvleft', [head(title, false), h('div', 'tvbig', body), h('div')]); }
 
@@ -909,14 +921,15 @@
   // side 'l': a name reads outwards and stops under a pointer at 3 o'clock. side 'r': the mirror image, pointer at 9 o'clock.
   function wheelSvg(names, side) {
     var n = Math.max(names.length, 1), step = 360 / n, half = step / 2 * Math.PI / 180, flip = side === 'r', R = 100;
-    var out = ['<svg viewBox="-112 -112 224 224" aria-hidden="true"><circle r="111" fill="#0e2238"/><circle r="108" fill="#f4b63f"/><circle r="' + (R + 1.5) + '" fill="#071a30"/>'];
+    var th = st.theme, cols = th ? th.wheel : WHEEL_COLOURS, dark = th ? th.ink : '#071a30';
+    var out = ['<svg viewBox="-112 -112 224 224" aria-hidden="true"><circle r="111" fill="' + (th ? th.ink : '#0e2238') + '"/><circle r="108" fill="' + (th ? th.pale : '#f4b63f') + '"/><circle r="' + (R + 1.5) + '" fill="' + dark + '"/>'];
     var chord = n <= 2 ? 60 : 2 * 62 * Math.sin(half), fs0 = Math.min(19, chord * 0.6), room = 62, em = 0.37;
     for (var i = 0; i < n; i++) {
-      var col = WHEEL_COLOURS[i % WHEEL_COLOURS.length];
-      if (n > 1 && i === n - 1 && i % WHEEL_COLOURS.length === 0) col = WHEEL_COLOURS[3];      // never the same colour as its neighbour
+      var col = cols[i % cols.length];
+      if (n > 1 && i === n - 1 && i % cols.length === 0) col = cols[3];      // never the same colour as its neighbour
       var x = R * Math.cos(half), y = R * Math.sin(half), turn = i * step + (flip ? 180 : 0);
       out.push(n === 1 ? '<circle r="' + R + '" fill="' + col[0] + '"/>'
-        : '<path transform="rotate(' + turn.toFixed(3) + ')" d="M0 0L' + x.toFixed(3) + ' ' + (-y).toFixed(3) + 'A' + R + ' ' + R + ' 0 ' + (step > 180 ? 1 : 0) + ' 1 ' + x.toFixed(3) + ' ' + y.toFixed(3) + 'Z" fill="' + col[0] + '" stroke="#071a30" stroke-width=".8"/>');
+        : '<path transform="rotate(' + turn.toFixed(3) + ')" d="M0 0L' + x.toFixed(3) + ' ' + (-y).toFixed(3) + 'A' + R + ' ' + R + ' 0 ' + (step > 180 ? 1 : 0) + ' 1 ' + x.toFixed(3) + ' ' + y.toFixed(3) + 'Z" fill="' + col[0] + '" stroke="' + dark + '" stroke-width=".8"/>');
       var label = String(names[i] || ''), floor = fs0 * 0.6, parts = label.split(' ');
       // a name too long for its slice, even in small letters, goes on as "Francisco G."
       if (label.length * floor * em > room * 1.2 && parts.length > 1) label = parts[0] + ' ' + parts[parts.length - 1].charAt(0) + '.';
@@ -924,8 +937,8 @@
       if (wide > room) { fs = Math.max(floor, fs0 * room / wide); if (label.length * fs * em > room) squeeze = ' textLength="' + room + '" lengthAdjust="spacingAndGlyphs"'; }
       out.push('<text transform="rotate(' + (i * step).toFixed(3) + ')" x="' + (flip ? -94 : 94) + '" y="0" text-anchor="' + (flip ? 'start' : 'end') + '" dominant-baseline="central" font-size="' + fs.toFixed(2) + '" fill="' + col[1] + '"' + squeeze + '>' + esc(label) + '</text>');
     }
-    for (var b = 0; b < 24; b++) out.push('<circle cx="' + (104.8 * Math.cos(b * Math.PI / 12)).toFixed(2) + '" cy="' + (104.8 * Math.sin(b * Math.PI / 12)).toFixed(2) + '" r="1.7" fill="#fffbe0"/>');
-    out.push('<circle r="17" fill="#f4b63f" stroke="#071a30" stroke-width="1.2"/><circle r="9" fill="#071a30"/></svg>');
+    for (var b = 0; b < 24; b++) out.push('<circle cx="' + (104.8 * Math.cos(b * Math.PI / 12)).toFixed(2) + '" cy="' + (104.8 * Math.sin(b * Math.PI / 12)).toFixed(2) + '" r="1.7" fill="' + (th ? th.mid : '#fffbe0') + '"/>');
+    out.push('<circle r="17" fill="' + (th ? th.pale : '#f4b63f') + '" stroke="' + dark + '" stroke-width="1.2"/><circle r="9" fill="' + dark + '"/></svg>');
     return out.join('');
   }
   // The pairs stay on the screen until the organizer presses "Show the courts" (session.wheel.hold goes false).

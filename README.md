@@ -124,6 +124,12 @@ are partners. How the day runs is decided by how many players are on the list at
 
 Rules live in `docs/engine.js` (`wheelPlan`, `wheelSpin`, `wheelRound`); tests in `test/wheel.test.js` and `test/e2e-wheel.js`.
 
+## A social's own colours on the whole TV screen
+
+Events → **Flyer** → *Whole TV screen* → **Flyer's colours** turns the whole TV screen for that social into tones of the
+flyer's main colour (`look.theme = 'flyer'`; tones are worked out in `docs/look.js`, `Look.theme`). Yellow lettering,
+the white "Enter your score" box and the green of a court whose score is in stay as they are. **Club colours** goes back.
+
 ## Files
 
 | Path | What it is |

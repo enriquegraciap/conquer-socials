@@ -1083,6 +1083,12 @@
         })) : null,
         has && L.candidates(lk).length > 1 ? h('div', { class: 'row' }, [btn('Try other colours', 'small', function () { setLook({ variant: ((Number(lk.variant) || 0) + 1) % L.candidates(lk).length }); }, { disabled: !!busy, id: 'otherColours' }),
           h('span', { class: 'hint', style: 'margin:0' }, 'Steps through the flyer’s main colours.')]) : null,
+        has ? h('div', null, [h('b', null, 'Whole TV screen'),
+          h('p', { class: 'hint', style: 'margin:2px 0 8px' }, 'Normally only the top banner takes the flyer’s colours. “Flyer’s colours” turns the whole screen into tones of the flyer’s main colour. Yellow lettering, the white “Enter your score” box and the green of a court whose score is in stay as they are.'),
+          h('div', { class: 'seg' }, [
+            h('button', { type: 'button', class: lk.theme === 'flyer' ? '' : 'on', 'data-theme': 'club', disabled: !!busy, onclick: function () { if (lk.theme) setLook({ theme: null }); } }, 'Club colours'),
+            h('button', { type: 'button', class: lk.theme === 'flyer' ? 'on' : '', 'data-theme': 'flyer', disabled: !!busy, onclick: function () { if (lk.theme !== 'flyer') setLook({ theme: 'flyer' }); } }, 'Flyer’s colours')
+          ])]) : null,
         h('div', { class: 'row end' }, [busy ? h('span', { class: 'hint', style: 'margin:0 auto 0 0' }, busy) : null, btn('Done', 'primary', closeModal, { id: 'lookDone' })])];
     } else if (m.type === 'renameSeries') {
       var saveSeries = function () {

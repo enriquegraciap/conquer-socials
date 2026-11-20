@@ -619,3 +619,43 @@ body.pl.hello .pl-role.pressed { background: #fff; }
 @keyframes wchip { 0% { opacity: 0; transform: translateY(2vh) scale(.8); } 100% { opacity: 1; transform: none; } }
 .wextra { font-family: var(--display); font-size: 3vh; line-height: 1.2; min-height: 3.6vh; color: #cfe0f3; }
 @media (prefers-reduced-motion: reduce) { .wheelidle svg, .wheelshow, .wnow.pop, .wpair { animation: none !important; } .wrot { transition: none; } .wnow { opacity: 1; } }
+
+/* ---- A social's own colours on the whole TV screen (Flyer and look: "Whole screen in the flyer's colours") ----
+   tv.js sets --t-* on <body> from the flyer's main colour: bg (darkest) ... pale (lightest). What stays as it is:
+   yellow lettering, the white "Enter your score" box, and the green of a court whose score is in. */
+body.tv.themed { background-color: var(--t-bg);
+  background-image: radial-gradient(circle at 4% 22%, var(--t-blob1) 0 24vw, transparent 24.1vw), radial-gradient(circle at 34% 112%, var(--t-blob2) 0 30vw, transparent 30.1vw),
+    radial-gradient(circle at 99% 12%, var(--t-blob2) 0 15vw, transparent 15.1vw), radial-gradient(circle at 78% 104%, var(--t-blob1) 0 13vw, transparent 13.1vw); }
+body.tv.themed .tvbar { border-bottom-color: var(--t-mid) !important; }
+body.tv.themed #barsub { color: var(--t-pale); }
+body.tv.themed .tvhead { border-bottom-color: var(--t-mid); }
+body.tv.themed .tvhead .event, body.tv.themed .tvhead .clock, body.tv.themed .tvboard h2 small, body.tv.themed .tvrow .rk, body.tv.themed .tvempty, body.tv.themed .tvdate, body.tv.themed .tvwheel .how { color: var(--t-soft); }
+body.tv.themed .tvcode { color: var(--t-dim); }
+body.tv.themed .tvboard, body.tv.themed .tvsit { background: var(--t-panel); box-shadow: inset 0 0 0 .2vh var(--t-main); }
+body.tv.themed .tvrow { border-top-color: rgba(255,255,255,.18); }
+body.tv.themed .tvrow .nm .rt { color: var(--t-mid); }
+body.tv.themed .tvrow .nm .rt.nr { color: var(--t-dim); }
+body.tv.themed .tvcourt:not(.done) { background: var(--t-pale); color: var(--t-ink); border-color: var(--t-mid); }
+body.tv.themed .tvcourt:not(.done) .cn { background: var(--t-main); color: #fff; }
+body.tv.themed .tvcourt:not(.done) .cn span { color: var(--t-pale); }
+body.tv.themed .tvcourt:not(.done) .mid { color: var(--t-main); }
+body.tv.themed .tvcourt.king, body.tv.themed .tvcourt.king:not(.done) { border-color: var(--t-main); }
+body.tv.themed .tvcourt.king .cn { background: var(--t-ink); color: var(--gold); }            /* the final: yellow letters on the darkest tone */
+body.tv.themed .tvcourt.king .cn span { color: var(--gold); }
+body.tv.themed .tvqr { color: var(--t-ink); }
+body.tv.themed .tvqr .cap small { color: var(--t-main); }
+body.tv.themed .tvsit.sign .line .det .spots { background: var(--t-main); }
+body.tv.themed .tvsit.sign .line .det .spots.full { background: var(--t-ink); }
+body.tv.themed .tvbig .teams div { border-bottom-color: var(--t-main); }
+body.tv.themed .podium div { background: var(--t-panel); }
+body.tv.themed .podium div:first-child { background: var(--t-main); color: var(--gold); }
+body.tv.themed .fsbtn { background: var(--t-ink); border-color: var(--t-mid); }
+body.tv.themed .fsbtn:focus { outline-color: var(--t-pale); background: var(--t-main); }
+body.tv.themed .tvpick button { background: var(--t-main); }
+body.tv.themed .wheelshow { background: radial-gradient(ellipse 80% 90% at 50% 45%, var(--t-main) 0%, var(--t-panel) 48%, var(--t-bg) 100%); }
+body.tv.themed .wheelshow .wsub, body.tv.themed .wextra { color: var(--t-pale); }
+body.tv.themed .wpair { border-color: var(--t-mid); background: var(--t-ink); }
+body.tv.themed .wptr { filter: drop-shadow(0 .4vh .5vh rgba(0,0,0,.5)); }
+body.tv.themed .wbox.l .wptr { border-right-color: var(--t-pale); }
+body.tv.themed .wbox.r .wptr { border-left-color: var(--t-pale); }
+body.tv.themed .inter { background: var(--t-bg); }

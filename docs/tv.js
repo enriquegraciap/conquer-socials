@@ -264,7 +264,7 @@
     var qr = qrSvg(S.link('player', { s: st.seriesId }));
     return h('div', 'tvleft', [head('Round ' + r.n, flash), h('div', 'tvcourts', courts),
       h('div', 'tvbottom', [
-        names ? h('div', 'tvsit', [h('div', 'lab', 'Sitting out this round'), h('div', 'names', names)]) : h('div', 'tvsit', [h('div', 'lab', 'Everyone is playing'), h('div', 'names', '')]),
+        names ? h('div', 'tvsit', [h('div', 'lab', 'Sitting out this round'), h('div', 'names', names)]) : h('div', 'tvsit', [h('div', 'lab', 'Everyone plays'), h('div', 'names', '')]),
         qr ? h('div', 'tvqr', [h('div', 'cap', ['Enter your score', h('small', null, 'Scan with your phone')]), qr]) : null
       ])]);
   }

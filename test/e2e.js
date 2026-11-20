@@ -108,6 +108,15 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await player.waitForSelector('text=Score is in');
   await tv.waitForSelector('.tvcourt.done', { timeout: 6000 });
   assert.equal(await tv.locator('.tvcourt.done').count(), 1, 'that court turns green on the TV');
+  // fireworks: something is drawn around the winner's name straight away, and it is gone again within about two seconds
+  const lit = () => tv.evaluate(() => { const c = document.getElementById('fx'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 16) if (d[i] > 40) n++; return n; });
+  await tv.waitForTimeout(250);
+  const during = await lit();
+  assert.ok(during > 50, 'fireworks are on screen right after the score comes in (' + during + ' lit points)');
+  await tv.waitForTimeout(250);
+  await tv.screenshot({ path: SHOTS + 'tv-fireworks.png' });
+  await tv.waitForTimeout(2100);
+  assert.equal(await lit(), 0, 'and they have faded away about two seconds later');
   assert.match(await tv.textContent('.tvcourt.done .mid'), /6 . 2/);
   assert.equal((await tv.textContent('.tvcourt.done .tm.a')).trim(), bottomTeam + ' \uD83D\uDC51', 'left side wins: the crown follows the name');
   assert.ok(!(await tv.textContent('.tvcourt.done .tm.b')).includes('\uD83D\uDC51'), 'and not the losing team\'s');

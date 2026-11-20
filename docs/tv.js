@@ -18,7 +18,8 @@
   var fixed = new URLSearchParams(location.search).get('s');
 
   var st = { id: tvId(), mode: 'boot', series: {}, seriesId: null, seriesName: '', rev: null, ping: 0, session: null, pending: {},
-    month: null, monthKey: null, busy: false, lastOk: 0, lastRound: 0, shown: false, ticks: 0, pendingSince: 0, pairShown: '' };
+    month: null, monthKey: null, busy: false, lastOk: 0, lastRound: 0, shown: false, ticks: 0, pendingSince: 0, pairShown: '',
+    seenKey: '', seen: {}, cheer: [] };
 
   function h(tag, cls, kids) {
     var el = document.createElement(tag);
@@ -184,6 +185,16 @@
     if (!s || s.status !== 'live') st.pendingSince = 0;
     root.replaceChildren(h('div', 'tvroot', [left, rightSide(s)]));
     fit();
+    // a score has just come in: fireworks around the winning team's name
+    var cheer = st.cheer; st.cheer = [];
+    cheer.forEach(function (c) {
+      var el = document.querySelectorAll('.tvcourt')[c.idx];
+      el = el && el.querySelector(c.side === 'a' ? '.tm.a' : '.tm.b');
+      if (!el) return;
+      var range = document.createRange(); range.selectNodeContents(el);
+      var box = range.getBoundingClientRect();
+      if (box.width) fireworks(box.left + box.width / 2, box.top + box.height / 2, box.width);
+    });
   }
   function head(title, flash) {
     // the event name lives in the top banner; this line carries the round and the set length (the clock is bottom left)
@@ -236,6 +247,15 @@
       ]);
     });
     st.pendingSince = anySent ? (st.pendingSince || Date.now()) : 0;
+    // Which courts got their score since the last look? Nothing is celebrated on the first look at a round,
+    // so reloading the page or joining mid-round does not set off every court at once.
+    var roundKey = s.id + ':' + r.n, first = st.seenKey !== roundKey;
+    if (first) { st.seenKey = roundKey; st.seen = {}; }
+    r.courts.forEach(function (c, i) {
+      var done = !!c.w && !c.void, p = !done && !c.void ? sent[i] : null, w = done ? c.w : p ? p.w : null;
+      if (w && !st.seen[i] && !first) st.cheer.push({ idx: i, side: w });
+      st.seen[i] = !!w;
+    });
     var waiting = E.activeTeams(s).filter(function (t) { return r.sitting.indexOf(t.id) < 0 && !r.courts.some(function (c) { return c.a === t.id || c.b === t.id; }); });
     // keep each team's name on one line, let the list wrap between teams
     var keep = function (txt) { return txt.replace(/ /g, ' '); };
@@ -303,6 +323,64 @@
       var m = c.querySelector('.mid.score'); if (m) m.style.fontSize = Math.min(hgt * 0.5, 6.4 * vh) + 'px';
     });
   }
+
+  // ---------------------------------------------------------------- fireworks
+  // A quick burst around a name: a flash, two rings of sparks flying out, then they fall and fade. About 1.6 seconds.
+  var fx = document.getElementById('fx'), fxCtx = fx && fx.getContext ? fx.getContext('2d') : null;
+  var sparks = [], flashes = [], fxOn = false, fxLast = 0;
+  var FX_COLORS = ['#ffd54a', '#ffffff', '#f4b63f', '#ff7a59', '#7fe3ff', '#ff5fa2', '#b6ff6a'];
+  var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function fxSize() { if (fx) { fx.width = window.innerWidth; fx.height = window.innerHeight; } }
+  function fireworks(x, y, width) {
+    if (!fxCtx || calm) return;
+    if (fx.width !== window.innerWidth || fx.height !== window.innerHeight) fxSize();
+    var vh = window.innerHeight / 100, now = performance.now();
+    var boom = function (cx, cy, count, power, delay) {
+      flashes.push({ x: cx, y: cy, t0: now + delay, life: 260, r: power * 0.2 });
+      for (var i = 0; i < count; i++) {
+        var a = Math.random() * Math.PI * 2, sp = power * (0.35 + Math.random() * 0.65);
+        sparks.push({ x: cx, y: cy, px: cx, py: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - power * 0.12, t0: now + delay,
+          life: 900 + Math.random() * 700, size: vh * (0.4 + Math.random() * 0.55), color: FX_COLORS[Math.floor(Math.random() * FX_COLORS.length)] });
+      }
+    };
+    var spread = Math.max(width * 0.3, 6 * vh);
+    boom(x, y, 90, 52 * vh, 0);                                          // the big one, right on the name
+    boom(x - spread, y - 2 * vh, 40, 34 * vh, 160);                      // two smaller ones either side, a beat later
+    boom(x + spread, y + 1 * vh, 40, 34 * vh, 300);
+    if (!fxOn) { fxOn = true; fxLast = now; requestAnimationFrame(fxFrame); }
+  }
+  function fxFrame(now) {
+    var dt = Math.min(0.05, (now - fxLast) / 1000); fxLast = now;
+    var g = window.innerHeight * 0.55;                                    // sparks fall a little as they fade
+    fxCtx.clearRect(0, 0, fx.width, fx.height);
+    fxCtx.lineCap = 'round';
+    flashes = flashes.filter(function (f) { return now - f.t0 < f.life; });
+    flashes.forEach(function (f) {
+      var t = (now - f.t0) / f.life;
+      if (t < 0) return;
+      fxCtx.globalAlpha = (1 - t) * 0.45;
+      fxCtx.beginPath(); fxCtx.arc(f.x, f.y, f.r * (0.15 + t * 0.85), 0, Math.PI * 2);
+      fxCtx.fillStyle = '#fff6cf'; fxCtx.fill();
+    });
+    sparks = sparks.filter(function (p) { return now - p.t0 < p.life; });
+    sparks.forEach(function (p) {
+      var age = now - p.t0;
+      if (age < 0) return;
+      var drag = Math.pow(0.06, dt);                                      // fast out of the burst, slowing quickly
+      p.px = p.x; p.py = p.y;
+      p.vx *= drag; p.vy = p.vy * drag + g * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      var t = age / p.life;
+      fxCtx.globalAlpha = t < 0.6 ? 1 : Math.max(0, 1 - (t - 0.6) / 0.4);
+      fxCtx.strokeStyle = p.color; fxCtx.lineWidth = p.size * (1 - t * 0.5);
+      fxCtx.beginPath(); fxCtx.moveTo(p.px, p.py); fxCtx.lineTo(p.x, p.y); fxCtx.stroke();
+    });
+    fxCtx.globalAlpha = 1;
+    if (sparks.length || flashes.length) requestAnimationFrame(fxFrame);
+    else { fxOn = false; fxCtx.clearRect(0, 0, fx.width, fx.height); }
+  }
+  window.addEventListener('resize', fxSize);
+  fxSize();
 
   // ---------------------------------------------------------------- full screen, keep-awake, clock
   var canFull = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);

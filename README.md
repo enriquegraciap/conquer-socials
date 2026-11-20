@@ -117,6 +117,8 @@ are partners. How the day runs is decided by how many players are on the list at
 - Points are per player: every game a pair wins is a point for both, play-offs included. Daily and monthly
   leaderboards are per player.
 - A player added after a spin waits for the next spin, unless a pair has lost a player: then she takes that place.
+- After a spin the TV stays on the two wheels and the list of pairs until the organizer presses **Show the courts on
+  the TV** (the first score entered moves it on as well). A TV switched on meanwhile shows the pairs too.
 - The wheel can be spun again at any time between rounds (new teams, the block starts over; points stay).
   **Restart night** goes back to the list of players.
 

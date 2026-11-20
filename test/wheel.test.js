@@ -372,3 +372,20 @@ test('wheel: a late player takes the place of one who left, next to the partner 
   assert.equal(E.wheelStandings(s).reduce((a, r) => a + r.played, 0), 10, 'the pool table still counts the matches from before the change');
   assert.equal(E.currentRound(s).stage, 'semi');
 });
+
+test('wheel: after a spin the TV holds the pairs until the organizer lets go, or the first score comes in', () => {
+  const s = day(8, [6, 7], 5);
+  E.startNight(s);
+  assert.equal(s.wheel.hold, true);
+  assert.ok(E.wheelRelease(s));
+  assert.equal(s.wheel.hold, false);
+  assert.equal(E.wheelRelease(s), false, 'nothing to do the second time');
+  const t = day(4, [7], 5);
+  E.startNight(t);
+  E.setScore(t, 1, 0, 6, 2);
+  assert.equal(t.wheel.hold, false, 'a score means play has started');
+  assert.ok(E.wheelSpin(t).ok);
+  assert.equal(t.wheel.hold, true, 'every spin holds again');
+  const back = E.normalize(JSON.parse(JSON.stringify(s, (k, v) => v === false || v === null || (Array.isArray(v) && !v.length) ? undefined : v)));
+  assert.equal(back.wheel.hold, false, 'the database drops a false: it reads back as not holding');
+});

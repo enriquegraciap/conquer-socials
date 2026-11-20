@@ -39,6 +39,7 @@ const NAMES = ['Ana Lopez', 'Bea Ruiz', 'Carla Diaz', 'Dani Mora', 'Elena Gil', 
     label: c.querySelector('.cn span').textContent.trim(), court: c.querySelector('.cn b').textContent.trim(), king: c.classList.contains('king'),
     a: txt(c.querySelector('.tm.a')), b: txt(c.querySelector('.tm.b')) })); });
   const showOver = () => tv.waitForFunction(() => !document.querySelector('.wheelshow'), null, { timeout: 45000 });
+  const release = async () => { await admin.click('#showCourts'); await tv.waitForFunction(() => !document.querySelector('.wheelshow'), null, { timeout: 8000 }); };
   const introOver = () => tv.waitForFunction(() => document.getElementById('inter').hidden, null, { timeout: 9000 });
 
   // ---------------------------------------------------------------- 8 players: one spin, pool, semifinals, final
@@ -80,7 +81,18 @@ const NAMES = ['Ana Lopez', 'Bea Ruiz', 'Carla Diaz', 'Dani Mora', 'Elena Gil', 
   }));
   assert.deepEqual(under, teams[3].map(nameOf), 'the pointers are on the last pair');
   await tv.screenshot({ path: SHOTS + 'wheel-tv-pairs.png' });
-  await showOver();
+  // the wheels stay up until the organizer sends the TV on; a TV switched on meanwhile shows the pairs too
+  await admin.waitForSelector('#wheelHold');
+  await tv.waitForTimeout(6500);
+  assert.equal(await tv.locator('.wheelshow.all:not(.out)').count(), 1, 'still on the wheels well after the last pair');
+  await tv.reload();
+  await tv.waitForSelector('.wheelshow.all', { timeout: 15000 });
+  assert.deepEqual(await tv.locator('.wpair').allTextContents(), teams.map(pairName), 'a TV opened now shows the same pairs');
+  await tv.waitForTimeout(2500);
+  assert.equal(await tv.locator('.wheelshow.all:not(.out)').count(), 1);
+  await admin.screenshot({ path: SHOTS + 'wheel-admin-hold.png' });
+  await release();
+  assert.equal(await admin.locator('#wheelHold').count(), 0);
   assert.equal((await tv.textContent('.tvhead .round')).trim(), 'Pool round 1 of 3');
   assert.equal((await tv.textContent('.tvhead .event')).trim(), 'Sets to 4');
   let courts = await tvCourts();
@@ -171,7 +183,7 @@ const NAMES = ['Ana Lopez', 'Bea Ruiz', 'Carla Diaz', 'Dani Mora', 'Elena Gil', 
   await tv.waitForSelector('.wheelshow[data-spin="1"][data-teams="2"]', { timeout: 8000 });
   await tv.waitForSelector('.wheelshow.all', { timeout: 20000 });
   assert.match(await tv.textContent('.wextra'), new RegExp('Sitting out: ' + five[4]));
-  await showOver();
+  await release();
   assert.equal((await tv.textContent('.tvhead .round')).trim(), 'Set 1 of 2');
   assert.equal((await tv.textContent('.tvhead .event')).trim(), 'Sets to 6');
   assert.equal(await tv.getAttribute('.tvsit.sign', 'data-names'), five[4].replace(/ /g, ' '));
@@ -188,6 +200,9 @@ const NAMES = ['Ana Lopez', 'Bea Ruiz', 'Carla Diaz', 'Dani Mora', 'Elena Gil', 
   assert.equal(list(s.wheel.sit).length, 1);
   assert.notEqual(s.teams[list(s.wheel.sit)[0]].name, five[4], 'somebody else sits after the second spin');
   assert.equal(list(s.rounds).length, 3);
+  // forgotten the button? the first score sends the TV on to the courts as well
+  await tv.waitForSelector('.wheelshow.all', { timeout: 20000 });
+  await score(7, 6, 1);
   await showOver();
   // a sixth player arrives: she waits for the next spin
   await admin.fill('#p1', 'Late Lucy'); await admin.click('#addTeam');

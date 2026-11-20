@@ -454,7 +454,8 @@
     root.replaceChildren(h('div', 'tvroot', [left, rightSide(s)]));
     fit();
     st.lastSession = s && !s.discarded ? s.id : ''; st.lastStatus = s && !s.discarded ? s.status : '';
-    if (st.spinShow) { st.spinShow = false; st.announce = 0; wheelShow(s); }
+    if (!s || s.discarded || s.status !== 'live' || !s.wheel) wheelEnd();
+    if (st.spinShow) { var still = st.spinShow === 'still'; st.spinShow = false; st.announce = 0; wheelShow(s, still); }
     else if (st.announce) { roundIntro(st.announce, st.announceText); st.announce = 0; }
     // a score has just come in: fireworks around the winning team's name, and the crown dances its way onto it
     var cheer = st.cheer; st.cheer = [];
@@ -540,7 +541,10 @@
     // Wheel of Fortune: a spin this screen watched happen gets the two wheels instead of the round announcement
     var wheel = E.isWheel(s), wst = wheel ? E.wheelState(s) : 'none', spinKey = wheel && s.wheel ? s.id + ':' + s.wheel.spin : '';
     if (wheel) {
+      var held = !!(s.wheel && s.wheel.hold);
       if (spinKey && spinKey !== st.spinKey && st.lastSession === s.id) st.spinShow = true;
+      else if (held && !ws.el) st.spinShow = 'still';        // a TV switched on while the pairs are up: show them, without the spin
+      else if (!held && ws.el && ws.key === spinKey) wheelLeave();      // the organizer has sent the TV on to the courts
       st.spinKey = spinKey;
       st.announceText = INTRO_WORDS[r.stage] ? INTRO_WORDS[r.stage] : [r.stage === 'set' ? 'Set' : s.wheel && s.wheel.respin ? 'Round' : 'Pool round', String(r.n - (s.wheel ? s.wheel.start : 0))];
     } else st.announceText = null;
@@ -924,9 +928,17 @@
     out.push('<circle r="17" fill="#f4b63f" stroke="#071a30" stroke-width="1.2"/><circle r="9" fill="#071a30"/></svg>');
     return out.join('');
   }
-  var ws = { el: null, timers: [] };
-  function wheelEnd() { if (!ws) return; ws.timers.forEach(clearTimeout); ws.timers = []; if (ws.el) { ws.el.remove(); ws.el = null; } }
-  function wheelShow(s) {
+  // The pairs stay on the screen until the organizer presses "Show the courts" (session.wheel.hold goes false).
+  var ws = { el: null, timers: [], key: '', done: false };
+  function wheelEnd() { if (!ws) return; ws.timers.forEach(clearTimeout); ws.timers = []; if (ws.el) { ws.el.remove(); ws.el = null; } ws.done = false; }
+  function wheelLeave() {
+    if (!ws.el || ws.el.classList.contains('out')) return;
+    ws.timers.forEach(clearTimeout); ws.timers = [];
+    ws.el.classList.add('out');
+    ws.timers.push(setTimeout(wheelEnd, 500));
+  }
+  function holding() { var s = st.session; return !!(s && s.wheel && s.wheel.hold && s.id + ':' + s.wheel.spin === ws.key); }
+  function wheelShow(s, still) {
     var w = s.wheel;
     if (!w || !w.left || !w.left.length || w.left.length !== (w.right || []).length) return;
     wheelEnd(); endIntro();
@@ -946,6 +958,7 @@
       h('div', 'wsub', w.spin > 1 ? 'New partners!' : 'Who plays with whom?'),
       h('div', 'wstage', [h('div', 'wbox l', [rotL, h('i', 'wptr')]), h('div', 'wmid', now), h('div', 'wbox r', [rotR, h('i', 'wptr')])]),
       pairs, extra]);
+    ws.key = s.id + ':' + w.spin;
     ws.el.setAttribute('data-spin', String(w.spin));
     ws.el.setAttribute('data-teams', String(T));
     document.body.appendChild(ws.el);
@@ -961,9 +974,16 @@
       for (var i = 0; i < T; i++) if (third(i).length) trio.push(third(i).map(name).join(' and ') + ' joins ' + name(w.left[i]) + ' & ' + name(w.right[i]) + ': they take turns resting');
       extra.textContent = (sit.length ? 'Sitting out: ' + sit.join(', ') : '') + (sit.length && trio.length ? '   ·   ' : '') + trio.join('   ·   ');
       ws.el.classList.add('all');
-      ws.timers.push(setTimeout(function () { if (ws.el) ws.el.classList.add('out'); ws.timers.push(setTimeout(wheelEnd, 500)); }, hold));
+      ws.done = true;
+      // an organizer's device that does not hold the screen (or has already let go): move on by itself
+      ws.timers.push(setTimeout(function () { if (!holding()) wheelLeave(); }, hold));
     };
-    if (calm) { for (var k = 0; k < T; k++) reveal(k); return finish(7000); }
+    if (calm || still) {
+      for (var k = 0; k < T; k++) reveal(k);
+      rotL.style.transitionDuration = rotR.style.transitionDuration = '0ms';
+      rotL.style.transform = 'rotate(' + (-onL.indexOf(w.left[T - 1]) * step) + 'deg)'; rotR.style.transform = 'rotate(' + (-onR.indexOf(w.right[T - 1]) * step) + 'deg)';
+      return finish(still ? 600 : 7000);
+    }
     var quick = T > 5, first = 3200, spin = quick ? 1400 : 1800, hold = quick ? 900 : 1200, a = 0, b = 0, t = 500;
     var go = function (i) {
       var dur = i === 0 ? first : spin, turns = i === 0 ? 4 : 1, baseL = -onL.indexOf(w.left[i]) * step, baseR = -onR.indexOf(w.right[i]) * step;

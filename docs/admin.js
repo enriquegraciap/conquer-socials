@@ -475,7 +475,7 @@
       return E.wheelSpin(x, { sit: state.ui.wheelSit || [] });
     });
     state.ui.wheelSit = [];
-    toast(out.ok ? 'The wheel is spinning on the TV.' : out.error);
+    toast(out.ok ? 'The wheel is spinning on the TV. It stays there until you press “Show the courts”.' : out.error);
     render();
   }
   function wheelSetup(s) {
@@ -503,6 +503,12 @@
   // What the organizer does next on a wheel day: spin for new partners, or finish.
   function wheelNext(s) {
     var state2 = E.wheelState(s), N = E.activeTeams(s).length, plan = E.wheelPlan(N);
+    // after a spin the TV keeps the wheels and the pairs up until the organizer moves it on
+    if (s.wheel && s.wheel.hold && state2 === 'playing') return h('div', { class: 'panel wheelnext', id: 'wheelHold' }, [
+      h('h2', null, 'The pairs are on the TV'),
+      h('p', { class: 'sitlist', style: 'margin:0' }, 'The wheels stay on the screen so everyone can find their partner. When they have, send the TV on to the courts.'),
+      h('div', { class: 'row end', style: 'margin-top:10px' }, btn('Show the courts on the TV', 'gold', function () { commit(function (x) { E.wheelRelease(x); }); toast('The TV now shows the courts.'); render(); }, { id: 'showCourts' }))
+    ]);
     if (state2 === 'spin') return h('div', { class: 'panel wheelnext', id: 'wheelNext' }, [
       h('h2', null, 'Time to spin the wheel'),
       h('p', { class: 'sitlist', style: 'margin:0' }, plan ? 'New partners for everyone. ' + N + ' players: ' + plan.text : 'The wheel needs at least four players.'),

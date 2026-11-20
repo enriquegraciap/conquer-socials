@@ -146,7 +146,7 @@
     });
     if (s.wheel && typeof s.wheel === 'object') {
       var w = s.wheel;
-      w.spin = w.spin || 0; w.start = w.start || 0; w.respin = !!w.respin;
+      w.spin = w.spin || 0; w.start = w.start || 0; w.respin = !!w.respin; w.hold = !!w.hold;
       w.left = toArray(w.left); w.right = toArray(w.right); w.sit = toArray(w.sit); w.stages = toArray(w.stages);
       w.teams = toArray(w.teams).map(toArray);
     } else if (s.wheel !== undefined) s.wheel = null;
@@ -498,6 +498,8 @@
   //   sit     players sitting out until the next spin
   //   stages  what each round after the spin is: 'set', 'pool', 'playin', 'semi', 'final', 'place'
   //   respin  true when the wheel spins again after the last stage (4 to 7 players)
+  //   hold    true from the spin until the organizer sends the TV on to the courts (or the first score comes in):
+  //           meanwhile the TV keeps the two wheels and the pairs on screen
   function isWheel(session) { return formatOf(session).wheel === true; }
   function roundSetTo(session, r) { return r && r.setTo ? r.setTo : (session.setTo === 6 ? 6 : 4); }
 
@@ -664,9 +666,16 @@
     }
     var left = best.slice(0, T), right = best.slice(T, 2 * T), teams = left.map(function (l, i) { return [l, right[i]]; });
     if (best.length > 2 * T) teams[Math.floor(rng() * T)].push(best[2 * T]);     // the odd one out joins a team as its third
-    session.wheel = { spin: spin, start: session.rounds.length, left: left, right: right, teams: teams, sit: sit, stages: plan.stages, respin: plan.respin };
+    session.wheel = { spin: spin, start: session.rounds.length, left: left, right: right, teams: teams, sit: sit, stages: plan.stages, respin: plan.respin, hold: true };
     wheelAdvance(session);
     return { ok: true, spin: spin, teams: teams, sit: sit, plan: plan };
+  }
+
+  // The organizer has let everyone read the pairs: the TV moves on from the wheels to the courts.
+  function wheelRelease(session) {
+    if (!session.wheel || !session.wheel.hold) return false;
+    session.wheel.hold = false;
+    return true;
   }
 
   // ---- Night actions (each one changes the session object in place) -------------------------
@@ -868,6 +877,7 @@
     var out = { ok: true, regenerated: false, advanced: false, tooLate: false };
     var last = currentRound(session);
     if (isWheel(session)) {
+      if (session.wheel && c.w) session.wheel.hold = false;      // play has started: the TV has to show the courts
       // a corrected result changes who meets whom in a play-off round nobody has played yet: draw it again
       if (session.status === 'live' && roundNo < last.n && oldW !== c.w && r.spin === last.spin && !roundHasScores(last) && last.stage !== 'pool' && last.stage !== 'set') {
         session.rounds.pop(); out.regenerated = true;
@@ -1002,7 +1012,7 @@
     teamStats: teamStats, generateRound: generateRound,
     addTeam: addTeam, renameTeam: renameTeam, removeTeam: removeTeam, startNight: startNight, endNight: endNight, reopenNight: reopenNight,
     advance: advance, redrawRound: redrawRound, rewindTo: rewindTo,
-    isWheel: isWheel, wheelPlan: wheelPlan, wheelSpin: wheelSpin, wheelState: wheelState, wheelStandings: wheelStandings, roundSetTo: roundSetTo, roundRobin: roundRobin, setScore: setScore, setCourts: setCourts, isKingsCourt: isKingsCourt,
+    isWheel: isWheel, wheelPlan: wheelPlan, wheelSpin: wheelSpin, wheelRelease: wheelRelease, wheelState: wheelState, wheelStandings: wheelStandings, roundSetTo: roundSetTo, roundRobin: roundRobin, setScore: setScore, setCourts: setCourts, isKingsCourt: isKingsCourt,
     pendingPlayerScores: pendingPlayerScores, applyPlayerScores: applyPlayerScores,
     scoringEntities: scoringEntities, entityKey: entityKey, keyOf: keyOf, teamName: teamName,
     leaderboard: leaderboard, resultsDoc: resultsDoc, monthlyBoard: monthlyBoard,

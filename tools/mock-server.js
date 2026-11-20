@@ -87,7 +87,7 @@ http.createServer((req, res) => {
       const gateBefore = getPath(db, ['gate', KEY]);
       const gateWrite = updates.filter(([p]) => p[0] === 'gate');
       const okGate = gateWrite.length === 1 && gateWrite[0][0].length === 2 && gateWrite[0][0][1] === KEY && gateWrite[0][1] !== gateBefore;
-      if (updates.some(([p]) => p[0] !== 'pub' && p[0] !== 'gate') || gateWrite.some(([p]) => p[1] !== KEY) || !okGate) {
+      if (updates.some(([p]) => p[0] !== 'pub' && p[0] !== 'gate') || gateWrite.some(([p]) => p[1] !== KEY) || (!okGate && updates.some(([p]) => p[0] === 'pub')) || (!gateWrite.length)) {
         return send(res, 401, { error: 'Permission denied' });
       }
       updates.forEach(([p, v]) => setPath(db, p, v));

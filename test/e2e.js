@@ -79,6 +79,21 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   const player = await phoneCtx.newPage();
   player.on('pageerror', e => errors.push('player: ' + e));
   await player.goto(BASE + '/p/?db=' + DB + '&s=lehi-date-night');
+  await player.waitForSelector('#rolePlayer');
+  assert.equal(await player.locator('.pl-pick').count(), 0, 'first the phone asks: player or admin');
+  await player.screenshot({ path: SHOTS + 'phone-roles.png' });
+  await player.click('#roleAdmin');                               // admin on a phone that has no key yet
+  await player.fill('#adminKey', 'not-it');
+  await player.click('#keyGo');
+  await player.waitForSelector('text=That key was not accepted');
+  await player.fill('#adminKey', 'test-key');
+  await player.click('#keyGo');
+  await player.waitForSelector('.roundhead .big', { timeout: 10000 });
+  assert.match(player.url(), /\/\?s=lehi-date-night$/, 'the right key opens the admin page for this social');
+  assert.ok(await player.locator('#endNight, #changeCourts').count() >= 2, 'with all the admin controls');
+  await player.goto(BASE + '/p/?db=' + DB + '&s=lehi-date-night');
+  await player.waitForSelector('#rolePlayer');
+  await player.click('#rolePlayer');                              // and the player path
   await player.waitForSelector('.pl-pick');
   assert.equal(await player.locator('.pl-pick').count(), 14, 'the phone lists tonight\'s teams');
   await player.click(`.pl-pick[data-team="${bottomTeam}"]`);
@@ -94,6 +109,11 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await tv.waitForSelector('.tvcourt.done', { timeout: 6000 });
   assert.equal(await tv.locator('.tvcourt.done').count(), 1, 'that court turns green on the TV');
   assert.match(await tv.textContent('.tvcourt.done .mid'), /6 . 2/);
+  assert.equal((await tv.textContent('.tvcourt.done .tm.a')).trim(), bottomTeam + ' \uD83D\uDC51', 'a crown follows the winning team\'s name');
+  assert.ok(!(await tv.textContent('.tvcourt.done .tm.b')).includes('\uD83D\uDC51'), 'and not the losing team\'s');
+  const medals = await tv.locator('.tvboard >> nth=0 >> .tvrow .md').allTextContents();
+  assert.deepEqual(medals.filter(Boolean), ['\uD83E\uDD47', '\uD83E\uDD48'], 'gold for the leader, silver for second; no medal for teams on zero');
+  assert.ok(await tv.locator('.tvboard >> nth=0 >> .tvrow .md.gold').count() === 1);
   await admin.waitForSelector('text=sent from a phone', { timeout: 8000 });
   assert.equal(await admin.locator('.panel >> nth=0 >> .courtcard.todo').count(), 4, 'the organizer\'s page picked the score up');
   assert.equal(await player.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) <= 0, true, 'phone page has no sideways scroll');
@@ -245,6 +265,8 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await admin.waitForSelector('.sync:text("Saved")');
   const solo = await phoneCtx.newPage();
   await solo.goto(BASE + '/p/?db=' + DB + '&s=lehi-date-night');
+  await solo.waitForSelector('#rolePlayer');
+  await solo.click('#rolePlayer');
   await solo.waitForSelector('.pl-pick');
   assert.equal(await solo.locator('.pl-pick').count(), 2);
   await solo.locator('.pl-pick').first().click();

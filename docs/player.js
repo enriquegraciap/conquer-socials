@@ -7,7 +7,8 @@
   var E = window.Engine, S = window.Store;
   var root = document.getElementById('app');
   var st = { seriesId: new URLSearchParams(location.search).get('s'), series: null, seriesName: '', rev: null, ping: 0, session: null, pending: {},
-    me: null, form: null, changing: false, sending: false, error: '', loaded: false, busy: false, failed: false };
+    me: null, form: null, changing: false, sending: false, error: '', loaded: false, busy: false, failed: false,
+    role: null, askKey: false, keyInput: '', keyError: '', checking: false };
 
   function h(tag, attrs, kids) {
     var el = document.createElement(tag);
@@ -69,7 +70,7 @@
           var saved = S.pref(meKey());
           st.me = saved && s.teams[saved] ? saved : null;
           if (roundChanged) { st.form = null; st.changing = false; st.error = ''; }
-          if (!st.sending) render();
+          if (!st.sending && !st.askKey) render();
         });
       });
     }).catch(function () { st.failed = true; if (!st.loaded) { st.loaded = true; render(); } })
@@ -142,7 +143,9 @@
       }))];
     }
     var s = st.session;
-    if (!s || s.discarded) return note('Not started yet', 'This page updates by itself when the night begins.');
+    if (st.askKey) return keyForm();
+    if (!s || s.discarded) return [note('Not started yet', 'This page updates by itself when the night begins.'), adminLink()];
+    if (!st.me && st.role !== 'player') return roleChoice();
     if (!st.me) return chooseTeam(s);
     var out = [];
     if (s.status === 'setup') out.push(note('You are checked in', 'Round 1 will appear here when the night starts.'));
@@ -152,11 +155,55 @@
     return out;
   }
 
+  // First screen after scanning the TV: are you playing, or running the night?
+  function roleChoice() {
+    return [
+      h('div', { class: 'pl-card' }, [h('h2', null, 'Welcome'), h('p', null, 'Are you playing tonight, or running the social?')]),
+      h('div', { class: 'pl-roles' }, [
+        h('button', { type: 'button', class: 'pl-role', id: 'rolePlayer', onclick: function () { st.role = 'player'; render(); } }, [h('b', null, 'Player'), h('span', null, 'Pick your team and send in your scores')]),
+        h('button', { type: 'button', class: 'pl-role admin', id: 'roleAdmin', onclick: openAdmin }, [h('b', null, 'Admin'), h('span', null, 'Run the night: scores, teams, courts, rounds')])
+      ])
+    ];
+  }
+  function adminLink() { return h('button', { type: 'button', class: 'pl-link', style: 'color:#cfe0f3', id: 'roleAdmin', onclick: openAdmin }, 'Organizer? Open the admin page'); }
+  function goAdmin() { location.href = S.link('admin', st.seriesId ? { s: st.seriesId } : {}); }
+  // Admin: if this phone already holds a working key go straight in, otherwise ask for it.
+  function openAdmin() {
+    var have = S.getKey();
+    if (!have) { st.askKey = true; st.keyError = ''; return render(); }
+    S.checkKey(have).then(function (ok) { if (ok) goAdmin(); else { st.askKey = true; st.keyError = ''; render(); } })
+      .catch(function () { st.askKey = true; st.keyError = 'No connection. Check your signal and try again.'; render(); });
+  }
+  function keyForm() {
+    var submit = function () {
+      var k = st.keyInput.trim();
+      if (!k || st.checking) return;
+      st.checking = true; st.keyError = ''; render();
+      S.checkKey(k).then(function (ok) {
+        st.checking = false;
+        if (ok) { S.setKey(k); goAdmin(); } else { st.keyError = 'That key was not accepted. Check it and try again.'; render(); }
+      }).catch(function () { st.checking = false; st.keyError = 'No connection. Check your signal and try again.'; render(); });
+    };
+    var input = h('input', { type: 'text', class: 'pl-key', id: 'adminKey', placeholder: 'Admin key', inputmode: 'text', autocapitalize: 'none', autocomplete: 'off', autocorrect: 'off', spellcheck: 'false',
+      oninput: function (e) { st.keyInput = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') submit(); } });
+    input.value = st.keyInput;
+    setTimeout(function () { var el = document.getElementById('adminKey'); if (el && document.activeElement !== el) el.focus(); }, 30);
+    return h('div', { class: 'pl-card' }, [
+      h('h2', null, 'Admin key'),
+      h('p', null, 'Type the admin key to run the night from this phone. It is remembered on this phone.'),
+      input,
+      st.keyError ? h('p', { class: 'err', role: 'alert' }, st.keyError) : null,
+      h('button', { type: 'button', class: 'pl-send', id: 'keyGo', disabled: st.checking, onclick: submit }, st.checking ? 'Checking…' : 'Open admin'),
+      h('button', { type: 'button', class: 'pl-link', id: 'keyBack', onclick: function () { st.askKey = false; st.keyInput = ''; st.keyError = ''; render(); } }, 'Back')
+    ]);
+  }
+
   function chooseTeam(s) {
     var teams = E.activeTeams(s).slice().sort(function (a, b) { return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1; });
     if (!teams.length) return note('No teams yet', 'Ask the organizer to add you. This page updates by itself.');
     return [
-      h('div', { class: 'pl-card' }, [h('h2', null, 'Which team are you?'), h('p', null, 'Tap your names. You only do this once tonight.')]),
+      h('div', { class: 'pl-card' }, [h('h2', null, 'Which team are you?'), h('p', null, 'Tap your names. You only do this once tonight.'),
+        h('button', { type: 'button', class: 'pl-link', id: 'roleBack', onclick: function () { st.role = null; render(); } }, 'Back')]),
       h('div', { class: 'pl-list' }, teams.map(function (t) {
         return h('button', { type: 'button', class: 'pl-pick', 'data-team': t.name, onclick: function () { S.pref(meKey(), t.id); st.me = t.id; st.form = null; render(); } }, t.name);
       }))
@@ -218,7 +265,7 @@
     var row = rows.filter(function (r) { return r.key === key; })[0];
     return h('div', { class: 'pl-foot' }, [
       h('div', null, [h('b', null, me.name), row && row.played ? h('span', null, row.points + (row.points === 1 ? ' point' : ' points') + ' tonight · place ' + row.rank + ' of ' + rows.length) : h('span', null, 'No points yet tonight')]),
-      h('button', { type: 'button', class: 'pl-link', id: 'notme', onclick: function () { S.pref(meKey(), null); st.me = null; st.form = null; st.changing = false; render(); } }, 'Not you?')
+      h('button', { type: 'button', class: 'pl-link', id: 'notme', onclick: function () { S.pref(meKey(), null); st.me = null; st.role = null; st.form = null; st.changing = false; render(); } }, 'Not you?')
     ]);
   }
 

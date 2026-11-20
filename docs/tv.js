@@ -13,6 +13,8 @@
   var POLL_MS = 2000, MONTH_ROWS = 10;
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var WIN = ' \uD83D\uDC51';                                       // a crown after the winning team's name
+  var MEDALS = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];   // gold, silver, bronze
   var fixed = new URLSearchParams(location.search).get('s');
 
   var st = { id: tvId(), mode: 'boot', series: {}, seriesId: null, seriesName: '', rev: null, ping: 0, session: null, pending: {},
@@ -228,9 +230,9 @@
       // green behind the names once the score is in, so it is easy to see which courts are still missing
       return h('div', 'tvcourt' + (c.level === top ? ' king' : '') + (has ? ' done' : ''), [
         h('div', 'cn', [h('span', null, c.level === top ? 'King’s Court' : 'Court'), h('b', null, String(c.court))]),
-        h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), name(c.a)),
+        h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), name(c.a) + (has && w === 'a' ? WIN : '')),
         c.void ? h('div', 'mid', 'no match') : has ? h('div', 'mid score', sa + ' – ' + sb) : h('div', 'mid', 'vs'),
-        h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), name(c.b))
+        h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), name(c.b) + (has && w === 'b' ? WIN : ''))
       ]);
     });
     st.pendingSince = anySent ? (st.pendingSince || Date.now()) : 0;
@@ -271,7 +273,9 @@
   function board(title, sub, rows, count, empty) {
     var two = rows.length > 16;
     var list = h('div', 'tvrows' + (two ? ' two' : ''), rows.map(function (r) {
-      return h('div', 'tvrow' + (r.rank === 1 && r.points > 0 ? ' lead' : ''), [h('span', 'rk', String(r.rank)), h('span', 'nm', r.name), h('span', 'pt', String(r.points))]);
+      // gold, silver and bronze for places 1 to 3 once there are points; teams level on points share a medal
+      var medal = r.points > 0 && r.rank <= 3 ? MEDALS[r.rank - 1] : '';
+      return h('div', 'tvrow' + (r.rank === 1 && r.points > 0 ? ' lead' : ''), [h('span', 'md' + (medal && r.rank === 1 ? ' gold' : ''), medal), h('span', 'rk', String(r.rank)), h('span', 'nm', r.name), h('span', 'pt', String(r.points))]);
     }));
     if (two) list.style.gridTemplateRows = 'repeat(' + Math.ceil(rows.length / 2) + ', minmax(0, 1fr))';
     list.setAttribute('data-per', String(two ? Math.ceil(rows.length / 2) : Math.max(rows.length, 1)));

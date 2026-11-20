@@ -76,6 +76,12 @@
       if (pub) return pub + qs;
       return home + (kind === 'tv' ? 'tv/' : kind === 'player' ? 'p/' : '') + qs;
     },
+    // Is this the admin key? Touches only the key's own counter; nothing else changes.
+    checkKey: function (key) {
+      var body = {};
+      body['gate/' + key] = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+      return request('PATCH', '', body).then(function () { return true; }, function (err) { if (err.status === 401 || err.status === 403) return false; throw err; });
+    },
     getKey: getKey,
     setKey: setKey,
     pref: function (name, value) {

@@ -27,7 +27,7 @@
 
   var st = { id: tvId(), mode: 'boot', series: {}, seriesId: null, seriesName: '', rev: null, ping: 0, session: null, pending: {},
     month: null, monthKey: null, busy: false, lastOk: 0, lastRound: 0, shown: false, ticks: 0, pendingSince: 0, menuShown: '',
-    seenKey: '', seen: {}, cheer: [], fly: {}, flyer: '', flyerKey: '', lastSession: '', lastStatus: '', holdSince: 0, announce: 0 };
+    seenKey: '', seen: {}, cheer: [], fly: {}, ratings: {}, promo: null, promoKey: '', flyer: '', flyerKey: '', lastSession: '', lastStatus: '', holdSince: 0, announce: 0 };
 
   function h(tag, cls, kids) {
     var el = document.createElement(tag);
@@ -121,7 +121,7 @@
   function tick() {
     if (document.hidden) return;
     st.ticks++;
-    if (st.mode === 'show') { poll(); if (st.ticks % 15 === 0) refreshEvent(); }
+    if (st.mode === 'show') { poll(); if (st.ticks % 15 === 0) refreshEvent(); if (st.ticks % 150 === 0) loadPromo(); }
     else if (st.mode === 'flyers') { if (st.ticks % 15 === 0) loadFlyers(); if (st.ticks % 30 === 0) loadBoards(); }
     else decide();
     if (st.mode !== 'menu' && st.mode !== 'boot' && !fixed && st.ticks % 3 === 0) checkPairing();
@@ -168,6 +168,7 @@
     st.lastSession = ''; st.lastStatus = ''; st.holdSince = 0; st.flyerKey = ''; st.flyer = '';
     barTitle();
     loadEventFlyer();
+    loadPromo();
     root.replaceChildren(message(st.seriesName, 'Loading…'));
     poll();
   }
@@ -405,7 +406,20 @@
   }
   function loadMonth(monthKey) {
     if (!st.seriesId) return Promise.resolve();
-    return S.get('pub/results/' + st.seriesId + '/' + monthKey).then(function (m) { st.month = m || {}; st.monthKey = monthKey; });
+    // the players' WPR Social ratings come along with the results (they change rarely)
+    return Promise.all([S.get('pub/results/' + st.seriesId + '/' + monthKey), S.get('pub/ratings').catch(function () { return st.ratings; })]).then(function (got) {
+      st.month = got[0] || {}; st.monthKey = monthKey; st.ratings = got[1] || {};
+    });
+  }
+  // "Carter (4.37) & Casey (NR)": each player's WPR Social rating after their name, NR when there is none.
+  function rated(row) {
+    var players = row.players && row.players.length ? row.players : [row.name], out = [];
+    players.forEach(function (p, i) {
+      var r = (st.ratings || {})[E.keyOf(p)], v = r && typeof r.s === 'number' ? r.s.toFixed(2) : 'NR';
+      if (i) out.push(' & ');
+      out.push(p, h('span', 'rt', '(' + v + ')'));
+    });
+    return out;
   }
   function status() {
     var late = st.lastOk && Date.now() - st.lastOk > 10000;
@@ -544,7 +558,7 @@
     var qr = qrSvg(S.link('player', { s: st.seriesId }));
     return h('div', 'tvleft', [head('Round ' + r.n, flash), h('div', 'tvcourts', courts),
       h('div', 'tvbottom', [
-        names ? h('div', 'tvsit', [h('div', 'lab', 'Sitting out this round'), h('div', 'names', names)]) : h('div', 'tvsit', [h('div', 'lab', 'Everyone plays'), h('div', 'names', '')]),
+        signBox(roundKey, names),
         qr ? h('div', 'tvqr', [h('div', 'cap', ['Enter your score', h('small', null, 'Scan with your phone')]), qr]) : null
       ])]);
   }
@@ -575,7 +589,7 @@
     var list = h('div', 'tvrows' + (two ? ' two' : ''), rows.map(function (r) {
       // gold, silver and bronze for places 1 to 3 once there are points; teams level on points share a medal
       var medal = r.points > 0 && r.rank <= 3 ? MEDALS[r.rank - 1] : '';
-      return h('div', 'tvrow' + (r.rank === 1 && r.points > 0 ? ' lead' : ''), [h('span', 'md' + (medal && r.rank === 1 ? ' gold' : ''), medal), h('span', 'rk', String(r.rank)), h('span', 'nm', r.name), h('span', 'pt', String(r.points))]);
+      return h('div', 'tvrow' + (r.rank === 1 && r.points > 0 ? ' lead' : ''), [h('span', 'md' + (medal && r.rank === 1 ? ' gold' : ''), medal), h('span', 'rk', String(r.rank)), h('span', 'nm', rated(r)), h('span', 'pt', String(r.points))]);
     }));
     if (two) list.style.gridTemplateRows = 'repeat(' + Math.ceil(rows.length / 2) + ', minmax(0, 1fr))';
     list.setAttribute('data-per', String(two ? Math.ceil(rows.length / 2) : Math.max(rows.length, 1)));
@@ -670,6 +684,109 @@
   window.addEventListener('resize', fxSize);
   fxSize();
 
+  // ---------------------------------------------------------------- the sign under the courts
+  // Large letters running right to left. With nobody sitting out it announces what is coming up at the club.
+  // With players sitting out: their names for the first 30 seconds of a round, then 30 seconds of announcements
+  // and 10 seconds of names, over and over. What is coming up is read from pub/promo/{club}: the club's next
+  // sessions from PlayByPoint (name, date, times, how many have signed up).
+  var SIGN_FIRST = 30000, SIGN_ADS = 30000, SIGN_NAMES = 10000, SIGN_SPEED = 0.085;       // speed in screen widths per second
+  var sign = { el: null, lab: null, win: null, track: null, round: '', since: 0, names: '', shown: '', x: 0, half: 0, scroll: false, last: 0, on: false };
+  function loadPromo() {
+    var id = st.seriesId, club = ((st.series[id] || {}).club || 'lehi');
+    S.get('pub/promo/' + club).then(function (p) { if (id === st.seriesId) { st.promo = p || null; signUpdate(); } }).catch(function () { /* next time */ });
+  }
+  function clock12(t) {
+    var m = /^(\d{1,2}):(\d{2})/.exec(String(t || ''));
+    if (!m) return '';
+    var hh = Number(m[1]), mm = m[2];
+    return ((hh + 11) % 12 + 1) + (mm === '00' ? '' : ':' + mm) + (hh < 12 ? ' AM' : ' PM');
+  }
+  function dayWord(date, now) {
+    var d = new Date(date + 'T12:00:00'), today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+    var diff = Math.round((d - today) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Tomorrow';
+    if (diff > 1 && diff < 7) return DAYS[d.getDay()];
+    return DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + ordinal(d.getDate());
+  }
+  // The next two things to announce: sessions that have not started yet, one per program, and not the social
+  // that is on this screen right now.
+  function adItems() {
+    var list = st.promo && st.promo.items, now = new Date(), out = [], seen = {};
+    if (!list) return out;
+    if (!Array.isArray(list)) list = Object.keys(list).map(function (k) { return list[k]; });
+    var norm = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }, mine = norm(st.seriesName);
+    list.filter(function (it) { return it && it.name && /^\d{4}-\d\d-\d\d$/.test(it.date || ''); }).map(function (it) {
+      var m = /^(\d{1,2}):(\d{2})/.exec(it.start || '') || [0, 0, 0];
+      return { it: it, at: new Date(Number(it.date.slice(0, 4)), Number(it.date.slice(5, 7)) - 1, Number(it.date.slice(8, 10)), Number(m[1]), Number(m[2])).getTime() };
+    }).sort(function (a, b) { return a.at - b.at; }).forEach(function (x) {
+      var it = x.it, key = it.program || norm(it.name), n = norm(it.name);
+      if (out.length >= 2 || x.at <= now.getTime() || seen[key]) return;
+      if (mine && n && (n === mine || (mine.length >= 10 && n.indexOf(mine.slice(0, 10)) === 0) || (n.length >= 10 && mine.indexOf(n.slice(0, 10)) === 0))) return;
+      seen[key] = true;
+      out.push({ name: it.name, when: dayWord(it.date, now) + ' \u00b7 ' + clock12(it.start) + (it.end ? ' to ' + clock12(it.end) : ''), count: Number(it.count) || 0 });
+    });
+    return out;
+  }
+  // The box itself is made once and kept, so a redraw of the screen does not restart the letters.
+  function signBox(roundKey, names) {
+    if (!sign.el) {
+      sign.lab = h('div', 'lab'); sign.track = h('div', 'track'); sign.win = h('div', 'win', sign.track);
+      sign.el = h('div', 'tvsit sign', [sign.lab, sign.win]);
+    }
+    if (sign.round !== roundKey) { sign.round = roundKey; sign.since = Date.now(); }
+    sign.names = names || '';
+    sign.el.setAttribute('data-names', sign.names);
+    setTimeout(signUpdate, 0);                                          // once it is on the page and has a width
+    return sign.el;
+  }
+  function signPhase(ads) {
+    if (!sign.names) return ads.length ? 'ads' : 'none';
+    if (!ads.length) return 'wait';
+    var t = Date.now() - sign.since;
+    if (t < SIGN_FIRST) return 'wait';
+    return (t - SIGN_FIRST) % (SIGN_ADS + SIGN_NAMES) < SIGN_ADS ? 'ads' : 'wait';
+  }
+  function signUpdate() {
+    if (!sign.el || !sign.el.isConnected || st.mode !== 'show') { sign.on = false; return; }
+    var ads = adItems(), phase = signPhase(ads);
+    var key = phase + '|' + (phase === 'wait' ? sign.names : phase === 'ads' ? JSON.stringify(ads) : '') + '|' + sign.win.clientWidth;
+    sign.el.setAttribute('data-phase', phase);
+    if (key !== sign.shown) {
+      sign.shown = key;
+      sign.el.className = 'tvsit sign ' + phase;
+      sign.lab.textContent = phase === 'wait' ? 'Sitting out this round' : phase === 'ads' ? 'Coming up at Conquer' : 'Everyone plays';
+      var once = function () {
+        if (phase === 'wait') return [h('span', null, sign.names)];
+        return ads.map(function (a, i) {
+          return [i ? h('span', 'sep', '\u25cf') : null, h('span', 'ad', [h('b', null, a.name), h('span', 'when', a.when), a.count >= 3 ? h('small', null, a.count + ' players signed up') : null])];
+        });
+      };
+      sign.track.style.transform = '';
+      sign.track.replaceChildren.apply(sign.track, phase === 'none' ? [] : [h('span', 'run', once())]);
+      var W = sign.win.clientWidth, w = sign.track.scrollWidth;
+      // names that fit simply stand still; anything else runs, and is written twice so the loop has no gap
+      sign.scroll = phase === 'ads' || (phase === 'wait' && w > W);
+      if (sign.scroll) {
+        sign.track.replaceChildren(h('span', 'run', [once(), h('span', 'sep', '\u25cf')]), h('span', 'run', [once(), h('span', 'sep', '\u25cf')]));
+        sign.half = sign.track.scrollWidth / 2;
+        sign.x = W * 0.9;                                                // the letters come in from the right
+        sign.last = 0;
+      }
+    }
+    if (sign.scroll && !sign.on) { sign.on = true; requestAnimationFrame(signFrame); }
+  }
+  function signFrame(now) {
+    if (!sign.scroll || !sign.el || !sign.el.isConnected || st.mode !== 'show') { sign.on = false; return; }
+    var dt = sign.last ? Math.min(0.1, (now - sign.last) / 1000) : 0;
+    sign.last = now;
+    sign.x -= SIGN_SPEED * window.innerWidth * dt;
+    if (sign.half && sign.x <= -sign.half) sign.x += sign.half;
+    sign.track.style.transform = 'translate3d(' + sign.x.toFixed(1) + 'px,0,0)';
+    requestAnimationFrame(signFrame);
+  }
+  setInterval(signUpdate, 1000);
+
   // ---------------------------------------------------------------- between rounds
   // The whole screen turns to the social's wide flyer for about six seconds. The new round's number makes an
   // entrance (three take turns), padel balls rain down, a ball with a face rolls in and delivers a padel pun,
@@ -677,11 +794,9 @@
   var inter = document.getElementById('inter'), interTimers = [], INTRO_KINDS = ['slam', 'spin', 'smash'], INTRO_MS = 5500;
   var PUNS = [
     'Lob and behold!', 'No padel, no party.', 'Time to raise a racket.', 'Keep calm and bandeja on.', 'Wall you be my partner?',
-    'New round, new excuses.', 'Net gains ahead.', 'Don’t hate the player, hate the glass.', 'Chiquita now, smash later.',
-    'The glass is your friend. Mostly.', 'Golden point energy!', 'You got served. Underarm.', 'Blame the racket. Everyone does.',
-    'Padel now, tapas later.', 'Winners go up. So do egos.', 'Mind the glass!', 'Love means nothing here.', 'It was in. Probably.',
-    'Por tres or it didn’t happen.', 'Hit the ball, not your partner.', 'Less talking, more lobbing.', 'Bandeja? Band-YEAH-ja!',
-    'Your partner believes in you. Sort of.', 'That wasn’t luck. That was the wall.', 'Vamos, vamos, VAMOS!', 'Smash first, apologise later.'
+    'New round, new excuses.', 'Net gains ahead.', 'Chiquita now, smash later.', 'Golden point energy!', 'Blame the racket. Everyone does.',
+    'Winners go up. So do egos.', 'Por tres or it didn\u2019t happen.', 'Hit the ball, not your partner.', 'Less talking, more lobbing.',
+    'Your partner believes in you. Sort of.', 'Vamos, vamos, VAMOS!', 'Smash first, apologise later.'
   ];
   var BUDDY = '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="bud" cx="35%" cy="30%"><stop offset="0" stop-color="#f8ffa6"/><stop offset=".6" stop-color="#d6ef1f"/><stop offset="1" stop-color="#9db800"/></radialGradient></defs>' +
     '<circle cx="50" cy="50" r="47" fill="url(#bud)" stroke="#5c6f00" stroke-width="2.5"/>' +

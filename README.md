@@ -72,6 +72,14 @@ couple, with these differences:
 - New partners are the players who have partnered least so far that night.
 - Every game won is a point for both players of the pair. Leaderboards are per player.
 
+**The sign under the courts:** large letters running right to left. With nobody sitting out it announces the
+club's next two events (`pub/promo/{club}/items`: name, date, start, end, count; filled from PlayByPoint). With
+players sitting out it shows their names for the first 30 seconds of a round, then 30 seconds of announcements
+and 10 seconds of names, repeating. "N players signed up" appears from three sign-ups.
+
+**WPR Social ratings:** shown in brackets after each name on the TV leaderboards, `(NR)` when there is none.
+They live in `pub/ratings/{player}` and can be typed on the iPad (tap a team or player, Edit).
+
 **Monthly leaderboards:** every event's table restarts each calendar month. The club flyers slideshow includes a
 slide with the month's top three of every social, counted from the nights that have ended.
 

@@ -52,7 +52,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await tv.waitForSelector('.tvhead .round:text("Round 1")', { timeout: 6000 });
   step('TV showed round 1 after ' + (Date.now() - t0) + ' ms');
   assert.equal(await tv.locator('.tvcourt').count(), 5);
-  assert.equal((await tv.textContent('.tvsit .names')).split('\u00b7').length, 4);
+  assert.equal((await tv.getAttribute('.tvsit', 'data-names')).split('\u00b7').length, 4);
   assert.match(await tv.textContent('.tvcourt.king .cn'), /King.s Court\s*7/);
   assert.match(await tv.textContent('.tvhead .event'), /Sets to 6/);
   assert.equal(await tv.textContent('#bartitle'), 'Lehi Date Night', 'event name is in the top banner');

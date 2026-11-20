@@ -14,6 +14,7 @@
     remoteResults: null,
     liveRev: null, livePing: 0,
     screens: {}, pairTv: null,
+    ratings: {},              // players' WPR Social ratings, by name (pub/ratings)
     version: 0, dirty: false, saving: false, saveError: '', needKey: false,
     regulars: [],
     ui: { p1: '', p2: '', modal: null, toast: '', newSeries: '', newFormat: 'kings-fixed', keyInput: '', prevOpen: false, focus: null, tvCode: '', tvEvent: '' }
@@ -88,6 +89,7 @@
   }
   function loadNight() {
     var id = state.seriesId;
+    loadRatings();
     return S.get('pub/live/' + id).then(function (live) {
       if (!live || !live.sessionId) return null;
       state.liveRev = live.rev; state.livePing = live.ping || 0;
@@ -538,8 +540,33 @@
       !teams.length ? h('p', { class: 'hint' }, W.solo ? 'No players yet. Type a name and press Add player.' : 'No teams yet. Type the two players and press Add team.') : null
     ]);
   }
+  // WPR Social ratings are kept per player name, apart from the nights, so every social and month shares them.
+  function loadRatings() { return S.get('pub/ratings').then(function (all) { state.ratings = all || {}; }).catch(function () { /* optional */ }); }
+  function ratingOf(name) { var r = state.ratings[E.keyOf(name || '')]; return r && typeof r.s === 'number' ? r.s.toFixed(2) : ''; }
+  function parseRating(txt) {
+    txt = String(txt || '').trim().replace(',', '.');
+    if (!txt || /^nr$/i.test(txt)) return null;
+    var v = Number(txt);
+    return v >= 0 && v <= 21 ? Math.round(v * 100) / 100 : undefined;      // undefined = not a rating
+  }
+  function saveRatings(pairs, oldKeys) {
+    var up = {}, n = 0;
+    pairs.forEach(function (pr) {
+      var key = E.keyOf(pr.name), cur = state.ratings[key], had = cur && typeof cur.s === 'number' ? cur.s : null;
+      if (!pr.name || pr.value === had) return;
+      up['pub/ratings/' + key] = pr.value === null ? null : { s: pr.value, name: pr.name, at: Date.now(), by: 'hand' };
+      if (pr.value === null) delete state.ratings[key]; else state.ratings[key] = up['pub/ratings/' + key];
+      n++;
+    });
+    (oldKeys || []).forEach(function (k) {                                 // a renamed player takes the rating along
+      if (state.ratings[k] && !pairs.some(function (pr) { return E.keyOf(pr.name) === k; })) { up['pub/ratings/' + k] = null; delete state.ratings[k]; n++; }
+    });
+    if (!n) return;
+    up['pub/live/' + state.seriesId + '/ping'] = Date.now();              // tells the TVs to read the ratings again
+    S.write(up).catch(function (err) { toast('The rating could not be saved: ' + err.message); render(); });
+  }
   function editTeam(t) {
-    state.ui.modal = { type: 'rename', id: t.id, was: t.name, p1: t.players[0] || '', p2: t.players[1] || '' };
+    state.ui.modal = { type: 'rename', id: t.id, was: t.name, p1: t.players[0] || '', p2: t.players[1] || '', r1: ratingOf(t.players[0]), r2: ratingOf(t.players[1]), old: t.players.slice() };
     state.ui.focus = 'rn1';
     render();
   }
@@ -727,9 +754,20 @@
         h('div', { class: 'notice' }, [effect, m.courts.length ? h('div', { style: 'margin-top:6px' }, teamsN + ' ' + Wc.many + ' on ' + kk + (kk === 1 ? ' court' : ' courts') + ': ' + (Wc.per * kk) + ' play, ' + (teamsN - Wc.per * kk) + ' sit out each round.') : null]),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Use these courts', 'primary', applyCourts, { disabled: same || !m.courts.length, id: 'applyCourts' })])];
     } else if (m.type === 'rename') {
+      // WPR Social rating beside each name on the TV's leaderboards; empty means NR (not rated)
+      var ratingRow = function (fields) {
+        return h('div', { class: 'ratings' }, [h('b', null, 'WPR Social rating'), h('span', { class: 'hint', style: 'margin:0' }, 'Shown after the name on the TV leaderboards. Leave empty for NR.'),
+          h('div', { class: 'row' }, fields.map(function (f) {
+            return h('label', { class: 'rating' }, [h('span', null, f[2]), h('input', { type: 'text', id: f[0], inputmode: 'decimal', placeholder: 'NR', value: m[f[1]], maxlength: 5, autocomplete: 'off',
+              oninput: function (e) { m[f[1]] = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') saveName(); } })]);
+          }))]);
+      };
       var saveName = function () {
+        var v1 = parseRating(m.r1), v2 = E.isSolo(s) ? null : parseRating(m.r2);
+        if (v1 === undefined || v2 === undefined) { toast('A WPR rating is a number like 4.37. Leave it empty for NR.'); return render(); }
         var out = commit(function (x) { return E.renameTeam(x, m.id, E.isSolo(s) ? [m.p1] : [m.p1, m.p2]); });
         if (!out.ok) { toast(out.error); return render(); }
+        saveRatings(out.players.map(function (nm, i) { return { name: nm, value: i === 0 ? v1 : v2 }; }), (m.old || []).map(function (nm) { return E.keyOf(nm); }));
         state.ui.modal = null;
         toast('Now ' + out.name + ', in every round and on the leaderboard.');
         render();
@@ -739,7 +777,8 @@
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Was “' + m.was + '”. The change shows in every round tonight, on the leaderboards, and on this player’s earlier nights.'),
         h('input', { type: 'text', id: 'rn1', placeholder: 'Player name', value: m.p1, maxlength: 30, autocapitalize: 'words', autocomplete: 'off',
           oninput: function (e) { m.p1 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') saveName(); } }),
-        h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Save name', 'primary', saveName, { id: 'saveNames' })])]
+        ratingRow([['rt1', 'r1', m.p1 || 'Player']]),
+        h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Save', 'primary', saveName, { id: 'saveNames' })])]
       : [h('h3', null, 'Edit names'),
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Was “' + m.was + '”. The change shows in every round tonight, on the leaderboards, and on this team’s earlier nights.'),
         h('div', { class: 'addteam', style: 'grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)' }, [
@@ -749,7 +788,8 @@
           h('input', { type: 'text', id: 'rn2', placeholder: 'Player 2', value: m.p2, maxlength: 30, autocapitalize: 'words', autocomplete: 'off',
             oninput: function (e) { m.p2 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') saveName(); } })
         ]),
-        h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Save names', 'primary', saveName, { id: 'saveNames' })])];
+        ratingRow([['rt1', 'r1', m.p1 || 'Player 1'], ['rt2', 'r2', m.p2 || 'Player 2']]),
+        h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Save', 'primary', saveName, { id: 'saveNames' })])];
     } else if (m.type === 'look') {
       var lk = (state.series[m.id] || {}).look || {}, busy = state.ui.lookBusy, has = !!(lk.wide || lk.tall);
       var setLook = function (patch) { var next = lookOf(m.id); Object.keys(patch).forEach(function (k) { next[k] = patch[k]; }); saveLook(m.id, next); };

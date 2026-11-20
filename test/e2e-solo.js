@@ -46,11 +46,48 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   const sides = async () => tv.evaluate(() => [...document.querySelectorAll('.tvcourt')].map(c => [c.querySelector('.tm.a').textContent.trim(), c.querySelector('.tm.b').textContent.trim()]));
   const r1 = await sides();
   r1.flat().forEach(t => assert.match(t, /^\w+ & \w+$/, 'each side of a court is two players: ' + t));
-  const sitting = (await tv.textContent('.tvsit .names')).trim();
+  const sitting = (await tv.getAttribute('.tvsit', 'data-names')).trim();
   assert.ok(NAMES.includes(sitting), 'one player sits out: ' + sitting);
   assert.equal((await tv.textContent('.tvboard >> nth=0 >> h2 small')).trim(), '9 players');
   await tv.screenshot({ path: SHOTS + 'solo-tv-round1.png' });
   step('round 1 on the TV: two pairs per court, ' + sitting + ' sits out');
+
+  // 2b. the sign under the courts: the sitter's name first, then what is coming up at the club, then the name again
+  const day = n => { const d = new Date(Date.now() + n * 86400000); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  assert.equal(await tv.getAttribute('.tvsit.sign', 'data-phase'), 'wait', 'a new round starts with who is sitting out');
+  assert.equal((await tv.textContent('.tvsit.sign .lab')).trim(), 'Sitting out this round');
+  assert.equal((await tv.textContent('.tvsit.sign .track')).trim(), sitting, 'one name fits, so it stands still and is written once');
+  await fetch(DB + '/.json', { method: 'PATCH', body: JSON.stringify({ 'gate/test-key': Date.now(), 'pub/promo/lehi': { at: Date.now(), items: [
+    { program: 'old', name: 'Yesterday\u2019s Clinic', date: day(-1), start: '18:00', end: '19:00', count: 9 },
+    { program: 'tapas', name: 'TAPAS FRIDAYS - WPR 4.5-9 Round Robin Series', date: day(1), start: '09:00', end: '10:00', count: 12 },
+    { program: 'wheel', name: 'Wheel of Fortune - Ladies Round Robin', date: day(1), start: '10:00', end: '12:00', count: 2 },
+    { program: 'kings', name: 'King\u2019s Court Monday Open Play', date: day(3), start: '06:30', end: '08:30', count: 5 },
+    { program: 'wheel', name: 'Wheel of Fortune - Ladies Round Robin', date: day(8), start: '10:00', end: '12:00', count: 0 },
+    { program: 'taco', name: 'Taco Tuesday', date: day(4), start: '19:00', end: '21:00', count: 7 }] } }) });
+  await tv.reload();                                                  // (a TV reads what is coming up when it starts, then every five minutes)
+  await tv.waitForSelector('.tvsit.sign[data-phase="wait"]', { timeout: 8000 });
+  const tSign = Date.now();
+  await tv.waitForSelector('.tvsit.sign[data-phase="ads"]', { timeout: 40000 });
+  const waited = Date.now() - tSign;
+  assert.ok(waited > 20000, 'the name stays for the first 30 seconds of the round (' + waited + ' ms seen)');
+  assert.equal((await tv.textContent('.tvsit.sign .lab')).trim(), 'Coming up at Conquer');
+  const ads = await tv.evaluate(() => [...document.querySelector('.tvsit.sign .track .run').querySelectorAll('.ad')].map(a => [a.querySelector('b').textContent, a.querySelector('.when').textContent, a.querySelector('small') ? a.querySelector('small').textContent : '']));
+  assert.deepEqual(ads, [['Wheel of Fortune - Ladies Round Robin', 'Tomorrow \u00b7 10 AM to 12 PM', ''], ['King\u2019s Court Monday Open Play', (await tv.evaluate(n => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(Date.now() + n * 86400000).getDay()], 3)) + ' \u00b7 6:30 AM to 8:30 AM', '5 players signed up']],
+    'the next two events, not the past one, not this social itself, one per program; sign-ups shown only from three');
+  const x1 = await tv.evaluate(() => document.querySelector('.tvsit.sign .track').getBoundingClientRect().x);
+  await tv.waitForTimeout(700);
+  const x2 = await tv.evaluate(() => document.querySelector('.tvsit.sign .track').getBoundingClientRect().x);
+  assert.ok(x2 < x1 - 40, 'the letters run from right to left (' + Math.round(x1) + ' -> ' + Math.round(x2) + ')');
+  assert.ok(await tv.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.tvsit.sign .track')).fontSize) > innerHeight * 0.055), 'in large letters');
+  await tv.screenshot({ path: SHOTS + 'tv-sign-ads.png' });
+  const tAds = Date.now();
+  await tv.waitForSelector('.tvsit.sign[data-phase="wait"]', { timeout: 40000 });
+  assert.ok(Date.now() - tAds > 15000, 'announcements run for about 30 seconds');
+  const tNames = Date.now();
+  await tv.waitForSelector('.tvsit.sign[data-phase="ads"]', { timeout: 20000 });
+  const namesFor = Date.now() - tNames;
+  assert.ok(namesFor > 7000 && namesFor < 14000, 'then the names for about 10 seconds (' + namesFor + ' ms)');
+  step('sign: sitter\'s name for the first 30 s, then announcements 30 s / names 10 s; next two events with sign-ups from 3');
 
   // 3. a player's phone: pick your name, see your partner and opponents, send the score
   const [kingA, kingB] = r1[0], me = kingA.split(' & ')[0], mate = kingA.split(' & ')[1];
@@ -95,13 +132,13 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   const pairs1 = r1.flat().map(t => t.split(' & ').sort().join('+')), pairs2 = r2.flat().map(t => t.split(' & ').sort().join('+'));
   pairs2.forEach(p => assert.ok(!pairs1.includes(p), 'no pair stays together: ' + p));
   const [winner1, winner2] = kingA.split(' & ');
-  const kingNow = r2[0].map(t => t.split(' & ')), sits2 = (await tv.textContent('.tvsit .names')).trim();
+  const kingNow = r2[0].map(t => t.split(' & ')), sits2 = (await tv.getAttribute('.tvsit', 'data-names')).trim();
   assert.notEqual(sits2, sitting, 'a different player sits out in round 2');
   // (with nine players one of round 1's winners may be the one sitting now; everyone else follows the rule)
   [winner1, winner2, ...r1[1][1].split(' & ')].filter(n => n !== sits2).forEach(w => assert.ok(kingNow.flat().includes(w), w + ' won and is on King\'s Court'));
   if (![winner1, winner2].includes(sits2)) assert.ok(kingNow[0].includes(winner1) !== kingNow[0].includes(winner2), 'the two King\'s Court winners now face each other');
   assert.ok(r2.flat().join(' ').includes(sitting), sitting + ' sat out round 1 and plays round 2');
-  const board = await tv.evaluate(() => [...document.querySelectorAll('.tvboard')[0].querySelectorAll('.tvrow')].map(r => [r.querySelector('.nm').textContent, Number(r.querySelector('.pt').textContent)]));
+  const board = await tv.evaluate(() => [...document.querySelectorAll('.tvboard')[0].querySelectorAll('.tvrow')].map(r => [r.querySelector('.nm').childNodes[0].textContent, Number(r.querySelector('.pt').textContent)]));
   assert.equal(board.length, 9);
   const pts = Object.fromEntries(board);
   assert.deepEqual([pts[winner1], pts[winner2]], [4, 4], 'both players of a pair get the games the pair won');
@@ -123,6 +160,25 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   await admin.fill('#rn1', sitting + ' Jr');
   await admin.click('#saveNames');
   await tv.waitForSelector(`.tvcourt .tm:has-text("${sitting} Jr")`, { timeout: 8000 });
+  // 5b. WPR Social ratings after the names on both leaderboards; NR for anyone without one
+  const rated = NAMES.find(n => n !== sitting);
+  await admin.click(`.teamlist [data-edit="${rated}"]`);
+  await admin.fill('#rt1', '4.37');
+  await admin.click('#saveNames');
+  await tv.waitForSelector(`.tvboard >> nth=0 >> .tvrow .nm:has-text("${rated}") >> .rt:text("(4.37)")`, { timeout: 10000 });
+  const boards = await tv.evaluate(() => [...document.querySelectorAll('.tvboard')].map(b => [...b.querySelectorAll('.tvrow .nm')].map(n => n.textContent)));
+  assert.ok(boards[0].includes(rated + '(4.37)') && boards[1].includes(rated + '(4.37)'), 'on tonight\'s board and on the month\'s');
+  assert.ok(boards[0].filter(t => /\(NR\)$/.test(t)).length === 8, 'everyone else shows (NR)');
+  await tv.screenshot({ path: SHOTS + 'solo-tv-ratings.png' });
+  await admin.click(`.teamlist [data-edit="${rated}"]`);
+  assert.equal(await admin.inputValue('#rt1'), '4.37', 'the rating is there next time the player is edited');
+  await admin.fill('#rt1', 'abc'); await admin.click('#saveNames');
+  await admin.waitForSelector('text=A WPR rating is a number like 4.37');
+  await admin.fill('#rt1', ''); await admin.click('#saveNames');
+  await tv.waitForSelector(`.tvboard >> nth=0 >> .tvrow .nm:has-text("${rated}") >> .rt:text("(NR)")`, { timeout: 10000 });
+  await admin.click(`.teamlist [data-edit="${rated}"]`); await admin.fill('#rt1', '4.37'); await admin.click('#saveNames');
+  step('WPR Social rating typed on the iPad shows after the name on both TV leaderboards; empty is NR');
+
   await admin.click('text=End night'); await admin.click('#modalOk');
   await admin.waitForSelector('text=Night ended');
   await admin.waitForSelector('.sync:text("Saved")');

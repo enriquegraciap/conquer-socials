@@ -38,8 +38,23 @@ button { touch-action: manipulation; cursor: pointer; }
 
 .wrap { max-width: 1180px; margin: 0 auto; padding: 18px; display: grid; gap: 18px; }
 .cols { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; }
-@media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 860px), (orientation: portrait) { .cols { grid-template-columns: minmax(0, 1fr); } }
 .stack { display: grid; gap: 18px; min-width: 0; }
+
+/* Setup screen. Portrait first, because that is how the iPad is held. */
+.setupgrid { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "courts" "r1" "teams" "start"; }
+.setupgrid > div { min-width: 0; }
+.a-courts { grid-area: courts; } .a-r1 { grid-area: r1; } .a-teams { grid-area: teams; } .a-start { grid-area: start; }
+.a-start { position: sticky; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 4; }
+.startbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: center; box-shadow: 0 6px 24px rgba(10, 47, 87, .22); border-color: var(--court); }
+.startbar .sitlist { margin: 0; }
+.startbar .btn { min-width: 190px; min-height: 56px; font-size: 19px; }
+@media (max-width: 520px) { .startbar { grid-template-columns: minmax(0, 1fr); } }
+@media (min-width: 861px) and (orientation: landscape) {
+  .setupgrid { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; grid-template-areas: "teams courts" "teams r1" "teams start" "teams ."; align-items: start; }
+  .a-start { position: static; }
+  .startbar { grid-template-columns: minmax(0, 1fr); box-shadow: none; border-color: var(--rule); }
+}
 
 .panel { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; min-width: 0; }
 .panel h2 { font-family: var(--display); font-size: 22px; letter-spacing: .05em; text-transform: uppercase; margin: 0 0 10px; color: var(--court-deep);
@@ -129,6 +144,24 @@ table.board td.pts { font-family: var(--display); font-size: 24px; font-weight: 
 .serieslist { display: grid; gap: 10px; }
 .serieslist button { text-align: left; }
 .tvlink { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 10px; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+
+/* Portrait iPad: one column, so the court cards and score buttons can be bigger. */
+@media (min-width: 600px) and (orientation: portrait) {
+  .courtcard { min-height: 104px; grid-template-columns: 88px minmax(0, 1fr) auto; padding-right: 18px; }
+  .courtcard .tm div { font-size: 24px; }
+  .courtcard .cn b { font-size: 48px; }
+  .courtcard .sc { font-size: 48px; min-width: 56px; }
+  .courtcard .sc.enter { font-size: 17px; }
+  details.prev .courtcard { min-height: 70px; }
+  details.prev .courtcard .tm div { font-size: 19px; }
+  details.prev .courtcard .cn b, details.prev .courtcard .sc { font-size: 30px; }
+  details.prev .courtcard .sc.enter { font-size: 15px; }
+  .sitlist { font-size: 20px; }
+  .sheet { width: min(720px, 100%); }
+  .scoreteam .nm { font-size: 23px; }
+  .digits button { min-height: 72px; font-size: 36px; }
+  table.board td { font-size: 19px; padding: 9px 6px; }
+}
 
 /* ------------------------------------------------------------------ TV display */
 body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh; }

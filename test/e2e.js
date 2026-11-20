@@ -10,7 +10,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
 (async () => {
   await fetch(BASE + '/__reset');
   const browser = await chromium.launch();
-  const ipad = await browser.newContext({ viewport: { width: 1180, height: 820 }, hasTouch: true, deviceScaleFactor: 1 });
+  const ipad = await browser.newContext({ viewport: { width: 820, height: 1180 }, hasTouch: true, deviceScaleFactor: 1 });   // iPad held in portrait
   const tvCtx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
   const admin = await ipad.newPage(), tv = await tvCtx.newPage();
   const errors = [];

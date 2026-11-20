@@ -244,11 +244,13 @@
     var summary = !C ? 'Pick the courts first.' : N < 2 ? 'Add at least two teams.' :
       N + ' teams on ' + k + (k === 1 ? ' court' : ' courts') + ': ' + (2 * k) + ' play, ' + (sit ? sit + ' sit out each round.' : 'nobody sits out.') +
       (k < C ? ' Only the top ' + k + ' of your ' + C + ' courts are needed.' : '');
+    // Portrait (how the iPad is used): courts, round 1, teams, then a Start bar that stays at the bottom.
+    // Landscape: teams on the left, the rest on the right.
     return h('div', { class: 'wrap' }, [
-      h('div', { class: 'cols' }, [
-        h('div', { class: 'stack' }, [teamsPanel(s, true)]),
-        h('div', { class: 'stack' }, [
-          courtsPanel(s),
+      h('div', { class: 'setupgrid' }, [
+        h('div', { class: 'a-teams' }, teamsPanel(s, true)),
+        h('div', { class: 'a-courts' }, courtsPanel(s)),
+        h('div', { class: 'a-r1' },
           h('div', { class: 'panel' }, [
             h('h2', null, 'Round 1'),
             h('div', { class: 'seg' }, [
@@ -256,16 +258,15 @@
               h('button', { type: 'button', class: s.round1 === 'seeded' ? 'on' : '', onclick: function () { commit(function (x) { x.round1 = 'seeded'; }); } }, 'Seeded')
             ]),
             h('p', { class: 'hint' }, s.round1 === 'seeded' ? 'Seeded: the team list order is the seeding. Teams 1 and 2 start on King’s Court. Use the arrows to reorder.' : 'Random: teams are drawn onto courts at random.')
-          ]),
-          h('div', { class: 'panel' }, [
-            h('h2', null, 'Start'),
-            h('p', { class: 'sitlist', style: 'margin:0 0 12px' }, summary),
+          ])),
+        h('div', { class: 'a-start' },
+          h('div', { class: 'panel startbar' }, [
+            h('p', { class: 'sitlist' }, summary),
             btn('Start night', 'gold', function () {
               commit(function (x) { x.date = E.localDate(new Date()); x.month = x.date.slice(0, 7); E.startNight(x); });
               toast('Round 1 is on the TV.');
-            }, { disabled: N < 2 || !C, id: 'startNight', style: 'width:100%' })
-          ])
-        ])
+            }, { disabled: N < 2 || !C, id: 'startNight' })
+          ]))
       ])
     ]);
   }

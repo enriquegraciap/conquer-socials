@@ -367,8 +367,10 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await tv3.keyboard.press('m');
   await tv3.waitForSelector('.tvmenu .pickbtn');
   await tv3.keyboard.press('ArrowDown'); await tv3.keyboard.press('ArrowDown'); await tv3.keyboard.press('Enter');
-  await tv3.waitForSelector('.flymsg:has-text("No flyers yet")', { timeout: 8000 });
-  assert.ok((await tv3.getAttribute('.flymsg svg', 'data-qr')).includes('/flyers/'), 'with no flyers the TV shows where to add them');
+  // no flyers uploaded yet: the slideshow is just the month's leaderboards (two nights of Lehi Date Night have ended)
+  await tv3.waitForSelector('.lb.on .lbcard', { timeout: 8000 });
+  assert.deepEqual(await tv3.locator('.lbcard .lbname b').allTextContents(), ['Lehi Date Night'], 'only socials with a finished night this month are listed');
+  assert.equal(await tv3.locator('.lbcard .lbrow').count(), 3, 'top three');
   assert.ok(!(await tv3.isVisible('.tvbar')), 'no banner over the flyers');
   const fly = await ipad.newPage();
   fly.on('pageerror', e => errors.push('flyers: ' + e));

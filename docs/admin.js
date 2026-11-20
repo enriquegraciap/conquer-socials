@@ -16,7 +16,7 @@
     screens: {}, pairTv: null,
     version: 0, dirty: false, saving: false, saveError: '', needKey: false,
     regulars: [],
-    ui: { p1: '', p2: '', modal: null, toast: '', newSeries: '', keyInput: '', prevOpen: false, focus: null, tvCode: '', tvEvent: '' }
+    ui: { p1: '', p2: '', modal: null, toast: '', newSeries: '', newFormat: 'kings-fixed', keyInput: '', prevOpen: false, focus: null, tvCode: '', tvEvent: '' }
   };
   var toastTimer = null, retryTimer = null;
 
@@ -53,6 +53,9 @@
   function showName(id) { return id === FLYERS ? 'the club flyers' : (state.series[id] || {}).name || 'that social'; }
   function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'event'; }
   function teamNameOf(id) { var t = state.session.teams[id]; return t ? t.name : '(removed)'; }
+  function sideNameOf(c, side) { return E.sideName(state.session, c, side); }      // a team, or the two players paired for that round
+  // Words for the night's format: "team" and "teams" with fixed partners, "player" and "players" when everyone plays for themselves.
+  function words(s) { var f = E.formatOf(s); return { solo: f.solo, per: f.per, one: f.unit, many: f.units, One: f.unit.charAt(0).toUpperCase() + f.unit.slice(1), Many: f.units.charAt(0).toUpperCase() + f.units.slice(1) }; }
 
   // ---------------------------------------------------------------- loading and saving
   function boot() {
@@ -306,7 +309,8 @@
       if (!name) return;
       var id = slug(name), n = 2;
       while (state.series[id]) id = slug(name) + '-' + n++;
-      var meta = { name: name, format: 'kings-fixed', scoring: 'team', created: E.localDate(new Date()) };
+      var fmt = E.FORMATS[state.ui.newFormat] ? state.ui.newFormat : 'kings-fixed';
+      var meta = { name: name, format: fmt, scoring: E.FORMATS[fmt].scoring, created: E.localDate(new Date()) };
       var up = {}; up['pub/series/' + id] = meta;
       S.write(up).then(function () { state.series[id] = meta; state.ui.newSeries = ''; openSeries(id); })
         .catch(function (err) {
@@ -319,7 +323,7 @@
         h('h2', null, 'Your events'),
         h('div', { class: 'serieslist' }, ids.map(function (id) {
           return h('div', { class: 'seriesrow' }, [
-            btn([state.series[id].name, h('span', { class: 'hint' }, '  Fixed partner, King’s Court')], '', function () { openSeries(id); }, { 'data-open': id }),
+            btn([state.series[id].name, h('span', { class: 'hint' }, '  ' + E.formatOf(state.series[id].format).name)], '', function () { openSeries(id); }, { 'data-open': id }),
             btn('Flyer', 'small', function () { state.ui.modal = { type: 'look', id: id }; render(); }, { 'data-look': id }),
             btn('Rename', 'small', function () { state.ui.modal = { type: 'renameSeries', id: id, name: state.series[id].name }; state.ui.focus = 'seriesName'; render(); }, { 'data-rename': id })
           ]);
@@ -329,11 +333,21 @@
         h('h2', null, ids.length ? 'Add another event' : 'Name your first event'),
         h('p', { class: 'hint' }, 'One event per weekly social and club, for example “Lehi Date Night”. Each event keeps its own monthly leaderboard.'),
         h('div', { class: 'row', style: 'margin-top:10px' }, [
-          h('input', { type: 'text', id: 'newSeries', placeholder: 'Event name', value: state.ui.newSeries, maxlength: 40, style: 'flex:1',
+          h('input', { type: 'text', id: 'newSeries', placeholder: 'Event name', value: state.ui.newSeries, maxlength: 60, style: 'flex:1',
             oninput: function (e) { state.ui.newSeries = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') create(); } }),
           btn('Create', 'primary', create)
         ]),
-        h('p', { class: 'hint' }, 'Format: King’s Court, fixed partners, with sit-outs. Points belong to the couple.')
+        h('div', { style: 'margin-top:12px;font-weight:600' }, 'Format'),
+        h('div', { class: 'fmtpick' }, Object.keys(E.FORMATS).map(function (f) {
+          var on = state.ui.newFormat === f;
+          return h('button', { type: 'button', class: 'fmt' + (on ? ' on' : ''), 'data-format': f, 'aria-pressed': on ? 'true' : 'false', onclick: function () { state.ui.newFormat = f; render(); } }, [
+            h('b', null, E.FORMATS[f].name),
+            h('span', null, f === 'kings-individual'
+              ? 'Everyone signs up alone. After each round the pairs split: the two winners move up a court and face each other with new partners, the two losers move down and split. Points and the leaderboard are per player.'
+              : 'Couples sign up together and stay together all night. Winners move up a court, losers move down. Points and the leaderboard are per couple.')
+          ]);
+        })),
+        h('p', { class: 'hint' }, 'Both formats share the courts, sit-out and scoring rules. The format is chosen once, when the event is created.')
       ]),
       h('div', { class: 'panel' }, [
         h('h2', null, ['Club flyers', h('small', null, 'a slideshow for the TVs')]),
@@ -389,9 +403,9 @@
   // ---- Setup
   function setupView(s) {
     var teams = E.teamList(s), N = teams.length, C = s.courts.length;
-    var k = Math.min(C, Math.floor(N / 2)), sit = N - 2 * k;
-    var summary = !C ? 'Pick the courts first.' : N < 2 ? 'Add at least two teams.' :
-      N + ' teams on ' + k + (k === 1 ? ' court' : ' courts') + ': ' + (2 * k) + ' play, ' + (sit ? sit + ' sit out each round.' : 'nobody sits out.') +
+    var W = words(s), k = Math.min(C, Math.floor(N / W.per)), sit = N - W.per * k;
+    var summary = !C ? 'Pick the courts first.' : N < W.per ? (W.solo ? 'Add at least four players.' : 'Add at least two teams.') :
+      N + ' ' + W.many + ' on ' + k + (k === 1 ? ' court' : ' courts') + ': ' + (W.per * k) + ' play, ' + (sit ? sit + (sit === 1 ? ' sits' : ' sit') + ' out each round.' : 'nobody sits out.') +
       (k < C ? ' Only the top ' + k + ' of your ' + C + ' courts are needed.' : '');
     // Portrait (how the iPad is used): courts, round 1, teams, then a Start bar that stays at the bottom.
     // Landscape: teams on the left, the rest on the right.
@@ -406,7 +420,8 @@
               h('button', { type: 'button', class: s.round1 === 'random' ? 'on' : '', onclick: function () { commit(function (x) { x.round1 = 'random'; }); } }, 'Random draw'),
               h('button', { type: 'button', class: s.round1 === 'seeded' ? 'on' : '', onclick: function () { commit(function (x) { x.round1 = 'seeded'; }); } }, 'Seeded')
             ]),
-            h('p', { class: 'hint' }, s.round1 === 'seeded' ? 'Seeded: the team list order is the seeding. Teams 1 and 2 start on King’s Court. Use the arrows to reorder.' : 'Random: teams are drawn onto courts at random.')
+            h('p', { class: 'hint' }, s.round1 === 'seeded' ? (W.solo ? 'Seeded: the player list order is the seeding. Players 1 to 4 start on King’s Court, 1 with 4 against 2 with 3. Use the arrows to reorder.' : 'Seeded: the team list order is the seeding. Teams 1 and 2 start on King’s Court. Use the arrows to reorder.')
+              : (W.solo ? 'Random: players are drawn onto courts and into pairs at random.' : 'Random: teams are drawn onto courts at random.'))
           ])),
         h('div', { class: 'a-sets' },
           h('div', { class: 'panel' }, [
@@ -461,12 +476,12 @@
   }
 
   function teamsPanel(s, setup) {
-    var teams = E.teamList(s), cur = E.currentRound(s);
+    var teams = E.teamList(s), cur = E.currentRound(s), W = words(s);
     var add = function () {
-      var p = [state.ui.p1, state.ui.p2];
-      if (!(p[0] + p[1]).trim()) return;
+      var p = W.solo ? [state.ui.p1] : [state.ui.p1, state.ui.p2];
+      if (!p.join('').trim()) return;
       var res = commit(function (x) { return E.addTeam(x, p); });
-      if (!res) toast('That team is already on the list.');
+      if (!res) toast('That ' + W.one + ' is already on the list.');
       else { state.ui.p1 = ''; state.ui.p2 = ''; if (!setup) toast(res.name + ' joins from the next round.'); }
       state.ui.focus = 'p1'; render();
     };
@@ -474,7 +489,7 @@
       if (t.left) return 'Left';
       if (setup || !cur) return '';
       if (cur.sitting.indexOf(t.id) >= 0) return 'Sitting out';
-      var c = cur.courts.filter(function (c) { return c.a === t.id || c.b === t.id; })[0];
+      var c = cur.courts.filter(function (c) { return !!E.sideOf(c, t.id); })[0];
       return c ? 'Court ' + c.court : 'Joins next round';
     };
     var move = function (t, dir) {
@@ -489,8 +504,12 @@
     teams.forEach(function (t) { if (!t.left) have[E.entityKey(t.players)] = true; });
     var regs = state.regulars.filter(function (r) { return !have[r.key]; });
     return h('div', { class: 'panel' }, [
-      h('h2', null, ['Teams', h('small', null, teams.filter(function (t) { return !t.left; }).length + (setup ? ' entered' : ' playing tonight'))]),
-      h('div', { class: 'addteam' }, [
+      h('h2', null, [W.Many, h('small', null, teams.filter(function (t) { return !t.left; }).length + (setup ? ' entered' : ' playing tonight'))]),
+      W.solo ? h('div', { class: 'addteam solo' }, [
+        h('input', { type: 'text', id: 'p1', placeholder: 'Player name', value: state.ui.p1, maxlength: 30, autocapitalize: 'words', autocomplete: 'off',
+          oninput: function (e) { state.ui.p1 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') add(); } }),
+        btn(setup ? 'Add player' : 'Add late player', 'primary', add, { id: 'addTeam' })
+      ]) : h('div', { class: 'addteam' }, [
         h('input', { type: 'text', id: 'p1', placeholder: 'Player 1', value: state.ui.p1, maxlength: 30, autocapitalize: 'words', autocomplete: 'off',
           oninput: function (e) { state.ui.p1 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') document.getElementById('p2').focus(); } }),
         h('span', { class: 'amp' }, '&'),
@@ -504,7 +523,7 @@
       h('ul', { class: 'teamlist' }, teams.map(function (t, i) {
         return h('li', { class: t.left ? 'gone' : '' }, [
           setup && s.round1 === 'seeded' ? h('span', { class: 'seed' }, String(i + 1)) : null,
-          h('button', { type: 'button', class: 'nm nmbtn', 'data-edit': t.name, 'aria-label': 'Edit the names of ' + t.name, onclick: function () { editTeam(t); } }, t.name),
+          h('button', { type: 'button', class: 'nm nmbtn', 'data-edit': t.name, 'aria-label': 'Edit the name of ' + t.name, onclick: function () { editTeam(t); } }, t.name),
           h('span', { class: 'st' }, status(t)),
           btn('Edit', 'small', function () { editTeam(t); }, { 'aria-label': 'Edit ' + t.name }),
           setup && s.round1 === 'seeded' ? btn('▲', 'small', function () { move(t, -1); }, { 'aria-label': 'Move ' + t.name + ' up', disabled: i === 0 }) : null,
@@ -513,7 +532,7 @@
             : btn('Remove', 'small danger', function () { removeTeam(t); }, { 'aria-label': 'Remove ' + t.name })
         ]);
       })),
-      !teams.length ? h('p', { class: 'hint' }, 'No teams yet. Type the two players and press Add team.') : null
+      !teams.length ? h('p', { class: 'hint' }, W.solo ? 'No players yet. Type a name and press Add player.' : 'No teams yet. Type the two players and press Add team.') : null
     ]);
   }
   function editTeam(t) {
@@ -551,11 +570,11 @@
     var go = function () {
       var out = commit(function (x) { return E.removeTeam(x, t.id); });
       if (out.substitute) toast(teamNameOf(out.substitute) + ' steps in on court ' + out.court + '.');
-      else if (out.voided) toast('Court ' + out.voided + ': the other team keeps its place, no points for that match.');
+      else if (out.voided) toast('Court ' + out.voided + (E.isSolo(s) ? ': nobody is free to step in, so that match is called off. The other three keep their court.' : ': the other team keeps its place, no points for that match.'));
       render();
     };
     if (s.status === 'setup') return go();
-    state.ui.modal = { type: 'confirm', title: 'Remove ' + t.name + '?', text: 'They keep the points they have won tonight but are left out of the next rounds. If they are on court right now, a team that is sitting out takes their place.', ok: 'Remove team', danger: true, onOk: go };
+    state.ui.modal = { type: 'confirm', title: 'Remove ' + t.name + '?', text: 'They keep the points they have won tonight but are left out of the next rounds. If they are on court right now, a ' + words(s).one + ' that is sitting out takes their place.', ok: 'Remove ' + words(s).one, danger: true, onOk: go };
     render();
   }
 
@@ -565,11 +584,11 @@
     var done = !!c.w && !c.void;
     var open = function () { state.ui.modal = { type: 'score', n: r.n, i: i, sa: c.sa, sb: c.sb, w: c.sa === c.sb ? c.w : null }; render(); };
     return h('button', { type: 'button', class: 'courtcard' + (king ? ' king' : '') + (c.void ? ' void' : done ? '' : ' todo'), disabled: c.void, 'data-court': c.court, 'data-round': r.n, onclick: open,
-      'aria-label': 'Court ' + c.court + ': ' + teamNameOf(c.a) + ' against ' + teamNameOf(c.b) + (done ? ', ' + c.sa + ' to ' + c.sb + '. Tap to correct.' : '. Tap to enter the score.') }, [
+      'aria-label': 'Court ' + c.court + ': ' + sideNameOf(c, 'a') + ' against ' + sideNameOf(c, 'b') + (done ? ', ' + c.sa + ' to ' + c.sb + '. Tap to correct.' : '. Tap to enter the score.') }, [
       h('div', { class: 'cn' }, [h('b', null, String(c.court)), h('span', null, king ? 'King’s' : 'Court')]),
       h('div', { class: 'tm' }, [
-        h('div', { class: done && c.w === 'a' ? 'won' : '' }, teamNameOf(c.a)),
-        h('div', { class: done && c.w === 'b' ? 'won' : '' }, teamNameOf(c.b))
+        h('div', { class: done && c.w === 'a' ? 'won' : '' }, sideNameOf(c, 'a')),
+        h('div', { class: done && c.w === 'b' ? 'won' : '' }, sideNameOf(c, 'b'))
       ]),
       c.void ? h('div', { class: 'sc enter' }, 'No match') : done ? h('div', { class: 'sc num' }, [h('span', null, String(c.sa)), h('span', null, String(c.sb))]) : h('div', { class: 'sc enter' }, small ? 'Enter' : 'Enter score')
     ]);
@@ -578,14 +597,14 @@
   function liveView(s) {
     var cur = E.currentRound(s), prev = s.rounds.slice(0, -1).reverse();
     var left = cur ? cur.courts.filter(function (c) { return !c.void && !c.w; }).length : 0;
-    var waiting = E.activeTeams(s).filter(function (t) { return cur && cur.sitting.indexOf(t.id) < 0 && !cur.courts.some(function (c) { return c.a === t.id || c.b === t.id; }); });
+    var waiting = E.activeTeams(s).filter(function (t) { return cur && cur.sitting.indexOf(t.id) < 0 && !cur.courts.some(function (c) { return !!E.sideOf(c, t.id); }); });
     return h('div', { class: 'wrap' }, [
       h('div', { class: 'cols' }, [
         h('div', { class: 'stack' }, [
           h('div', { class: 'panel' }, [
             h('div', { class: 'roundhead' }, [
               h('span', { class: 'big' }, 'Round ' + (cur ? cur.n : 1)),
-              h('span', { class: 'hint' }, !cur ? 'Add teams and courts to begin.' : left ? left + (left === 1 ? ' court' : ' courts') + ' still to score. The next round appears when the last score goes in.' : '')
+              h('span', { class: 'hint' }, !cur ? 'Add ' + words(s).many + ' and courts to begin.' : left ? left + (left === 1 ? ' court' : ' courts') + ' still to score. The next round appears when the last score goes in.' : '')
             ]),
             cur ? h('div', { class: 'courtcards' }, cur.courts.map(function (c, i) { return courtCard(s, cur, c, i, false); })) : null,
             cur && cur.sitting.length ? h('p', { class: 'sitlist' }, [h('b', null, 'Sitting out: '), cur.sitting.map(teamNameOf).join(', ')]) : null,
@@ -594,7 +613,7 @@
               h('span', { class: 'hint', style: 'margin:0' }, 'Sets to'), setsControl(s), h('span', { style: 'flex:1' }),
               btn('Change courts', 'small', function () { state.ui.modal = { type: 'courts', courts: s.courts.slice() }; render(); }, { id: 'changeCourts' }),
               cur && !E.roundHasScores(cur) ? btn('Re-draw this round', 'small', function () {
-                state.ui.modal = { type: 'confirm', title: 'Re-draw round ' + cur.n + '?', text: cur.n === 1 ? 'Makes a new draw for round 1.' : 'Chooses again who sits out and where teams play, following the same rules. Use it after adding or removing a team.', ok: 'Re-draw', onOk: function () { commit(function (x) { E.redrawRound(x); }); render(); } };
+                state.ui.modal = { type: 'confirm', title: 'Re-draw round ' + cur.n + '?', text: cur.n === 1 ? 'Makes a new draw for round 1.' : 'Chooses again who sits out and where everyone plays, following the same rules. Use it after adding or removing a ' + words(s).one + '.', ok: 'Re-draw', onOk: function () { commit(function (x) { E.redrawRound(x); }); render(); } };
                 render();
               }) : null,
               btn('End night', 'small danger', function () {
@@ -626,7 +645,7 @@
         h('tbody', null, rows.map(function (r) {
           return h('tr', null, [h('td', null, String(r.rank)), h('td', null, r.name), h('td', { class: 'num' }, String(r.played)), h('td', { class: 'num' }, String(r.wins)), h('td', { class: 'num' }, String(r.sitOuts)), h('td', { class: 'pts num' }, String(r.points))]);
         }))
-      ]) : h('p', { class: 'hint' }, 'No teams yet.')
+      ]) : h('p', { class: 'hint' }, 'Nothing yet.')
     ]);
   }
 
@@ -688,7 +707,7 @@
         h('div', { class: 'row end' }, btn('Close', 'primary', closeModal))];
     } else if (m.type === 'courts') {
       var curR = E.currentRound(s), same = JSON.stringify(m.courts) === JSON.stringify(s.courts);
-      var teamsN = E.activeTeams(s).length, kk = Math.min(m.courts.length, Math.floor(teamsN / 2));
+      var teamsN = E.activeTeams(s).length, Wc = words(s), kk = Math.min(m.courts.length, Math.floor(teamsN / Wc.per));
       var effect = !m.courts.length ? 'Pick at least one court.' : same ? 'These are the courts in use now.' :
         (curR && !E.roundHasScores(curR)) ? 'Round ' + curR.n + ' has no scores yet, so it will be drawn again on these courts.' :
         m.courts.length === s.courts.length ? 'Matches in round ' + (curR ? curR.n : 1) + ' that are not scored yet move to the new court numbers now. Every later round uses them too.' :
@@ -702,18 +721,23 @@
       body = [h('h3', null, 'Courts for tonight'),
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Tap from the bottom court up to King’s Court. You can change the numbers, or use more or fewer courts.'),
         courtPicker(m.courts, function (next) { m.courts = next; render(); }),
-        h('div', { class: 'notice' }, [effect, m.courts.length ? h('div', { style: 'margin-top:6px' }, teamsN + ' teams on ' + kk + (kk === 1 ? ' court' : ' courts') + ': ' + (2 * kk) + ' play, ' + (teamsN - 2 * kk) + ' sit out each round.') : null]),
+        h('div', { class: 'notice' }, [effect, m.courts.length ? h('div', { style: 'margin-top:6px' }, teamsN + ' ' + Wc.many + ' on ' + kk + (kk === 1 ? ' court' : ' courts') + ': ' + (Wc.per * kk) + ' play, ' + (teamsN - Wc.per * kk) + ' sit out each round.') : null]),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Use these courts', 'primary', applyCourts, { disabled: same || !m.courts.length, id: 'applyCourts' })])];
     } else if (m.type === 'rename') {
       var saveName = function () {
-        var out = commit(function (x) { return E.renameTeam(x, m.id, [m.p1, m.p2]); });
+        var out = commit(function (x) { return E.renameTeam(x, m.id, E.isSolo(s) ? [m.p1] : [m.p1, m.p2]); });
         if (!out.ok) { toast(out.error); return render(); }
         state.ui.modal = null;
         toast('Now ' + out.name + ', in every round and on the leaderboard.');
         render();
         carryRename(out);
       };
-      body = [h('h3', null, 'Edit names'),
+      body = E.isSolo(s) ? [h('h3', null, 'Edit name'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Was “' + m.was + '”. The change shows in every round tonight, on the leaderboards, and on this player’s earlier nights.'),
+        h('input', { type: 'text', id: 'rn1', placeholder: 'Player name', value: m.p1, maxlength: 30, autocapitalize: 'words', autocomplete: 'off',
+          oninput: function (e) { m.p1 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') saveName(); } }),
+        h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Save name', 'primary', saveName, { id: 'saveNames' })])]
+      : [h('h3', null, 'Edit names'),
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Was “' + m.was + '”. The change shows in every round tonight, on the leaderboards, and on this team’s earlier nights.'),
         h('div', { class: 'addteam', style: 'grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)' }, [
           h('input', { type: 'text', id: 'rn1', placeholder: 'Player 1', value: m.p1, maxlength: 30, autocapitalize: 'words', autocomplete: 'off',
@@ -740,7 +764,7 @@
         ]);
       };
       var bar = h('div', { class: 'lookbar', id: 'lookbar' }, [h('img', { src: 'logo-p.png', alt: '' }),
-        h('div', { class: 'c' }, [h('b', null, state.series[m.id].name), h('span', null, 'Fixed partner, King’s Court')]),
+        h('div', { class: 'c' }, [h('b', null, state.series[m.id].name), h('span', null, E.formatOf(state.series[m.id].format).name)]),
         h('img', { class: 'w', src: 'conquer-wordmark-white.png', alt: '' })]);
       L.paint(bar, has || lk.pattern ? lk : null);
       body = [h('h3', null, 'Flyer and look'),
@@ -771,7 +795,7 @@
       };
       body = [h('h3', null, 'Rename event'),
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'The new name shows on the TVs, on players’ phones and here. Scores and the monthly leaderboard stay as they are.'),
-        h('input', { type: 'text', id: 'seriesName', placeholder: 'Event name', value: m.name, maxlength: 40, autocapitalize: 'words', autocomplete: 'off',
+        h('input', { type: 'text', id: 'seriesName', placeholder: 'Event name', value: m.name, maxlength: 60, autocapitalize: 'words', autocomplete: 'off',
           oninput: function (e) { m.name = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') saveSeries(); } }),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Save name', 'primary', saveSeries, { id: 'saveSeriesName' })])];
     } else if (m.type === 'pair') {
@@ -822,11 +846,11 @@
       body = [
         h('h3', null, 'Round ' + m.n + ' · Court ' + c.court + (E.isKingsCourt(s, r, c) ? ' · King’s Court' : '')),
         h('p', { class: 'hint', style: 'margin:-8px 0 0' }, 'Sets to ' + (s.setTo || 4) + ' games. A point for every game won.'),
-        h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, teamNameOf(c.a)), h('div', { class: 'digits' }, digits('sa'))]),
-        h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, teamNameOf(c.b)), h('div', { class: 'digits' }, digits('sb'))]),
-        level ? h('div', { class: 'notice' }, [h('div', { style: 'margin-bottom:8px;font-weight:600' }, 'Level on games. Which team moves up?'), h('div', { class: 'row' }, [
-          btn(teamNameOf(c.a), m.w === 'a' ? 'primary small' : 'small', function () { m.w = 'a'; render(); }),
-          btn(teamNameOf(c.b), m.w === 'b' ? 'primary small' : 'small', function () { m.w = 'b'; render(); })])]) : null,
+        h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, sideNameOf(c, 'a')), h('div', { class: 'digits' }, digits('sa'))]),
+        h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, sideNameOf(c, 'b')), h('div', { class: 'digits' }, digits('sb'))]),
+        level ? h('div', { class: 'notice' }, [h('div', { style: 'margin-bottom:8px;font-weight:600' }, E.isSolo(s) ? 'Level on games. Which pair moves up?' : 'Level on games. Which team moves up?'), h('div', { class: 'row' }, [
+          btn(sideNameOf(c, 'a'), m.w === 'a' ? 'primary small' : 'small', function () { m.w = 'a'; render(); }),
+          btn(sideNameOf(c, 'b'), m.w === 'b' ? 'primary small' : 'small', function () { m.w = 'b'; render(); })])]) : null,
         h('div', { class: 'row end' }, [
           c.w ? btn('Clear score', 'danger', function () { commit(function (x) { E.setScore(x, m.n, m.i, null, null); }); closeModal(); }) : null,
           btn('Cancel', '', closeModal),

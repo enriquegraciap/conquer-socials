@@ -6,6 +6,12 @@
  *   level     index into session.courts (0 = bottom court, last = King's Court)
  *   round     { n, courts:[{court, level, a, b, sa, sb, w, void}], sitting:[teamId], entry:{teamId:level} }
  *   returner  a team that did not play the previous round (sat out, or just arrived)
+ *
+ * Two formats share the same rules for courts, sit-outs and returning:
+ *   kings-fixed       fixed partners. An entry in session.teams is a couple; a court's a and b are team ids.
+ *   kings-individual  everyone plays for themselves. An entry in session.teams is ONE player; a court's a and b
+ *                     are each a list of two player ids. After every round the pairs split: the two winners move
+ *                     up a court and become opponents, each with a new partner; the two losers move down and split.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -20,6 +26,26 @@
     // Where a team that arrives after the night has started first plays: 'bottom' or 'middle'.
     lateArrivalEntry: 'bottom'
   };
+
+  // ---- Formats ------------------------------------------------------------------------------
+  var FORMATS = {
+    'kings-fixed': { name: 'Fixed partner, King\u2019s Court', solo: false, per: 2, scoring: 'team', unit: 'team', units: 'teams' },
+    'kings-individual': { name: 'Individual, King\u2019s Court', solo: true, per: 4, scoring: 'player', unit: 'player', units: 'players' }
+  };
+  function formatOf(x) { return FORMATS[typeof x === 'string' ? x : (x && x.format)] || FORMATS['kings-fixed']; }
+  function isSolo(session) { return formatOf(session).solo; }
+  // The ids on one side of a court: one team (fixed partners) or two players (individual).
+  function sideIds(c, side) {
+    var v = c ? c[side] : null;
+    if (Array.isArray(v)) return v;
+    if (v && typeof v === 'object') return toArray(v);
+    return v ? [v] : [];
+  }
+  function courtIds(c) { return sideIds(c, 'a').concat(sideIds(c, 'b')); }
+  function sideOf(c, id) { return sideIds(c, 'a').indexOf(id) >= 0 ? 'a' : sideIds(c, 'b').indexOf(id) >= 0 ? 'b' : null; }
+  function sideName(session, c, side) {
+    return sideIds(c, side).map(function (id) { var t = session.teams[id]; return t ? t.name : '(removed)'; }).join(' & ');
+  }
 
   // ---- Small helpers ------------------------------------------------------------------------
   function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
@@ -77,7 +103,7 @@
       seriesId: opts.seriesId || 'default',
       seriesName: opts.seriesName || '',
       format: opts.format || 'kings-fixed',
-      scoring: opts.scoring || 'team',          // 'team' = points belong to the couple, 'player' = to each player
+      scoring: opts.scoring || formatOf(opts.format).scoring,   // 'team' = points belong to the couple, 'player' = to each player
       date: date,
       month: date.slice(0, 7),
       status: 'setup',                           // setup -> live -> ended
@@ -122,6 +148,8 @@
       r.redraw = r.redraw || 0;
       if (r.top === undefined || r.top === null) r.top = r.courts.reduce(function (m, c) { return Math.max(m, c.level || 0); }, 0);
       r.courts.forEach(function (c) {
+        if (c.a && typeof c.a === 'object') c.a = toArray(c.a);
+        if (c.b && typeof c.b === 'object') c.b = toArray(c.b);
         c.sa = c.sa === undefined ? null : c.sa;
         c.sb = c.sb === undefined ? null : c.sb;
         c.w = c.w || null;
@@ -159,31 +187,38 @@
         st[id].sitOuts++; st[id].satOut++; st[id].lastSat = r.n;
       });
       r.courts.forEach(function (c) {
-        if (c.void) { // opponent left mid-round: the remaining team keeps its place as if it had won, no points
-          var stay = c.w === 'a' ? c.a : c.b;
-          if (st[stay]) st[stay].lastPlayed = { n: r.n, level: c.level, depth: rtop - c.level, won: true };
+        if (c.void) { // someone left mid-round and nobody could step in: no points. The side that stayed complete
+          // keeps its place as if it had won; a player whose partner left simply holds the court.
+          sideIds(c, c.w).forEach(function (id) { if (st[id]) st[id].lastPlayed = { n: r.n, level: c.level, depth: rtop - c.level, won: true }; });
+          sideIds(c, c.w === 'a' ? 'b' : 'a').forEach(function (id) { if (st[id]) st[id].lastPlayed = { n: r.n, level: c.level, depth: rtop - c.level, won: false, hold: true }; });
           return;
         }
         if (!c.w) return;
-        var A = st[c.a], B = st[c.b], sa = c.sa || 0, sb = c.sb || 0;
-        if (A) { A.points += sa; A.against += sb; A.played++; if (c.w === 'a') A.wins++; else A.losses++;
-          A.lastPlayed = { n: r.n, level: c.level, depth: rtop - c.level, won: c.w === 'a' }; }
-        if (B) { B.points += sb; B.against += sa; B.played++; if (c.w === 'b') B.wins++; else B.losses++;
-          B.lastPlayed = { n: r.n, level: c.level, depth: rtop - c.level, won: c.w === 'b' }; }
+        var sa = c.sa || 0, sb = c.sb || 0;
+        ['a', 'b'].forEach(function (side) {
+          var won = c.w === side, mine = side === 'a' ? sa : sb, theirs = side === 'a' ? sb : sa;
+          sideIds(c, side).forEach(function (id) {
+            var X = st[id];
+            if (!X) return;
+            X.points += mine; X.against += theirs; X.played++; if (won) X.wins++; else X.losses++;
+            X.lastPlayed = { n: r.n, level: c.level, depth: rtop - c.level, won: won };
+          });
+        });
       });
     });
     return st;
   }
 
-  // ---- Round generation: King's Court, fixed partners, with sit-outs ------------------------
+  // ---- Round generation: King's Court with sit-outs (fixed partners, or individual) ---------
   function generateRound(session, n, redraw) {
     redraw = redraw || 0;
     var C = session.courts.length;
     var teams = activeTeams(session);
     var N = teams.length;
-    var k = Math.min(C, Math.floor(N / 2));       // courts in use (the top k, so King's Court is always played)
+    var solo = isSolo(session), per = solo ? 4 : 2;   // entries per court: two teams, or four players
+    var k = Math.min(C, Math.floor(N / per));     // courts in use (the top k, so King's Court is always played)
     var top = C - 1, L0 = C - k;
-    var S = N - 2 * k;                            // teams sitting out this round
+    var S = N - per * k;                          // teams (or players) sitting out this round
     var rng = makeRng(hashSeed(session.seed, n, redraw));
     var round = { n: n, top: top, courts: [], sitting: [], entry: {}, redraw: redraw };
     if (k === 0) { round.sitting = teams.map(function (t) { return t.id; }); return round; }
@@ -204,7 +239,11 @@
           si++;
         } else playing.push(t.id);
       });
-      for (var i = 0; i < k; i++) slots[top - i] = [playing[2 * i], playing[2 * i + 1]];
+      for (var i = 0; i < k; i++) {
+        var four = playing.slice(per * i, per * i + per);
+        // individual: of the four on a court, first and last in the order play the middle two
+        slots[top - i] = solo ? [[four[0], four[3]], [four[1], four[2]]] : four;
+      }
     } else {
       var st = teamStats(session, n - 1);
       var r1 = session.rounds[0];
@@ -222,7 +261,7 @@
           tb: rng()
         };
         if (playedPrev) {                               // normal move: winners up, losers down
-          x.target = clamp(x.prevL + (x.won ? 1 : -1), L0, top);
+          x.target = clamp(x.prevL + (x.won ? 1 : (lp.hold ? 0 : -1)), L0, top);
           x.floor = L0;
           // where this team would come back in if it sits this round
           x.retTarget = clamp(x.prevL + (x.won ? 1 : (RULES.returnerLoserHoldsCourt ? 0 : -1)), L0, top);
@@ -249,13 +288,14 @@
       //    down), and losers take whatever squeeze is left.
       var playingInfo = info.filter(function (x) { return !sitSet[x.id]; });
       var levels = [];
-      for (l = top; l >= L0; l--) { levels.push(l); levels.push(l); }
+      for (l = top; l >= L0; l--) for (var q = 0; q < per; q++) levels.push(l);
       var cost = playingInfo.map(function (x) { return levels.map(function (lv) { return placeCost(x, lv); }); });
       var assigned = hungarian(cost);
       playingInfo.forEach(function (x, i) { slots[levels[assigned[i]]].push(x); });
+      var past = solo ? pairHistory(session, n) : null;
       for (l = L0; l <= top; l++) {
         slots[l].sort(function (x, y) { return y.wins - x.wins || y.points - x.points || x.tb - y.tb; });
-        slots[l] = slots[l].map(function (x) { return x.id; });
+        slots[l] = solo ? splitPairs(slots[l], past) : slots[l].map(function (x) { return x.id; });
       }
     }
 
@@ -263,6 +303,47 @@
       round.courts.push({ court: session.courts[l], level: l, a: slots[l][0], b: slots[l][1], sa: null, sb: null, w: null, void: false });
     }
     return round;
+  }
+
+  // ---- Individual format: who partners whom ---------------------------------------------------
+  // Who has partnered and faced whom so far tonight (rounds before n), and everyone's most recent partner.
+  function pairHistory(session, n) {
+    var h = { partner: {}, opp: {}, last: {} };
+    var bump = function (map, x, y) { (map[x] || (map[x] = {}))[y] = ((map[x] || {})[y] || 0) + 1; };
+    session.rounds.forEach(function (r) {
+      if (r.n >= n) return;
+      r.courts.forEach(function (c) {
+        var A = sideIds(c, 'a'), B = sideIds(c, 'b');
+        [A, B].forEach(function (pair) {
+          if (pair.length === 2) { bump(h.partner, pair[0], pair[1]); bump(h.partner, pair[1], pair[0]); h.last[pair[0]] = { n: r.n, id: pair[1] }; h.last[pair[1]] = { n: r.n, id: pair[0] }; }
+        });
+        A.forEach(function (x) { B.forEach(function (y) { bump(h.opp, x, y); bump(h.opp, y, x); }); });
+      });
+    });
+    return h;
+  }
+  // Four players on a court become two pairs. The pair that just played together always splits (the two
+  // winners coming up face each other, as do the two losers coming down); after that, the pairing with the
+  // partners who have played together least, then the opponents who have met least.
+  function splitPairs(four, past) {
+    if (four.length < 4) return [four.slice(0, 2).map(function (x) { return x.id; }), four.slice(2).map(function (x) { return x.id; })];
+    var count = function (map, x, y) { return (map[x] && map[x][y]) || 0; };
+    var togetherLast = function (x, y) { var a = past.last[x.id], b = past.last[y.id]; return !!a && !!b && a.id === y.id && b.id === x.id && a.n === b.n; };
+    var options = [[[0, 1], [2, 3]], [[0, 2], [1, 3]], [[0, 3], [1, 2]]], best = null, bestCost = Infinity;
+    options.forEach(function (o) {
+      var c = 0;
+      o.forEach(function (pr) {
+        var x = four[pr[0]], y = four[pr[1]];
+        if (togetherLast(x, y)) c += 1000;
+        c += 30 * count(past.partner, x.id, y.id);
+      });
+      o[0].forEach(function (i) { o[1].forEach(function (j) { c += 2 * count(past.opp, four[i].id, four[j].id); }); });
+      // all else equal, the fairer match: similar strength on both sides
+      c += 0.01 * Math.abs((four[o[0][0]].wins + four[o[0][1]].wins) - (four[o[1][0]].wins + four[o[1][1]].wins));
+      c += 0.001 * (four[o[0][0]].tb + four[o[1][1]].tb);
+      if (c < bestCost) { bestCost = c; best = o; }
+    });
+    return best.map(function (pr) { return [four[pr[0]].id, four[pr[1]].id]; });
   }
 
   // ---- Placement helpers --------------------------------------------------------------------
@@ -446,13 +527,14 @@
     var si = cur.sitting.indexOf(id);
     if (si >= 0) cur.sitting.splice(si, 1);
     cur.courts.forEach(function (c) {
-      if (courtDone(c) || (c.a !== id && c.b !== id)) return;
-      var side = c.a === id ? 'a' : 'b';
-      if (cur.sitting.length) { // a team that was sitting out takes the place
+      var side = sideOf(c, id);
+      if (courtDone(c) || !side) return;
+      if (cur.sitting.length) { // a team (or player) that was sitting out takes the place
         var st = teamStats(session);
         var sub = cur.sitting.slice().sort(function (x, y) { return st[y].sitOuts - st[x].sitOuts; })[0];
         cur.sitting.splice(cur.sitting.indexOf(sub), 1);
-        c[side] = sub; c.sa = null; c.sb = null;
+        if (Array.isArray(c[side])) c[side] = c[side].map(function (x) { return x === id ? sub : x; }); else c[side] = sub;
+        c.sa = null; c.sb = null;
         out.substitute = sub; out.court = c.court;
       } else {                  // nobody to step in: the other team keeps its place
         c.void = true; c.w = side === 'a' ? 'b' : 'a'; c.sa = null; c.sb = null;
@@ -482,7 +564,7 @@
     if (session.status !== 'live') return false;
     var cur = currentRound(session);
     if (cur && !roundComplete(cur)) return false;
-    if (activeTeams(session).length < 2 || !session.courts.length) return false;
+    if (activeTeams(session).length < formatOf(session).per || !session.courts.length) return false;
     session.rounds.push(generateRound(session, cur ? cur.n + 1 : 1, 0));
     return true;
   }
@@ -656,7 +738,7 @@
   }
 
   return {
-    RULES: RULES,
+    RULES: RULES, FORMATS: FORMATS, formatOf: formatOf, isSolo: isSolo, sideIds: sideIds, courtIds: courtIds, sideOf: sideOf, sideName: sideName,
     newSession: newSession, normalize: normalize, localDate: localDate, clone: clone, randomId: randomId,
     teamList: teamList, activeTeams: activeTeams, currentRound: currentRound,
     roundComplete: roundComplete, roundHasScores: roundHasScores, courtDone: courtDone,

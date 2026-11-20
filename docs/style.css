@@ -13,6 +13,7 @@
   --good: #1f8a5b;
   --bad: #c0392b;
   --display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --script: "Knewave", "Barlow Condensed", "Arial Narrow", sans-serif;   /* the names of the socials */
   --body: "Barlow", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -81,6 +82,14 @@ button { touch-action: manipulation; cursor: pointer; }
 input[type=text], input[type=password] { border: 1px solid var(--rule); border-radius: 8px; padding: 12px; font-size: 17px; min-height: 48px; background: #fff; min-width: 0; }
 .addteam { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr) auto; gap: 8px; align-items: center; }
 .addteam .amp { font-family: var(--display); font-size: 22px; color: var(--muted); }
+.addteam.solo { grid-template-columns: minmax(0,1fr) auto; }
+/* choosing the format when an event is created */
+.fmtpick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.fmtpick .fmt { text-align: left; border: 2px solid var(--rule); background: #fff; border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; align-content: start; }
+.fmtpick .fmt b { font-size: 17px; color: var(--court-deep); }
+.fmtpick .fmt span { font-size: 14px; line-height: 1.35; color: var(--muted); }
+.fmtpick .fmt.on { border-color: var(--court); background: #eef5fd; box-shadow: inset 0 0 0 1px var(--court); }
+@media (max-width: 620px) { .fmtpick { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .addteam { grid-template-columns: minmax(0,1fr); } .addteam .amp { display: none; } }
 
 .courtpick { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 8px; }
@@ -320,6 +329,29 @@ body.tv.hasbtn .tvdate { bottom: 3.2vh; }
 .tvmenu .side p { font-size: 2.3vh; line-height: 1.3; color: #a9c3e0; margin: 2vh 0 1.2vh; }
 .tvmenu .code { font-family: var(--display); font-weight: 700; font-size: 9vh; line-height: 1; letter-spacing: .22em; color: var(--gold); }
 /* Club flyers: nothing but the flyer, edge to edge. */
+/* One of the slides is made here rather than uploaded: this month's top three of every social. */
+.tvflyers .lb { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--night); opacity: 0; transition: opacity 1.2s ease; padding: 0 0 3vh; }
+.tvflyers .lb.on { opacity: 1; }
+.lbhead { flex: 0 0 13vh; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 2vw; padding: 0 2.4vw; background: #0a2f41; border-bottom: .4vh solid var(--gold); }
+.lbhead img.p { height: 8.4vh; width: auto; justify-self: start; filter: brightness(0) invert(1); }
+.lbhead img.w { height: 7vh; width: auto; justify-self: end; }
+.lbhead .t { text-align: center; }
+.lbhead h1 { font-family: var(--display); font-weight: 700; font-size: 6.4vh; line-height: 1.1; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+.lbhead span { display: block; font-family: var(--display); font-weight: 300; font-size: 2.3vh; letter-spacing: .26em; text-transform: uppercase; color: #cfe0f3; }
+.lbgrid { flex: 1 1 auto; min-height: 0; display: grid; gap: 2.4vh 1.6vw; padding: 3vh 2.4vw 0; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
+.lbcard { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: #17293f; border-radius: 1.6vh; overflow: hidden; }
+.lbname { padding: 1.6vh 1.4vw; background-color: #0a2f41; border-bottom: .35vh solid var(--gold); text-shadow: 0 .25vh 1vh rgba(0,0,0,.7); }
+.lbname b { display: block; font-family: var(--display); font-weight: 700; font-size: calc(4.4vh * var(--k, 1)); line-height: 1.15; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lbname span { display: block; font-family: var(--display); font-weight: 300; font-size: calc(2vh * var(--k, 1)); letter-spacing: .2em; text-transform: uppercase; color: #fff; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lbrows { flex: 1 1 auto; min-height: 0; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); padding: .6vh 1.4vw 1vh; }
+.lbrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 1vw; font-family: var(--display); font-size: calc(5vh * var(--k, 1)); border-top: .12vh solid rgba(255,255,255,.14); }
+.lbrow:first-child { border-top: 0; }
+.lbrow .md { font-size: 1.05em; line-height: 1; }
+.lbrow:first-child .md { font-size: 1.3em; }
+.lbrow .nm { font-weight: 400; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lbrow:first-child .nm, .lbrow:first-child .pt { color: var(--gold); }
+.lbrow .pt { font-weight: 700; font-variant-numeric: tabular-nums; }
+.lbrow .pt small { font-weight: 300; font-size: .45em; letter-spacing: .1em; margin-left: .3em; text-transform: uppercase; }
 body.tv.mode-flyers .tvbar, body.tv.mode-flyers .tvdate, body.tv.mode-flyers .tvcode { display: none; }
 .tvflyers { position: fixed; inset: 0; background: #000; }
 .tvflyers .flyer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 1.2s ease; }
@@ -336,6 +368,14 @@ body.tv.mode-flyers .tvbar, body.tv.mode-flyers .tvdate, body.tv.mode-flyers .tv
 .tvpick button { font-family: var(--display); font-size: 5vh; padding: 1.6vh 3vw; border-radius: 1vh; border: .3vh solid #fff; background: var(--court); color: #fff; min-width: 40vw; }
 .tvpick button:focus { outline: .5vh solid var(--gold); }
 @media (prefers-reduced-motion: reduce) { .tvhead .round.flash { animation: none; } }
+
+/* The name of a social is set in a lively brush script (in the spirit of the lettering on the club's flyers);
+   everything else keeps the condensed display face. Script names are written as typed, not in capitals. */
+body.tv #bartitle.social { font-family: var(--script); font-weight: 400; font-size: 5.4vh; line-height: 1.22; letter-spacing: .01em; text-transform: none; padding: 0 .35em; }
+body.tv .tvbar .tvbar-c:has(#bartitle.social) #barsub { margin-top: 0; }
+.pickbtn:not([data-pick="@flyers"]) b { font-family: var(--script); font-weight: 400; letter-spacing: .01em; text-transform: none; line-height: 1.25; padding: 0 .1em; }
+.lbname b { font-family: var(--script); font-weight: 400; letter-spacing: .01em; text-transform: none; line-height: 1.3; }
+.lookbar .c b { font-family: var(--script); font-weight: 400; letter-spacing: .01em; text-transform: none; line-height: 1.25; }
 
 /* Between rounds: the whole screen turns to the social's wide flyer for about three seconds while the new
    round's number makes an entrance. Three entrances take turns: slam, spin and smash (a padel ball knocks it in). */
@@ -391,7 +431,7 @@ body.pl { background: #0a2f41; color: var(--ink); min-height: 100vh; }
 .pl-splash.ready .wait { display: none; }
 .pl-top { display: flex; align-items: center; gap: 12px; padding: calc(12px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px)); color: #fff; }
 .pl-top img { height: 34px; width: auto; }
-.pl-top b { display: block; font-family: var(--display); font-size: 22px; letter-spacing: .05em; text-transform: uppercase; line-height: 1.1; }
+.pl-top b { display: block; font-family: var(--script); font-weight: 400; font-size: 23px; letter-spacing: .01em; line-height: 1.2; }
 .pl-top span { display: block; font-size: 15px; color: #a9c3e0; }
 .pl-main { display: grid; gap: 12px; padding: 4px max(16px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); max-width: 560px; margin: 0 auto; }
 .pl-card { background: #fff; border-radius: 14px; padding: 16px; display: grid; gap: 12px; }

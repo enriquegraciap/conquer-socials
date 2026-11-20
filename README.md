@@ -56,8 +56,22 @@ With one social and nothing chosen, the TV shows that social by itself.
   length cannot be entered.
 - Scoring: every game won is a point (lose 2–4 = 2 points). Points belong to the couple.
 
-The rules live in `docs/engine.js` (see `RULES` at the top and `placeCost`). `scoring: 'player'` is already
-supported for future formats where points belong to each player.
+The rules live in `docs/engine.js` (see `RULES` at the top and `placeCost`).
+
+## The format: Individual King's Court
+
+Chosen when an event is created (Events → name → Format). Everything above applies, per player instead of per
+couple, with these differences:
+
+- Everyone signs up alone. Four players per court; anyone over a multiple of four sits out, in turn.
+- After every round the pairs split. The two winners move up a court and face each other, each with a new
+  partner; the two losers move down and split the same way. On King's Court the winners stay (and split); on
+  the bottom court the losers stay (and split).
+- New partners are the players who have partnered least so far that night.
+- Every game won is a point for both players of the pair. Leaderboards are per player.
+
+**Monthly leaderboards:** every event's table restarts each calendar month. The club flyers slideshow includes a
+slide with the month's top three of every social, counted from the nights that have ended.
 
 ## Files
 

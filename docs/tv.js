@@ -18,7 +18,8 @@
   var CROWN = '\uD83D\uDC51';   // beside the winning team: after the name on the left side, before it on the right side
   var MEDALS = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];   // gold, silver, bronze
   var FLYERS = '@flyers', MENU = '@menu';      // the two things a TV can show that are not a social
-  var FORMATS = { 'kings-fixed': 'Fixed partner, King\u2019s Court' };
+  var FORMATS = {};
+  Object.keys(E.FORMATS).forEach(function (f) { FORMATS[f] = E.FORMATS[f].name; });
   var q0 = new URLSearchParams(location.search);
   var fixed = q0.get('flyers') ? FLYERS : q0.get('s');
 
@@ -38,6 +39,8 @@
     return el;
   }
   function name(id) { var t = st.session.teams[id]; return t ? t.name : ''; }
+  // One side of a court: a couple, or (individual format) the two players paired for this round.
+  function side(c, which) { return E.sideIds(c, which).map(name).join(' & '); }
 
   // Every TV keeps a short code of its own, shown in the bottom corner and inside the pairing QR.
   function tvId() {
@@ -117,7 +120,7 @@
     if (document.hidden) return;
     st.ticks++;
     if (st.mode === 'show') { poll(); if (st.ticks % 15 === 0) refreshEvent(); }
-    else if (st.mode === 'flyers') { if (st.ticks % 15 === 0) loadFlyers(); }
+    else if (st.mode === 'flyers') { if (st.ticks % 15 === 0) loadFlyers(); if (st.ticks % 30 === 0) loadBoards(); }
     else decide();
     if (st.mode !== 'menu' && st.mode !== 'boot' && !fixed && st.ticks % 3 === 0) checkPairing();
     status();
@@ -205,6 +208,10 @@
         h('div', 'code', st.id)
       ])
     ]));
+    Array.prototype.forEach.call(root.querySelectorAll('.pickbtn b'), function (el) {      // long names shrink to fit
+      var size = parseFloat(getComputedStyle(el).fontSize), min = size * 0.55, guard = 0;
+      while (el.scrollWidth > el.clientWidth + 1 && size > min && guard++ < 24) { size *= 0.95; el.style.fontSize = size + 'px'; }
+    });
     var again = had && root.querySelector('[data-pick="' + had + '"]');
     (again || items[0]).focus();
   }
@@ -212,21 +219,82 @@
   // ---------------------------------------------------------------- club flyers
   // A slideshow of the photos uploaded on the flyers page: each fills the screen, a new one every 15 seconds.
   var FLY_PATH = 'pub/flyers/club', SLIDE_MS = 15000;
-  var fl = { rev: undefined, list: [], data: {}, cur: null, top: 0, timer: null, loading: false, layers: [], msg: null };
+  var BOARDS = '@boards';                       // the slide that is made here: this month's top three of every social
+  var fl = { rev: undefined, list: [], data: {}, cur: null, top: 0, timer: null, loading: false, layers: [], msg: null, board: null, boards: [], month: '' };
   function showFlyers() {
     setMode('flyers');
     barTitle();
     fl.layers = [h('img', 'flyer'), h('img', 'flyer')];
     fl.layers.forEach(function (l) { l.alt = ''; });
     fl.msg = h('div', 'flymsg');
-    fl.cur = null; fl.top = 0; fl.rev = undefined;
-    root.replaceChildren(h('div', 'tvflyers', [fl.layers[0], fl.layers[1], fl.msg]));
+    fl.board = h('div', 'lb');
+    fl.cur = null; fl.top = 0; fl.rev = undefined; fl.boards = [];
+    root.replaceChildren(h('div', 'tvflyers', [fl.layers[0], fl.layers[1], fl.board, fl.msg]));
     flyerMessage();
     loadFlyers();
+    loadBoards();
     fl.timer = setInterval(nextFlyer, SLIDE_MS);
   }
-  function stopFlyers() { clearInterval(fl.timer); fl.timer = null; fl.layers = []; fl.msg = null; }
+  function stopFlyers() { clearInterval(fl.timer); fl.timer = null; fl.layers = []; fl.msg = null; fl.board = null; }
   function readyFlyers() { return fl.list.filter(function (f) { return /^data:image\//.test(fl.data[f.id] || ''); }); }
+  // Everything the slideshow goes through: the uploaded flyers in their order, then the leaderboards.
+  function slides() {
+    var ids = readyFlyers().map(function (f) { return f.id; });
+    if (fl.boards.length) ids.push(BOARDS);
+    return ids;
+  }
+  // This month's top three of every social, from the nights that have ended. Read again every minute, so the
+  // slide is up to date shortly after a social finishes.
+  function loadBoards() {
+    if (st.mode !== 'flyers') return;
+    var month = E.localDate(new Date()).slice(0, 7);
+    S.get('pub/series').then(function (series) {
+      series = series || {};
+      var ids = Object.keys(series).sort(function (a, b) { return (series[a].name || '') < (series[b].name || '') ? -1 : 1; });
+      return Promise.all(ids.map(function (id) { return S.get('pub/results/' + id + '/' + month).catch(function () { return null; }); })).then(function (all) {
+        if (st.mode !== 'flyers') return;
+        st.series = series;
+        var list = [];
+        ids.forEach(function (id, i) {
+          var docs = {};
+          Object.keys(all[i] || {}).forEach(function (k) { var d = all[i][k]; if (d && d.status === 'ended' && d.entries) docs[k] = d; });
+          var rows = E.monthlyBoard(docs).filter(function (r) { return r.points > 0; }).slice(0, 3);
+          if (rows.length) list.push({ id: id, name: series[id].name || '', format: FORMATS[series[id].format] || '', look: series[id].look || null, nights: Object.keys(docs).length, rows: rows });
+        });
+        var sig = JSON.stringify(list.map(function (b) { return [b.id, b.name, b.nights, b.look && b.look.rev, b.rows.map(function (r) { return [r.name, r.points]; })]; }));
+        var changed = sig !== fl.boardSig || month !== fl.month;
+        fl.boards = list; fl.month = month; fl.boardSig = sig;
+        if (fl.cur === BOARDS && !list.length) nextFlyer();
+        else if (fl.cur === BOARDS && changed) drawBoards();
+        else if (fl.cur === null) nextFlyer();
+        flyerMessage();
+      });
+    }).catch(function () { /* tried again in a minute */ });
+  }
+  function drawBoards() {
+    if (!fl.board) return;
+    var n = fl.boards.length, cols = n <= 3 ? n : n === 4 ? 2 : n <= 6 || n === 9 ? 3 : 4, rowsN = Math.ceil(n / cols);
+    var k = rowsN === 1 ? [1.3, 1.15, 0.9][cols - 1] : rowsN === 2 ? (cols <= 2 ? 0.95 : cols === 3 ? 0.86 : 0.72) : (cols <= 3 ? 0.62 : 0.55);
+    var mName = MONTHS[Number(fl.month.slice(5, 7)) - 1] || '';
+    var grid = h('div', 'lbgrid', fl.boards.map(function (b) {
+      var head = h('div', 'lbname', [h('b', null, b.name), h('span', null, b.format + (b.format ? ' \u00b7 ' : '') + b.nights + (b.nights === 1 ? ' night' : ' nights'))]);
+      if (b.look && (b.look.wide || b.look.tall)) L.paint(head, b.look);
+      var card = h('div', 'lbcard', [head, h('div', 'lbrows', b.rows.map(function (r, i) {
+        return h('div', 'lbrow', [h('span', 'md', MEDALS[i]), h('span', 'nm', r.name), h('span', 'pt', [String(r.points), h('small', null, 'pts')])]);
+      }))]);
+      card.setAttribute('data-board', b.id);
+      return card;
+    }));
+    grid.style.setProperty('--cols', String(cols)); grid.style.setProperty('--k', String(k));
+    var p = h('img', 'p'), w = h('img', 'w');
+    p.src = '../logo-p.png'; p.alt = ''; w.src = '../conquer-wordmark-white.png'; w.alt = 'Conquer Padel Club';
+    fl.board.replaceChildren(h('div', 'lbhead', [p, h('div', 't', [h('h1', null, mName + ' leaderboards'), h('span', null, 'Top three of every social')]), w]), grid);
+    // long names are made a little smaller rather than cut off
+    Array.prototype.forEach.call(fl.board.querySelectorAll('.lbname b, .lbrow .nm'), function (el) {
+      var size = parseFloat(getComputedStyle(el).fontSize), min = size * 0.6, guard = 0;
+      while (el.scrollWidth > el.clientWidth + 1 && size > min && guard++ < 20) { size *= 0.95; el.style.fontSize = size + 'px'; }
+    });
+  }
   // Checks the list (a small number first, so nothing heavy is fetched unless something changed), then
   // fetches the pictures it does not have yet, one at a time.
   function loadFlyers() {
@@ -242,7 +310,7 @@
           .sort(function (a, b) { return a.order - b.order || (a.id < b.id ? -1 : 1); });
         Object.keys(fl.data).forEach(function (id) { if (!idx[id]) delete fl.data[id]; });
         fl.rev = rev;
-        if (fl.cur && !idx[fl.cur]) nextFlyer();                   // the flyer on screen was removed
+        if (fl.cur && fl.cur !== BOARDS && !idx[fl.cur]) nextFlyer();   // the flyer on screen was removed
         flyerMessage();
         return fetchFlyers();
       });
@@ -253,28 +321,35 @@
     if (!next || st.mode !== 'flyers') return null;
     return S.get(FLY_PATH + '/data/' + next.id).then(function (d) {
       fl.data[next.id] = typeof d === 'string' ? d : '';
-      if (fl.cur === null) nextFlyer();                            // the first one goes up as soon as it arrives
+      // the first flyer goes up as soon as it arrives, also when only the leaderboards were showing until now
+      if (fl.cur === null || (fl.cur === BOARDS && readyFlyers().length === 1)) nextFlyer();
       return fetchFlyers();
     });
   }
   function nextFlyer() {
     if (st.mode !== 'flyers') return;
-    var ready = readyFlyers(), at = -1;
-    ready.forEach(function (f, i) { if (f.id === fl.cur) at = i; });
+    var ids = slides(), at = ids.indexOf(fl.cur);
     flyerMessage();
-    if (!ready.length) { fl.layers.forEach(function (l) { l.classList.remove('on'); }); fl.cur = null; return; }
-    var nxt = ready[(at + 1) % ready.length];
-    if (nxt.id === fl.cur) return;                                 // only one flyer: it simply stays
+    if (!ids.length) { fl.layers.forEach(function (l) { l.classList.remove('on'); }); fl.board.classList.remove('on'); fl.cur = null; return; }
+    var nxt = ids[(at + 1) % ids.length];
+    if (nxt === fl.cur) return;                                    // only one slide: it simply stays
+    if (nxt === BOARDS) {
+      drawBoards();
+      fl.board.classList.add('on');
+      fl.layers.forEach(function (l) { l.classList.remove('on'); });
+      fl.cur = BOARDS;
+      return;
+    }
     fl.top = 1 - fl.top;
-    var layer = fl.layers[fl.top], other = fl.layers[1 - fl.top];
-    layer.onload = function () { layer.classList.add('on'); other.classList.remove('on'); };
-    layer.setAttribute('data-id', nxt.id);
-    layer.src = fl.data[nxt.id];
-    fl.cur = nxt.id;
+    var layer = fl.layers[fl.top], other = fl.layers[1 - fl.top], board = fl.board;
+    layer.onload = function () { layer.classList.add('on'); other.classList.remove('on'); if (board) board.classList.remove('on'); };
+    layer.setAttribute('data-id', nxt);
+    layer.src = fl.data[nxt];
+    fl.cur = nxt;
   }
   function flyerMessage() {
     if (!fl.msg) return;
-    var ready = readyFlyers().length, wait = fl.rev === undefined || (fl.list.length && !ready);
+    var ready = slides().length, wait = fl.rev === undefined || (fl.list.length && !ready);
     if (ready) { fl.msg.replaceChildren(); fl.msg.hidden = true; return; }
     fl.msg.hidden = false;
     var key = wait ? 'wait' : 'none';
@@ -377,10 +452,22 @@
     if (day && day.textContent !== dateText(d)) day.textContent = dateText(d);
     if (time) time.textContent = timeText(d);
   }
+  // A long name is made smaller until it fits the banner, never cut off.
+  function fitTitle() {
+    var b = document.getElementById('bartitle');
+    if (!b) return;
+    b.style.fontSize = '';
+    var size = parseFloat(getComputedStyle(b).fontSize), min = size * 0.5, guard = 0;
+    while (b.scrollWidth > b.clientWidth + 1 && size > min && guard++ < 30) { size *= 0.96; b.style.fontSize = size + 'px'; }
+  }
   // Top banner: the social's name, and under it, small, the format it is played in.
   function barTitle() {
     var b = document.getElementById('bartitle'), sub = document.getElementById('barsub'), meta = st.series[st.seriesId] || {};
-    if (b) b.textContent = st.mode === 'menu' ? 'Main menu' : st.seriesName || '';
+    if (b) {
+      b.textContent = st.mode === 'menu' ? 'Main menu' : st.seriesName || '';
+      b.classList.toggle('social', st.mode === 'show' && !!st.seriesName);     // a social's name gets the brush script
+      fitTitle();
+    }
     if (sub) sub.textContent = st.mode === 'show' ? (FORMATS[meta.format] || '') : '';
     // a social with a flyer gets a banner in the flyer's colours; everything else keeps the club's own
     var look = st.mode === 'show' && meta.look && (meta.look.wide || meta.look.tall) ? meta.look : null;
@@ -392,7 +479,7 @@
   function setupLeft(s) {
     var teams = E.activeTeams(s);
     return h('div', 'tvleft', [head('Tonight', false),
-      h('div', 'tvbig', teams.length ? [h('div', 'ttl', teams.length + ' teams checked in'), h('div', 'teams', teams.map(function (t) { return h('div', null, t.name); }))]
+      h('div', 'tvbig', teams.length ? [h('div', 'ttl', teams.length + ' ' + E.formatOf(s).units + ' checked in'), h('div', 'teams', teams.map(function (t) { return h('div', null, t.name); }))]
         : h('div', 'ttl', 'Starting soon')),
       s.courts.length ? h('div', 'tvsit', [h('div', 'lab', 'Courts'), h('div', 'names', s.courts.join(' · ') + '   (court ' + s.courts[s.courts.length - 1] + ' is King’s Court)')]) : h('div')]);
   }
@@ -420,9 +507,9 @@
       // green behind the names once the score is in, so it is easy to see which courts are still missing
       return h('div', 'tvcourt' + (c.level === top ? ' king' : '') + (has ? ' done' : ''), [
         h('div', 'cn', [h('span', null, c.level === top ? 'King’s Court' : 'Court'), h('b', null, String(c.court))]),
-        h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), [name(c.a), has && w === 'a' ? ['\u00a0', crown(i)] : null]),
+        h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), [side(c, 'a'), has && w === 'a' ? ['\u00a0', crown(i)] : null]),
         c.void ? h('div', 'mid', 'no match') : has ? h('div', 'mid score', sa + ' – ' + sb) : h('div', 'mid', 'vs'),
-        h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), [has && w === 'b' ? [crown(i), '\u00a0'] : null, name(c.b)])
+        h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), [has && w === 'b' ? [crown(i), '\u00a0'] : null, side(c, 'b')])
       ]);
     });
     st.pendingSince = anySent ? (st.pendingSince || Date.now()) : 0;
@@ -435,7 +522,7 @@
       if (w && !st.seen[i] && !first) st.cheer.push({ idx: i, side: w });
       st.seen[i] = !!w;
     });
-    var waiting = E.activeTeams(s).filter(function (t) { return r.sitting.indexOf(t.id) < 0 && !r.courts.some(function (c) { return c.a === t.id || c.b === t.id; }); });
+    var waiting = E.activeTeams(s).filter(function (t) { return r.sitting.indexOf(t.id) < 0 && !r.courts.some(function (c) { return !!E.sideOf(c, t.id); }); });
     // keep each team's name on one line, let the list wrap between teams
     var keep = function (txt) { return txt.replace(/ /g, ' '); };
     var names = r.sitting.map(function (id) { return keep(name(id)); }).concat(waiting.map(function (t) { return keep(t.name + ' (next round)'); })).join('  ·  ');
@@ -710,8 +797,8 @@
   document.addEventListener('webkitfullscreenchange', fullChanged);
   document.addEventListener('keydown', function (e) { if (e.metaKey || e.ctrlKey) return; if (e.key === 'f' || e.key === 'F') toggleFull(); else if ((e.key === 'm' || e.key === 'M') && st.mode !== 'menu') choose(MENU); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
-  window.addEventListener('resize', fit);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+  window.addEventListener('resize', function () { fit(); fitTitle(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { fit(); fitTitle(); });
   setInterval(showDate, 1000);
   showDate();
 

@@ -117,8 +117,8 @@
     if (!s || !cur || !st.me) return null;
     for (var i = 0; i < cur.courts.length; i++) {
       var c = cur.courts[i];
-      if (c.a === st.me || c.b === st.me) {
-        var side = c.a === st.me ? 'a' : 'b';
+      var side = E.sideOf(c, st.me);
+      if (side) {
         var sent = E.pendingPlayerScores(s, cur.n, st.pending).filter(function (p) { return p.idx === i; })[0] || null;
         var entered = c.w ? { sa: c.sa, sb: c.sb, w: c.w } : sent;
         return { round: cur, idx: i, court: c, side: side, entered: entered, king: E.isKingsCourt(s, cur, c) };
@@ -194,7 +194,7 @@
     return [
       h('div', { class: 'pl-card' }, [h('h2', null, 'Welcome'), h('p', null, 'Are you playing tonight, or running the social?')]),
       h('div', { class: 'pl-roles' }, [
-        h('button', { type: 'button', class: 'pl-role', id: 'rolePlayer', onclick: function () { st.role = 'player'; render(); } }, [h('b', null, 'Player'), h('span', null, 'Pick your team and send in your scores')]),
+        h('button', { type: 'button', class: 'pl-role', id: 'rolePlayer', onclick: function () { st.role = 'player'; render(); } }, [h('b', null, 'Player'), h('span', null, 'Find your court and send in your scores')]),
         h('button', { type: 'button', class: 'pl-role admin', id: 'roleAdmin', onclick: openAdmin }, [h('b', null, 'Admin'), h('span', null, 'Run the night: scores, teams, courts, rounds')])
       ])
     ];
@@ -234,9 +234,10 @@
 
   function chooseTeam(s) {
     var teams = E.activeTeams(s).slice().sort(function (a, b) { return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1; });
-    if (!teams.length) return note('No teams yet', 'Ask the organizer to add you. This page updates by itself.');
+    var solo = E.isSolo(s);
+    if (!teams.length) return note(solo ? 'No players yet' : 'No teams yet', 'Ask the organizer to add you. This page updates by itself.');
     return [
-      h('div', { class: 'pl-card' }, [h('h2', null, 'Which team are you?'), h('p', null, 'Tap your names. You only do this once tonight.'),
+      h('div', { class: 'pl-card' }, [h('h2', null, solo ? 'Who are you?' : 'Which team are you?'), h('p', null, solo ? 'Tap your name. You only do this once tonight.' : 'Tap your names. You only do this once tonight.'),
         h('button', { type: 'button', class: 'pl-link', id: 'roleBack', onclick: function () { st.role = null; render(); } }, 'Back')]),
       h('div', { class: 'pl-list' }, teams.map(function (t) {
         return h('button', { type: 'button', class: 'pl-pick', 'data-team': t.name, onclick: function () { S.pref(meKey(), t.id); st.me = t.id; st.form = null; render(); } }, t.name);
@@ -254,9 +255,10 @@
       return note('You join in the next round', 'Your court appears here when round ' + (cur.n + 1) + ' starts.');
     }
     var c = mine.court, max = s.setTo === 6 ? 6 : 4;
-    var them = mine.side === 'a' ? c.b : c.a;
+    var other = mine.side === 'a' ? 'b' : 'a', solo = E.isSolo(s);
+    var partner = E.sideIds(c, mine.side).filter(function (id) { return id !== st.me; })[0];
     var head = h('div', { class: 'pl-court' + (mine.king ? ' king' : '') }, [h('span', null, mine.king ? 'King’s Court' : 'Court'), h('b', null, String(c.court))]);
-    var versus = h('div', { class: 'pl-vs' }, [h('div', { class: 'us' }, teamName(st.me)), h('div', { class: 'v' }, 'vs'), h('div', null, teamName(them))]);
+    var versus = h('div', { class: 'pl-vs' }, [h('div', { class: 'us' }, solo ? ['You', partner ? ' & ' + teamName(partner) : ''] : E.sideName(s, c, mine.side)), h('div', { class: 'v' }, 'vs'), h('div', null, E.sideName(s, c, other))]);
     if (c.void) return h('div', { class: 'pl-card' }, [head, versus, h('p', null, 'No match on this court this round. You keep your place.')]);
 
     if (mine.entered && !st.changing) {

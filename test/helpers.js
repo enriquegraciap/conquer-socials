@@ -16,7 +16,7 @@ function rng(seed) {
 function makeNight(opts) {
   const s = E.newSession({
     seriesId: 'test', date: opts.date || '2026-11-20', courts: opts.courts || [3, 4, 5, 6, 7],
-    seed: opts.seed || 1, round1: opts.round1 || 'random', scoring: opts.scoring || 'team'
+    seed: opts.seed || 1, round1: opts.round1 || 'random', scoring: opts.scoring, format: opts.format
   });
   for (let i = 1; i <= opts.teams; i++) E.addTeam(s, ['Team ' + String(i).padStart(2, '0')]);
   return s;
@@ -28,8 +28,8 @@ function playRound(s, rand, alwaysWins) {
   r.courts.forEach((c, i) => {
     if (c.void || c.w) return;
     let aWins = rand() < 0.5;
-    if (alwaysWins && c.a === alwaysWins) aWins = true;
-    if (alwaysWins && c.b === alwaysWins) aWins = false;
+    if (alwaysWins && E.sideOf(c, alwaysWins) === 'a') aWins = true;
+    if (alwaysWins && E.sideOf(c, alwaysWins) === 'b') aWins = false;
     const loser = Math.floor(rand() * 4); // 0..3
     E.setScore(s, r.n, i, aWins ? 4 : loser, aWins ? loser : 4);
   });
@@ -51,8 +51,9 @@ function history(s) {
     r.sitting.forEach(id => { h[id][idx] = 'sit'; });
     r.courts.forEach(c => {
       ['a', 'b'].forEach(side => {
-        const id = c[side];
-        if (id && h[id]) h[id][idx] = { level: c.level, court: c.court, won: c.w ? c.w === side : null };
+        E.sideIds(c, side).forEach(id => {
+          if (h[id]) h[id][idx] = { level: c.level, court: c.court, won: c.w ? c.w === side : null, with: E.sideIds(c, side).filter(x => x !== id)[0] || null };
+        });
       });
     });
   });

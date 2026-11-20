@@ -184,10 +184,10 @@
     fit();
   }
   function head(title, flash) {
-    // the event name lives in the top banner; this line carries the round, the set length and the clock
+    // the event name lives in the top banner; this line carries the round and the set length (the clock is bottom left)
     var s = st.session, sets = s && !s.discarded && s.status !== 'ended' ? 'Sets to ' + (s.setTo || 4) : '';
     barTitle();
-    return h('div', 'tvhead', [h('div', 'round' + (flash ? ' flash' : ''), title), h('div', 'event', sets), clockEl()]);
+    return h('div', 'tvhead', [h('div', 'round' + (flash ? ' flash' : ''), title), h('div', 'event', sets)]);
   }
   // Bottom left corner: "Thursday, November 18th" and a clock with seconds, so a glance shows the page is running.
   function dateText(d) { return DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + ordinal(d.getDate()); }
@@ -201,11 +201,6 @@
     if (time) time.textContent = timeText(d);
   }
   function barTitle() { var b = document.getElementById('bartitle'); if (b) b.textContent = st.seriesName || ''; }
-  function clockEl() { var c = h('div', 'clock', clockText()); c.id = 'clock'; return c; }
-  function clockText() {
-    var d = new Date(), hh = d.getHours(), mm = d.getMinutes();
-    return ((hh + 11) % 12 + 1) + ':' + (mm < 10 ? '0' : '') + mm + (hh < 12 ? ' AM' : ' PM');
-  }
   function bigLeft(title, sub, body) { return h('div', 'tvleft', [head(title, false), h('div', 'tvbig', body), h('div')]); }
 
   function setupLeft(s) {
@@ -332,7 +327,6 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
   window.addEventListener('resize', fit);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
-  setInterval(function () { var c = document.getElementById('clock'); if (c) c.textContent = clockText(); }, 5000);
   setInterval(showDate, 1000);
   showDate();
 

@@ -56,6 +56,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   assert.match(await tv.textContent('.tvcourt.king .cn'), /King.s Court\s*7/);
   assert.match(await tv.textContent('.tvhead .event'), /Sets to 6/);
   assert.equal(await tv.textContent('#bartitle'), 'Lehi Date Night', 'event name is in the top banner');
+  assert.equal(await tv.locator('.tvhead .clock, #clock').count(), 0, 'only one clock on screen: the running one at the bottom left');
   assert.ok(await tv.evaluate(() => { const i = document.querySelector('.tvbar-l img'); return !i.hidden && i.naturalWidth > 0; }), 'P symbol is showing top left');
   assert.match(await tv.textContent('#daytext'), /^(Sun|Mon|Tues|Wednes|Thurs|Fri|Satur)day, [A-Z][a-z]+ \d{1,2}(st|nd|rd|th)$/, 'date reads like "Thursday, November 18th"');
   const t1 = await tv.textContent('#timetext');

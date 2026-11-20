@@ -82,6 +82,10 @@ and 10 seconds of names, repeating. "N players signed up" appears from three sig
 
 **WPR Social ratings:** shown in brackets after each name on the TV leaderboards, `(NR)` when there is none.
 They live in `pub/ratings/{player}` and can be typed on the iPad (tap a team or player, Edit).
+A scheduled Claude task keeps them up to date on Monday, Wednesday and Friday mornings: it adds any new player
+names to the "WPR requests" tab of the ratings exchange sheet, and copies the WPR Social rating of every row marked
+`done` into the app (`docs/tools/wpr-sync.js` does the matching and the writing; the admin key is passed to it at
+run time and is not in this repository).
 
 **Monthly leaderboards:** every event's table restarts each calendar month. The club flyers slideshow includes a
 slide with the month's top three of every social, counted from the nights that have ended.

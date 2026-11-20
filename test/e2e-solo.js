@@ -194,6 +194,11 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   const boards = await tv.evaluate(() => [...document.querySelectorAll('.tvboard')].map(b => [...b.querySelectorAll('.tvrow .nm')].map(n => n.textContent)));
   assert.ok(boards[0].includes(rated + '(4.37)') && boards[1].includes(rated + '(4.37)'), 'on tonight\'s board and on the month\'s');
   assert.ok(boards[0].filter(t => /\(NR\)$/.test(t)).length === 8, 'everyone else shows (NR)');
+  const rt = await tv.evaluate(n => { const row = [...document.querySelectorAll('.tvboard')[0].querySelectorAll('.tvrow .nm')].find(x => x.textContent.startsWith(n)), has = getComputedStyle(row.querySelector('.rt')), none = getComputedStyle(document.querySelector('.tvrow .nm .rt.nr'));
+    return { colour: has.color, bg: has.backgroundColor, weight: has.fontWeight === getComputedStyle(row).fontWeight, nr: none.color }; }, rated);
+  assert.deepEqual([rt.bg, rt.weight], ['rgba(0, 0, 0, 0)', true], 'the rating is plain text in the name\'s own weight, no box');
+  assert.ok(/^rgb\((\d+), (\d+), (\d+)\)$/.test(rt.colour) && (m => Number(m[1]) > Number(m[0]) * 2 && Number(m[1]) > Number(m[2]))(rt.colour.match(/\d+/g)), 'in green (' + rt.colour + ')');
+  assert.notEqual(rt.nr, rt.colour, 'NR has its own, darker blue');
   await tv.screenshot({ path: SHOTS + 'solo-tv-ratings.png' });
   await admin.click(`.teamlist [data-edit="${rated}"]`);
   assert.equal(await admin.inputValue('#rt1'), '4.37', 'the rating is there next time the player is edited');

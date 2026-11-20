@@ -603,7 +603,16 @@
     Array.prototype.forEach.call(document.querySelectorAll('.tvrows'), function (list) {
       var per = Number(list.getAttribute('data-per')) || 1;
       var rowH = list.clientHeight / per;
-      list.style.fontSize = Math.max(10, Math.min(rowH * 0.66, 4.8 * vh)) + 'px';
+      var size = Math.max(10, Math.min(rowH * 0.66, 4.8 * vh)), floor = size * 0.5, guard = 0;
+      list.style.fontSize = size + 'px';
+      // every name (with its ratings) has to show in full: make the whole list smaller until the longest one fits
+      var names = list.querySelectorAll('.nm');
+      var tight = function () {
+        var worst = 1;
+        Array.prototype.forEach.call(names, function (n) { if (n.scrollWidth > n.clientWidth + 1) worst = Math.min(worst, n.clientWidth / n.scrollWidth); });
+        return worst;
+      };
+      for (var w = tight(); w < 1 && size > floor && guard++ < 8; w = tight()) { size = Math.max(floor, size * Math.max(w, 0.8) * 0.985); list.style.fontSize = size + 'px'; }
     });
     Array.prototype.forEach.call(document.querySelectorAll('.tvcourt'), function (c) {
       var hgt = c.clientHeight;

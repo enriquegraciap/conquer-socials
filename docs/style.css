@@ -285,11 +285,10 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .tvsit.sign .track .ad small { font-size: .62em; font-weight: 500; letter-spacing: .06em; color: #cfe0f3; margin-left: 1em; text-transform: uppercase; }
 .tvsit.sign .track .sep { display: inline-block; margin: 0 1.1em; color: var(--gold); font-size: .6em; vertical-align: middle; }
 .tvsit.sign.wait .track { font-weight: 500; }
-/* WPR Social rating after a name on the leaderboards: on the same green as a court whose score is in, with
-   white figures so it reads from across the room. No rating: (NR) in a darker blue. */
-.tvrow .nm .rt { display: inline-block; font-size: .66em; font-weight: 600; line-height: 1.25; color: #fff; background: #1b7a4f; border-radius: .35em; padding: 0 .38em; margin-left: .35em;
-  letter-spacing: .02em; vertical-align: .1em; font-variant-numeric: tabular-nums; }
-.tvrow .nm .rt.nr { background: none; padding: 0; font-weight: 500; color: #54749c; }
+/* WPR Social rating after a name on the leaderboards: plain green figures, the green of a court whose score is
+   in, a little brighter so it reads on the dark board. No rating: (NR) in a darker blue. */
+.tvrow .nm .rt { font-size: .68em; font-weight: inherit; color: #35b877; margin-left: .3em; letter-spacing: .02em; }
+.tvrow .nm .rt.nr { color: #54749c; }
 
 .tvright { display: flex; flex-direction: column; gap: 1.6vh; min-width: 0; min-height: 0; }
 .tvboard { background: rgba(255,255,255,.07); border-radius: 1vh; padding: 1.2vh 1vw 1vh; display: flex; flex-direction: column; min-height: 0; flex: 1 1 0; }

@@ -810,11 +810,15 @@
     'Winners go up. So do egos.', 'Por tres or it didn\u2019t happen.', 'Hit the ball, not your partner.', 'Less talking, more lobbing.',
     'Your partner believes in you. Sort of.', 'Vamos, vamos, VAMOS!', 'Smash first, apologise later.'
   ];
-  var BUDDY = '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="bud" cx="35%" cy="30%"><stop offset="0" stop-color="#f8ffa6"/><stop offset=".6" stop-color="#d6ef1f"/><stop offset="1" stop-color="#9db800"/></radialGradient></defs>' +
-    '<circle cx="50" cy="50" r="47" fill="url(#bud)" stroke="#5c6f00" stroke-width="2.5"/>' +
-    '<path d="M20 12Q36 50 20 88M80 12Q64 50 80 88" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"/>' +
-    '<g class="pupils"><circle cx="40" cy="45" r="4.2" fill="#1a1a1a"/><circle cx="60" cy="45" r="4.2" fill="#1a1a1a"/></g>' +
-    '<path class="smile" d="M38 60Q50 69 62 60" fill="none" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/></svg>';
+  // a padel ball as it looks on court: felt yellow, lit from the upper left, two curved seams
+  var BUDDY = '<svg viewBox="0 0 100 100" aria-hidden="true"><defs>' +
+    '<radialGradient id="bud" cx="34%" cy="28%" r="78%"><stop offset="0" stop-color="#f4ff8f"/><stop offset=".45" stop-color="#d9ee2a"/><stop offset=".85" stop-color="#a9c40a"/><stop offset="1" stop-color="#7f9600"/></radialGradient>' +
+    '<radialGradient id="budshade" cx="70%" cy="78%" r="60%"><stop offset="0" stop-color="#000" stop-opacity=".22"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>' +
+    '<clipPath id="budclip"><circle cx="50" cy="50" r="47"/></clipPath></defs>' +
+    '<circle cx="50" cy="50" r="47" fill="url(#bud)"/>' +
+    '<g clip-path="url(#budclip)" fill="none" stroke="#fbfde8" stroke-width="4.2" stroke-linecap="round" opacity=".95">' +
+    '<path d="M-6 30C22 34 38 52 34 104"/><path d="M106 70C78 66 62 48 66 -4"/></g>' +
+    '<circle cx="50" cy="50" r="47" fill="url(#budshade)"/><circle cx="50" cy="50" r="46.5" fill="none" stroke="#6f8400" stroke-opacity=".55" stroke-width="1"/></svg>';
   function racketSvg(colour) {
     var holes = '';
     [[32, 30], [50, 26], [68, 30], [26, 46], [42, 44], [58, 44], [74, 46], [30, 62], [50, 60], [70, 62], [38, 78], [62, 78], [50, 90]].forEach(function (p) { holes += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="3.6"/>'; });
@@ -863,13 +867,6 @@
     void inter.offsetWidth;                                             // so the whole show plays again every time
     inter.className = 'inter on ' + kind + (st.flyer ? ' pic' : '');
     inter.setAttribute('data-round', String(n));
-    var W = window.innerWidth, H = window.innerHeight, vh = H / 100;
-    var later = function (ms, fn) { interTimers.push(setTimeout(function () { if (!inter.hidden) fn(); }, ms)); };
-    later(kind === 'spin' ? 850 : 650, function () { boom(W * 0.5, H * 0.4, 60, 50 * vh, 0); boom(W * 0.34, H * 0.3, 30, 34 * vh, 180); boom(W * 0.66, H * 0.3, 30, 34 * vh, 320); });
-    later(4740, function () {                                                                      // ...and gets smacked
-      var b = inter.querySelector('.buddy').getBoundingClientRect();
-      boom(b.left + b.width / 2, b.top + b.height / 2, 46, 42 * vh, 0);
-    });
     interTimers.push(setTimeout(function () {
       inter.classList.add('out');
       interTimers.push(setTimeout(endIntro, 460));

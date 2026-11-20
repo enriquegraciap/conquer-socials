@@ -212,7 +212,12 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await admin.click('#saveNames');
   await admin.waitForSelector('text=Now Anna & Luis');
   assert.equal(await admin.locator('text=Ana & Luis').count(), 0, 'the old name is gone from the admin page');
-  await tv.waitForFunction(() => document.body.textContent.includes('Anna & Luis') && !document.body.textContent.includes('Ana & Luis'), null, { timeout: 8000 });
+  // (on the TV a sitting-out name is held together with non-breaking spaces, and leaderboard names carry a rating after each player)
+  await tv.waitForFunction(() => {
+    const where = [...document.querySelectorAll('.tvcourt .tm, .tvsit')].map(e => (e.getAttribute('data-names') || '') + ' ' + e.textContent).join(' | ').replace(/\u00a0/g, ' ');
+    const firsts = [...document.querySelectorAll('.tvrow .nm')].map(n => n.childNodes[0].textContent);
+    return where.includes('Anna & Luis') && !where.includes('Ana & Luis') && firsts.includes('Anna') && !firsts.includes('Ana');
+  }, null, { timeout: 8000 });
   step('renamed "Ana & Luis" to "Anna & Luis" mid-night: admin page and TV both follow');
 
   // 8. late arrival and a team leaving mid-round

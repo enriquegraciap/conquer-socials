@@ -149,7 +149,7 @@ const BASE = 'http://localhost:8787', DB = BASE + '/db', SHOTS = __dirname + '/s
   assert.ok(pun.length > 8, 'a padel pun comes with the round');
   await tv.waitForTimeout(1300);
   await tv.screenshot({ path: SHOTS + 'tv-round-2.png' });
-  assert.equal(await tv.locator('#inter .buddy svg').count(), 1, 'the ball with a face is part of the show');
+  assert.equal(await tv.locator('#inter .buddy svg').count(), 1, 'the padel ball is part of the show');
   for (const [ms, name] of [[1500, 'b'], [900, 'c'], [700, 'd']]) { await tv.waitForTimeout(ms); await tv.screenshot({ path: SHOTS + 'tv-round-2' + name + '.png' }); }
   await tv.waitForFunction(() => document.getElementById('inter').hidden, null, { timeout: 8000 });
   const upFor = Date.now() - tUp;

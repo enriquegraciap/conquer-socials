@@ -166,11 +166,21 @@ table.board td.pts { font-family: var(--display); font-size: 24px; font-weight: 
 }
 
 /* ------------------------------------------------------------------ TV display */
-body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh; }
-.tvroot { height: 100vh; width: 100vw; display: grid; grid-template-columns: 2fr 1fr; gap: 1.6vw; padding: 2.2vh 1.8vw; }
+body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+/* Top banner: P symbol left, event title centre, club wordmark right. Takes 10% of the screen height. */
+.tvbar { flex: 0 0 10vh; height: 10vh; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 2vw; padding: 0 1.8vw;
+  background: #0a2f41; border-bottom: .35vh solid var(--gold); }
+.tvbar-l { justify-self: start; display: flex; align-items: center; }
+.tvbar-l img { height: 7.2vh; width: auto; display: block; filter: brightness(0) invert(1); }   /* always shown in white */
+.tvbar-c { font-family: var(--display); font-weight: 700; font-size: 5.6vh; line-height: 1; letter-spacing: .07em; text-transform: uppercase; text-align: center;
+  max-width: 62vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tvbar-r { justify-self: end; }
+.tvbar-r img { height: 6.2vh; width: auto; display: block; }
+#tv { flex: 1 1 auto; min-height: 0; }
+.tvroot { height: 100%; width: 100vw; display: grid; grid-template-columns: 2fr 1fr; gap: 1.6vw; padding: 2.2vh 1.8vw; }
 .tvleft { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 1.6vh; min-width: 0; min-height: 0; }
 .tvhead { display: flex; align-items: flex-end; gap: 1.6vw; border-bottom: .35vh solid var(--line); padding-bottom: 1vh; }
-.tvhead .round { font-family: var(--display); font-weight: 700; font-size: 9vh; line-height: .9; text-transform: uppercase; letter-spacing: .02em; }
+.tvhead .round { font-family: var(--display); font-weight: 700; font-size: 8vh; line-height: .9; text-transform: uppercase; letter-spacing: .02em; }
 .tvhead .round.flash { animation: flash 2.4s ease-out 1; }
 @keyframes flash { 0%, 30% { color: var(--gold); transform: scale(1.06); transform-origin: left bottom; } 100% { color: #fff; transform: none; } }
 .tvhead .event { font-family: var(--display); font-size: 3.6vh; letter-spacing: .12em; text-transform: uppercase; color: #a9c3e0; padding-bottom: .8vh; flex: 1; min-width: 0;
@@ -219,7 +229,7 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .fsbtn:focus { outline: .4vh solid var(--gold); }
 body.tv.hasbtn .tvroot { padding-bottom: 8.6vh; }   /* room for the Full screen button until it is used */
 .tvstatus { position: fixed; left: 1.8vw; bottom: .5vh; font-size: 1.6vh; color: #6f8fb3; }
-.tvpick { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; padding: 4vh; text-align: center; }
+.tvpick { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; padding: 4vh; text-align: center; }
 .tvpick h1 { font-family: var(--display); font-size: 7vh; text-transform: uppercase; margin: 0; }
 .tvpick p { font-size: 2.8vh; color: #a9c3e0; max-width: 70vw; margin: 0; }
 .tvpick button { font-family: var(--display); font-size: 5vh; padding: 1.6vh 3vw; border-radius: 1vh; border: .3vh solid #fff; background: var(--court); color: #fff; min-width: 40vw; }

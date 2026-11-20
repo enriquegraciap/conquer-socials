@@ -48,6 +48,7 @@
   }
   function choose(id) {
     st.seriesId = id; st.seriesName = (st.series[id] || {}).name || '';
+    barTitle();
     S.pref('tvSeries', id);
     root.replaceChildren(message(st.seriesName, 'Loading…'));
     poll();
@@ -93,9 +94,12 @@
     fit();
   }
   function head(title, flash) {
-    var s = st.session, sets = s && !s.discarded && s.status !== 'ended' ? '  \u00b7  Sets to ' + (s.setTo || 4) : '';
-    return h('div', 'tvhead', [h('div', 'round' + (flash ? ' flash' : ''), title), h('div', 'event', st.seriesName + sets), clockEl()]);
+    // the event name lives in the top banner; this line carries the round, the set length and the clock
+    var s = st.session, sets = s && !s.discarded && s.status !== 'ended' ? 'Sets to ' + (s.setTo || 4) : '';
+    barTitle();
+    return h('div', 'tvhead', [h('div', 'round' + (flash ? ' flash' : ''), title), h('div', 'event', sets), clockEl()]);
   }
+  function barTitle() { var b = document.getElementById('bartitle'); if (b) b.textContent = st.seriesName || ''; }
   function clockEl() { var c = h('div', 'clock', clockText()); c.id = 'clock'; return c; }
   function clockText() {
     var d = new Date(), hh = d.getHours(), mm = d.getMinutes();

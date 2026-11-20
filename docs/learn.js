@@ -39,7 +39,6 @@
     ['What happens if the ball hits me?', 'You lose the point, wherever you are standing. The same goes for your partner, and for touching the net.'],
     ['Do players really run out of the court to hit the ball?', 'Yes. On courts with open doors, a ball that bounces and flies out over the wall can be chased down and played back before it bounces again. You will see it in professional matches. Nobody expects it in your first game.'],
     ['Is it good exercise? Is it hard on the body?', 'An hour of padel is a solid workout: lots of short sprints, turns and reaches. It is generally gentler than tennis because the court is small and the serve is underhand. Warm up your shoulders and legs, and hold the racket loosely.'],
-    ['What level am I?', 'New players start as “not rated” (NR). Once you have played a few matches you get a WPR rating, a number that helps us put you in games with players of a similar level. You will see it next to your name on the club’s leaderboards.'],
     ['Is padel in the Olympics?', 'Not yet. The international federation is working towards it. For now the big stages are the professional Premier Padel tour and the world championships.'],
     ['How many people play?', 'More than 40 million people in over 190 countries, on more than 91,000 courts. In the United States over a million people played in 2025, and in 2026 padel was the fastest-growing sport in the national participation report.']
   ];

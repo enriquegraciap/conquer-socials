@@ -906,8 +906,9 @@
   // The box itself is made once and kept, so a redraw of the screen does not disturb it.
   function signBox(roundKey, names) {
     if (!sign.el) {
-      sign.lab = h('div', 'lab'); sign.line = h('div', 'line');
-      sign.el = h('div', 'tvsit sign', [sign.lab, sign.line]);
+      sign.lab = h('div', 'lab'); sign.line = h('div', 'line'); sign.code = h('div', 'lq');
+      sign.code.hidden = true;                                           // the QR code of the "New to padel?" turn
+      sign.el = h('div', 'tvsit sign', [sign.lab, sign.line, sign.code]);
     }
     if (sign.round !== roundKey) { sign.round = roundKey; sign.since = Date.now(); }
     sign.names = names || '';
@@ -915,15 +916,20 @@
     setTimeout(signUpdate, 0);                                          // once it is on the page and has a width
     return sign.el;
   }
-  // What the sign shows right now: { phase: 'wait' | 'ads' | 'none', idx: which event }
+  // What the sign shows right now: { phase: 'wait' | 'ads' | 'learn' | 'none', idx: which event }
+  // 'learn' is one more 10-second turn after the events: "New to padel?" with a QR code to the intro page for phones.
   function signState(ads) {
-    var n = ads.length;
-    if (!sign.names) return n ? { phase: 'ads', idx: Math.floor(Date.now() / SIGN_SWAP) % n } : { phase: 'none', idx: 0 };
-    if (!n) return { phase: 'wait', idx: 0 };
+    var n = ads.length, slots = n + (hasIntro ? 1 : 0);
+    var slot = function (i) { return i < n ? { phase: 'ads', idx: i } : { phase: 'learn', idx: 0 }; };
+    if (!sign.names) {
+      if (!n) return hasIntro && Math.floor(Date.now() / SIGN_SWAP) % 2 ? { phase: 'learn', idx: 0 } : { phase: 'none', idx: 0 };
+      return slot(Math.floor(Date.now() / SIGN_SWAP) % slots);
+    }
+    if (!slots) return { phase: 'wait', idx: 0 };
     var t = Date.now() - sign.since;
     if (t < SIGN_FIRST) return { phase: 'wait', idx: 0 };
-    var c = (t - SIGN_FIRST) % (n * SIGN_SWAP + SIGN_NAMES);
-    return c < n * SIGN_SWAP ? { phase: 'ads', idx: Math.floor(c / SIGN_SWAP) } : { phase: 'wait', idx: 0 };
+    var c = (t - SIGN_FIRST) % (slots * SIGN_SWAP + SIGN_NAMES);
+    return c < slots * SIGN_SWAP ? slot(Math.floor(c / SIGN_SWAP)) : { phase: 'wait', idx: 0 };
   }
   function signUpdate() {
     if (!sign.el || !sign.el.isConnected || st.mode !== 'show') return;
@@ -935,8 +941,11 @@
     if (key === sign.shown) return;
     sign.shown = key;
     sign.el.className = 'tvsit sign ' + now.phase;
-    sign.lab.textContent = now.phase === 'wait' ? 'Sitting out this round' : now.phase === 'ads' ? 'Coming up at Conquer' : 'Everyone plays';
+    sign.lab.textContent = now.phase === 'wait' ? 'Sitting out this round' : now.phase === 'ads' ? 'Coming up at Conquer' : now.phase === 'learn' ? 'New to padel?' : 'Everyone plays';
+    if (now.phase === 'learn' && !sign.code.firstChild) { var lq = qrSvg(S.link('learn')); if (lq) sign.code.appendChild(lq); }
+    sign.code.hidden = now.phase !== 'learn';
     var parts = now.phase === 'wait' ? [h('div', 'who', sign.names)]
+      : now.phase === 'learn' ? [h('div', 'ev', 'Scan to learn the game'), h('div', 'det', h('span', 'when', 'Rules, tips and common questions'))]
       : now.phase === 'ads' ? [h('div', 'ev', a.name), h('div', 'det', [h('span', 'when', a.when), a.spots ? h('span', 'spots' + (a.spots === 'Full' ? ' full' : ''), a.spots) : null])] : [];
     sign.line.replaceChildren.apply(sign.line, parts);
     sign.line.classList.remove('swap'); void sign.line.offsetWidth; sign.line.classList.add('swap');      // a soft fade on every change

@@ -170,6 +170,21 @@ right, beside Main menu and Full screen) turns the page instead: each press goes
 as the TV is high, turned a quarter (`docs/tv.js`, top), so inside it the page finds a portrait screen.
 `?rotate=left`, `?rotate=right` or `?rotate=off` in the address does the same.
 
+## Intro to padel (Lehi)
+
+For people who have never played. Two parts, both drawn from `docs/intro.js` (slides, drawings, and the sources of
+every figure at the top of the file):
+
+- **Slides on a TV:** the TV main menu has **Intro to padel**. The slides do not move by themselves: the remote's
+  right arrow or OK goes on, the left arrow goes back, Main menu leaves. Eleven slides: welcome, the sport in
+  numbers, where it comes from, six basics (court, racket and ball, serve, walls, winning the point, scoring),
+  first-game tips, and a QR code.
+- **A page for phones:** `…/conquer-socials/learn/` (through the club address: `go.playcnqr.com/socials?v=learn`).
+  The same basics plus the questions new players ask. Its QR code is on the last slide, and during a social the
+  sign under the courts shows it for ten seconds in its rotation ("New to padel? Scan to learn the game").
+
+Another club gets it by setting `intro: true` in its entry in `docs/config.js`.
+
 ## Files
 
 | Path | What it is |

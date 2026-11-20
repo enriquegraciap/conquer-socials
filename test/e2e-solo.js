@@ -92,12 +92,18 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   assert.deepEqual(await shownNow(), ['King\u2019s Court Monday Open Play', weekday(3) + ' \u00b7 6:30 AM to 8:30 AM', 'Full']);
   await tv.waitForSelector('.tvsit.sign[data-idx="2"]', { timeout: 15000 });
   assert.deepEqual(await shownNow(), ['Taco Tuesday', weekday(4) + ' \u00b7 7 PM to 9 PM', ''], 'no spots shown when the capacity is not known');
+  await tv.waitForSelector('.tvsit.sign[data-phase="learn"]', { timeout: 15000 });      // after the events: where new players can read about the game
+  assert.equal((await tv.textContent('.tvsit.sign .lab')).trim(), 'New to padel?');
+  assert.match(await tv.getAttribute('.tvsit.sign .lq svg', 'data-qr'), /\/learn\/(\?|$)/, 'a QR code to the intro page');
+  assert.ok(await tv.evaluate(() => { const q = document.querySelector('.tvsit.sign .lq').getBoundingClientRect(), b = document.querySelector('.tvsit.sign').getBoundingClientRect(), t = document.querySelector('.tvsit.sign .ev').getBoundingClientRect();
+    return q.width > 80 && q.top >= b.top && q.bottom <= b.bottom && q.right <= b.right && t.right <= q.left; }), 'the code sits inside the sign, beside the words');
+  await tv.screenshot({ path: SHOTS + 'tv-sign-learn.png' });
   await tv.waitForSelector('.tvsit.sign[data-phase="wait"]', { timeout: 15000 });
   const tNames = Date.now();
   await tv.waitForSelector('.tvsit.sign[data-phase="ads"]', { timeout: 20000 });
   const namesFor = Date.now() - tNames;
   assert.ok(namesFor > 7000 && namesFor < 14000, 'then the names for about 10 seconds (' + namesFor + ' ms)');
-  step('sign: sitter\'s name for the first 30 s, then three events 10 s each with spots left, then names 10 s; nothing scrolls');
+  step('sign: sitter\'s name for the first 30 s, then three events 10 s each with spots left, the intro QR code 10 s, then names 10 s; nothing scrolls');
 
   // 3. a player's phone: pick your name, see your partner and opponents, send the score
   const [kingA, kingB] = r1[0], me = kingA.split(' & ')[0], mate = kingA.split(' & ')[1];

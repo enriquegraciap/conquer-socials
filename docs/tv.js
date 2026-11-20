@@ -689,7 +689,7 @@
   // With players sitting out: their names for the first 30 seconds of a round, then 30 seconds of announcements
   // and 10 seconds of names, over and over. What is coming up is read from pub/promo/{club}: the club's next
   // sessions from PlayByPoint (name, date, times, how many have signed up).
-  var SIGN_FIRST = 30000, SIGN_ADS = 30000, SIGN_NAMES = 10000, SIGN_SPEED = 0.085;       // speed in screen widths per second
+  var SIGN_FIRST = 30000, SIGN_ADS = 30000, SIGN_NAMES = 10000, SIGN_SPEED = 0.042;       // speed in screen widths per second (a full screen width takes about 24 seconds)
   var sign = { el: null, lab: null, win: null, track: null, round: '', since: 0, names: '', shown: '', x: 0, half: 0, scroll: false, last: 0, on: false };
   function loadPromo() {
     var id = st.seriesId, club = ((st.series[id] || {}).club || 'lehi');
@@ -770,7 +770,7 @@
       if (sign.scroll) {
         sign.track.replaceChildren(h('span', 'run', [once(), h('span', 'sep', '\u25cf')]), h('span', 'run', [once(), h('span', 'sep', '\u25cf')]));
         sign.half = sign.track.scrollWidth / 2;
-        sign.x = W * 0.9;                                                // the letters come in from the right
+        sign.x = W * 0.45;                                               // the letters come in from the right, already part way in
         sign.last = 0;
       }
     }

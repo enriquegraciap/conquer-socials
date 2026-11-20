@@ -75,9 +75,9 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   assert.deepEqual(ads, [['Wheel of Fortune - Ladies Round Robin', 'Tomorrow \u00b7 10 AM to 12 PM', ''], ['King\u2019s Court Monday Open Play', (await tv.evaluate(n => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(Date.now() + n * 86400000).getDay()], 3)) + ' \u00b7 6:30 AM to 8:30 AM', '5 players signed up']],
     'the next two events, not the past one, not this social itself, one per program; sign-ups shown only from three');
   const x1 = await tv.evaluate(() => document.querySelector('.tvsit.sign .track').getBoundingClientRect().x);
-  await tv.waitForTimeout(700);
+  await tv.waitForTimeout(1000);
   const x2 = await tv.evaluate(() => document.querySelector('.tvsit.sign .track').getBoundingClientRect().x);
-  assert.ok(x2 < x1 - 40, 'the letters run from right to left (' + Math.round(x1) + ' -> ' + Math.round(x2) + ')');
+  assert.ok(x2 < x1 - 30 && x2 > x1 - 160, 'the letters run from right to left, unhurried (' + Math.round(x1) + ' -> ' + Math.round(x2) + ' px in a second)');
   assert.ok(await tv.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.tvsit.sign .track')).fontSize) > innerHeight * 0.055), 'in large letters');
   await tv.screenshot({ path: SHOTS + 'tv-sign-ads.png' });
   const tAds = Date.now();

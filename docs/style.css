@@ -13,7 +13,7 @@
   --good: #1f8a5b;
   --bad: #c0392b;
   --display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
-  --script: "Permanent Marker", "Barlow Condensed", "Arial Narrow", sans-serif;   /* the names of the socials, in marker lettering */
+  --script: "Knewave", "Barlow Condensed", "Arial Narrow", sans-serif;   /* the names of the socials, in a brush script */
   --body: "Barlow", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -389,7 +389,7 @@ body.tv.mode-flyers .tvbar, body.tv.mode-flyers .tvdate, body.tv.mode-flyers .tv
 .tvpick button:focus { outline: .5vh solid var(--gold); }
 @media (prefers-reduced-motion: reduce) { .tvhead .round.flash { animation: none; } }
 
-/* The name of a social is set in marker lettering (as on the club's flyers);
+/* The name of a social is set in a lively brush script (in the spirit of the lettering on the club's flyers);
    everything else keeps the condensed display face. The names are in capitals; the format under the banner's
    title is in sentence case ("Fixed partner, king's court"). */
 body.tv #bartitle.social { font-family: var(--script); font-weight: 400; font-size: 5.1vh; line-height: 1.14; letter-spacing: .03em; text-transform: uppercase; padding: 0 .35em; }

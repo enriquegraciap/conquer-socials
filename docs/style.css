@@ -83,6 +83,16 @@ input[type=text], input[type=password] { border: 1px solid var(--rule); border-r
 .addteam { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr) auto; gap: 8px; align-items: center; }
 .addteam .amp { font-family: var(--display); font-size: 22px; color: var(--muted); }
 .addteam.solo { grid-template-columns: minmax(0,1fr) auto; }
+/* Speak the names */
+.voicerec { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 18px 0 6px; font-family: var(--display); font-size: 54px; font-weight: 700; color: var(--court-deep); }
+.voicerec .dot { width: 22px; height: 22px; border-radius: 50%; background: var(--bad); animation: voicepulse 1s ease-in-out infinite alternate; }
+@keyframes voicepulse { from { opacity: 1; transform: scale(1); } to { opacity: .35; transform: scale(.8); } }
+.voicelist { display: grid; gap: 8px; max-height: 46vh; overflow: auto; padding: 2px; }
+.voicerow { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr) auto; gap: 8px; align-items: center; }
+.voicerow.solo { grid-template-columns: minmax(0,1fr) auto; }
+.voicerow .amp { font-family: var(--display); font-size: 20px; color: var(--muted); }
+.voicerow.dup input { opacity: .55; }
+.voicerow .dupnote { grid-column: 1 / -1; margin: -4px 0 0; }
 .ratings { display: grid; gap: 6px; }
 .ratings .rating { display: grid; gap: 4px; font-size: 15px; color: var(--muted); }
 .ratings .rating input { width: 110px; }
@@ -450,17 +460,13 @@ body.tv .tvbar .tvbar-c:has(#bartitle.social) #barsub { margin-top: 0; }
 /* the ball with a face: rolls in, hops while it talks, and is batted away */
 .inter .buddy { position: absolute; left: 14vw; bottom: 4vh; width: 19vh; height: 19vh; filter: drop-shadow(0 1vh 1.6vh rgba(0,0,0,.5)); }
 .inter .buddy .hop, .inter .buddy svg { display: block; width: 100%; height: 100%; }
-.inter .buddy .gasp { opacity: 0; }
-.inter.uhoh .buddy .gasp { opacity: 1; } .inter.uhoh .buddy .smile { opacity: 0; }
 .inter.on .buddy { animation: i-roll 1s 1.4s cubic-bezier(.2,.9,.3,1) both, i-fly .8s 4.72s cubic-bezier(.2,.6,.6,1) forwards; }
-.inter.on .buddy .hop { animation: i-hop .42s 2.45s 5 alternate ease-out; }
+.inter.on .buddy .hop { animation: i-hop .6s 2.5s 2 alternate ease-in-out; }
 .inter.on .buddy .pupils { animation: i-look 2.1s 2.4s both; }
-.inter.uhoh .buddy .pupils { animation: i-eek .12s 6 alternate; }
-@keyframes i-roll { 0% { transform: translateX(-40vw) rotate(-700deg); } 100% { transform: none; } }
-@keyframes i-hop { from { transform: translateY(0) scale(1, 1); } to { transform: translateY(-5vh) scale(.96, 1.05); } }
+@keyframes i-roll { 0% { transform: translateX(-40vw) rotate(-360deg); } 100% { transform: none; } }
+@keyframes i-hop { from { transform: translateY(0); } to { transform: translateY(-2.4vh); } }
 @keyframes i-look { 0%, 100% { transform: none; } 20%, 55% { transform: translate(4px, -5px); } 70%, 90% { transform: translate(-3px, 2px); } }
-@keyframes i-eek { from { transform: translate(5px, -2px); } to { transform: translate(5px, 2px); } }
-@keyframes i-fly { 0% { transform: scale(1.25, .75); } 12% { transform: translate(-6vw, -10vh) rotate(-80deg) scale(.9, 1.15); } 100% { transform: translate(-60vw, -120vh) rotate(-1100deg) scale(.5); } }
+@keyframes i-fly { 0% { transform: none; } 100% { transform: translate(-60vw, -120vh) rotate(-540deg) scale(.6); } }
 /* what the ball has to say */
 .inter .pun { position: absolute; left: calc(14vw + 17vh); bottom: 15vh; max-width: 58vw; padding: 1.8vh 2.4vw 2.1vh; background: #fff; color: #0c1f33; border-radius: 3vh 3vh 3vh .6vh;
   font-family: var(--script); font-size: 6.2vh; line-height: 1.15; box-shadow: 0 1.2vh 3vh rgba(0,0,0,.45); transform-origin: 0 100%; }

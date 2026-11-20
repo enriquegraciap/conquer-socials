@@ -87,6 +87,11 @@ names to the "WPR requests" tab of the ratings exchange sheet, and copies the WP
 `done` into the app (`docs/tools/wpr-sync.js` does the matching and the writing; the admin key is passed to it at
 run time and is not in this repository).
 
+**Speak the names:** on the iPad's team list, press **Speak the names**, say the couples (or players), check the
+list that comes back and add them all at once. The recording (a short WAV made in the browser, `docs/voice.js`)
+goes to a scenario in the club's Make account, which asks Gemini to write the names down. `voiceURL` in
+`docs/config.js` is that scenario's address; the Gemini key lives in Make (Conquer Secrets, `gemini_key`), not here.
+
 **Monthly leaderboards:** every event's table restarts each calendar month. The club flyers slideshow includes a
 slide with the month's top three of every social, counted from the nights that have ended.
 
@@ -103,6 +108,7 @@ slide with the month's top three of every social, counted from the nights that h
 | `docs/store.js` | reads and writes the Firebase Realtime Database |
 | `docs/look.js` | reads a flyer's colours and draws the TV banner pattern from them |
 | `docs/awake.js` | keeps the iPad and TV screens on while the page is open |
+| `docs/voice.js` | records the organizer's voice for "Speak the names" and turns it into a small WAV file |
 | `docs/config.js` | the database address |
 | `database.rules.json` | database rules: anyone can read, only a device with the admin key can write |
 | `test/` | `npm test` (rotation and scoring), `npm run simulate` (prints a night), `npm run e2e` (browser test) |

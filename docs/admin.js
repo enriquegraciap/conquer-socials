@@ -1,7 +1,7 @@
 /* Padel Socials — iPad admin page. */
 (function () {
   'use strict';
-  var E = window.Engine, S = window.Store, L = window.Look;
+  var E = window.Engine, S = window.Store, L = window.Look, V = window.Voice;
   var root = document.getElementById('app');
   var MAX_COURT = 7;         // the club has courts 1 to 7
 
@@ -522,6 +522,10 @@
           oninput: function (e) { state.ui.p2 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') add(); } }),
         btn(setup ? 'Add team' : 'Add late team', 'primary', add, { id: 'addTeam' })
       ]),
+      S.voiceURL && V && V.supported ? h('div', { class: 'row', style: 'margin-top:10px' }, [
+        btn([h('span', { 'aria-hidden': 'true' }, '\uD83C\uDFA4 '), 'Speak the names'], '', openVoice, { id: 'speakNames' }),
+        h('span', { class: 'hint', style: 'margin:0' }, W.solo ? 'Say the players’ names; check the list; add them all at once.' : 'Say the couples’ names; check the list; add them all at once.')
+      ]) : null,
       regs.length ? h('div', null, [h('p', { class: 'hint' }, 'Played before (tap to add):'), h('div', { class: 'regulars' }, regs.map(function (r) {
         return h('button', { type: 'button', onclick: function () { var res = commit(function (x) { return E.addTeam(x, r.players); }); if (res && !setup) toast(res.name + ' joins from the next round.'); } }, '+ ' + r.name);
       }))]) : null,
@@ -540,6 +544,82 @@
       !teams.length ? h('p', { class: 'hint' }, W.solo ? 'No players yet. Type a name and press Add player.' : 'No teams yet. Type the two players and press Add team.') : null
     ]);
   }
+  // ---- Speak the names: record, let the speech service write the names down, check them, add them.
+  var voiceTimer = null;
+  function openVoice() { state.ui.modal = { type: 'voice', step: 'idle', items: [], msg: '' }; render(); }
+  function closeVoice() { clearInterval(voiceTimer); if (V) V.cancel(); state.ui.modal = null; render(); }
+  function voiceStart() {
+    var m = state.ui.modal;
+    if (!S.getKey()) { state.ui.modal = { type: 'key', wrong: false, then: function () { state.ui.modal = m; render(); } }; return render(); }
+    m.step = 'asking'; m.msg = ''; render();
+    V.start().then(function (t0) {
+      m.step = 'rec'; m.t0 = t0; render();
+      clearInterval(voiceTimer);
+      voiceTimer = setInterval(function () {
+        if (state.ui.modal !== m || m.step !== 'rec') return clearInterval(voiceTimer);
+        if (Date.now() - m.t0 >= V.maxMs) return voiceStop();
+        var el = document.getElementById('voiceClock'); if (el) el.textContent = voiceClock(m);
+      }, 250);
+    }).catch(function () { m.step = 'error'; m.msg = 'The microphone could not be used. Allow the microphone for this page in the browser’s settings and try again.'; render(); });
+  }
+  function voiceClock(m) { var sec = Math.floor((Date.now() - m.t0) / 1000); return Math.floor(sec / 60) + ':' + (sec % 60 < 10 ? '0' : '') + (sec % 60); }
+  function voiceStop() {
+    var m = state.ui.modal, s = state.session, solo = E.isSolo(s);
+    clearInterval(voiceTimer);
+    m.step = 'work'; render();
+    // names the club already knows help the service spell what it hears
+    var known = {};
+    E.teamList(s).forEach(function (t) { t.players.forEach(function (p) { known[p] = 1; }); });
+    state.regulars.forEach(function (r) { (r.players || []).forEach(function (p) { known[p] = 1; }); });
+    Object.keys(state.ratings || {}).forEach(function (k) { if (state.ratings[k].name) known[state.ratings[k].name] = 1; });
+    var knownText = Object.keys(known).join(', ').replace(/["\\\u0000-\u001f]/g, ' ').slice(0, 1800);
+    V.stop().then(function (rec) {
+      if (rec.seconds < 0.7) throw new Error('That was too short. Press Start and say the names.');
+      var body = new URLSearchParams({ key: S.getKey(), format: solo ? 'solo' : 'team', known: knownText, audio: rec.audio });
+      return fetch(S.voiceURL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() }).then(function (res) { return res.text(); });
+    }).then(function (txt) {
+      var data = null;
+      try { data = JSON.parse(txt); } catch (e) { data = null; }
+      if (state.ui.modal !== m) return;
+      if (!data || typeof data !== 'object') throw new Error('The voice service did not answer properly. Try again in a moment.');
+      if (!data.ok) {
+        if (data.status === 'key') throw new Error('The voice service did not accept this device’s admin key.');
+        if (data.status === 400 || data.status === 401 || data.status === 403) throw new Error('The voice service is not set up yet: the Gemini key is missing or was not accepted.');
+        if (data.status === 429) throw new Error('The voice service is busy. Wait a few seconds and try again.');
+        throw new Error('The voice service could not read the recording (code ' + data.status + '). Try again.');
+      }
+      var r = data.result || {}, clean = function (x) { return String(x === null || x === undefined ? '' : x).replace(/\s+/g, ' ').trim().slice(0, 30); };
+      var players = (Array.isArray(r.players) ? r.players : []).map(clean).filter(Boolean);
+      var teams = (Array.isArray(r.teams) ? r.teams : []).map(function (t) { return (Array.isArray(t) ? t : [t]).map(clean).filter(Boolean); }).filter(function (t) { return t.length; });
+      var items;
+      if (solo) items = (players.length ? players : [].concat.apply([], teams)).map(function (p) { return { p1: p, p2: '' }; });
+      else {
+        if (!teams.length) for (var i = 0; i < players.length; i += 2) teams.push(players.slice(i, i + 2));
+        items = teams.map(function (t) { return { p1: t[0] || '', p2: t[1] || '' }; });
+      }
+      if (!items.length) throw new Error('No names came through. Speak a little closer to the microphone and try again.');
+      m.items = items; m.step = 'review'; render();
+    }).catch(function (err) {
+      if (state.ui.modal !== m) return;
+      m.step = 'error'; m.msg = (err && err.message) || 'Something went wrong. Try again.'; render();
+    });
+  }
+  function voiceAdd() {
+    var m = state.ui.modal, solo = E.isSolo(state.session), added = 0, skipped = [];
+    var late = state.session.status !== 'setup';
+    commit(function (x) {
+      m.items.forEach(function (it) {
+        var p = solo ? [it.p1] : [it.p1, it.p2];
+        if (!p.join('').trim()) return;
+        if (E.addTeam(x, p)) added++; else skipped.push(E.teamName(p));
+      });
+    });
+    var W = words(state.session);
+    state.ui.modal = null;
+    toast(added + ' ' + (added === 1 ? W.one : W.many) + ' added' + (late && added ? ' from the next round' : '') + '.' + (skipped.length ? ' Already on the list: ' + skipped.join(', ') + '.' : ''));
+    render();
+  }
+
   // WPR Social ratings are kept per player name, apart from the nights, so every social and month shares them.
   function loadRatings() { return S.get('pub/ratings').then(function (all) { state.ratings = all || {}; }).catch(function () { /* optional */ }); }
   function ratingOf(name) { var r = state.ratings[E.keyOf(name || '')]; return r && typeof r.s === 'number' ? r.s.toFixed(2) : ''; }
@@ -820,6 +900,42 @@
         ]),
         ratingRow([['rt1', 'r1', m.p1 || 'Player 1'], ['rt2', 'r2', m.p2 || 'Player 2']]),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Save', 'primary', saveName, { id: 'saveNames' })])];
+    } else if (m.type === 'voice') {
+      var vs = E.isSolo(s), vw = words(s);
+      if (m.step === 'idle' || m.step === 'asking') {
+        body = [h('h3', null, 'Speak the names'),
+          h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, vs ? 'Press Start, then say the players’ names one after another, first and last name: “Ana Lopez, Bruno Diaz, Carla Ruiz…”. Up to a minute.'
+            : 'Press Start, then say the couples one after another: “Carter and Kasey Maclean. Lexi and Spencer Mecham…”. Up to a minute.'),
+          h('p', { class: 'hint', style: 'margin:0' }, 'You will see the list and can correct it before anything is added.'),
+          h('div', { class: 'row end' }, [btn('Cancel', '', closeVoice), btn(m.step === 'asking' ? 'Waiting for the microphone…' : 'Start', 'primary', voiceStart, { id: 'voiceStart', disabled: m.step === 'asking' })])];
+      } else if (m.step === 'rec') {
+        body = [h('h3', null, 'Listening…'),
+          h('div', { class: 'voicerec' }, [h('span', { class: 'dot', 'aria-hidden': 'true' }), h('span', { id: 'voiceClock', class: 'num' }, voiceClock(m))]),
+          h('p', { class: 'hint', style: 'margin:0;text-align:center' }, 'Say the names clearly, then press Stop.'),
+          h('div', { class: 'row end' }, [btn('Cancel', '', closeVoice), btn('Stop and read the names', 'primary', voiceStop, { id: 'voiceStop' })])];
+      } else if (m.step === 'work') {
+        body = [h('h3', null, 'Writing down the names…'), h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'This takes a few seconds.'),
+          h('div', { class: 'row end' }, btn('Cancel', '', closeVoice))];
+      } else if (m.step === 'error') {
+        body = [h('h3', null, 'That did not work'), h('div', { class: 'notice err' }, m.msg),
+          h('div', { class: 'row end' }, [btn('Close', '', closeVoice), btn('Try again', 'primary', function () { m.step = 'idle'; voiceStart(); }, { id: 'voiceRetry' })])];
+      } else {
+        var have = {};
+        E.teamList(s).forEach(function (t) { if (!t.left) have[E.entityKey(t.players)] = true; });
+        var count = m.items.filter(function (it) { return (it.p1 + it.p2).trim(); }).length;
+        body = [h('h3', null, 'Check the names'),
+          h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Correct any spelling, remove what should not be there, then add them.'),
+          h('div', { class: 'voicelist' }, m.items.map(function (it, i) {
+            var dup = have[E.entityKey(vs ? [it.p1] : [it.p1, it.p2])];
+            var field = function (k, ph) { return h('input', { type: 'text', id: 'vn' + i + k, placeholder: ph, value: it[k], maxlength: 30, autocapitalize: 'words', autocomplete: 'off', oninput: function (e) { it[k] = e.target.value; } }); };
+            return h('div', { class: 'voicerow' + (vs ? ' solo' : '') + (dup ? ' dup' : '') }, [
+              field('p1', vs ? 'Player' : 'Player 1'), vs ? null : h('span', { class: 'amp' }, '&'), vs ? null : field('p2', 'Player 2'),
+              btn('\u00d7', 'small', function () { m.items.splice(i, 1); render(); }, { 'aria-label': 'Remove this line' }),
+              dup ? h('span', { class: 'hint dupnote' }, 'already on the list') : null]);
+          })),
+          h('div', { class: 'row end' }, [btn('Cancel', '', closeVoice), btn('Record again', '', function () { m.step = 'idle'; m.items = []; voiceStart(); }),
+            btn('Add ' + count + ' ' + (count === 1 ? vw.one : vw.many), 'primary', voiceAdd, { id: 'voiceAdd', disabled: !count })])];
+      }
     } else if (m.type === 'look') {
       var lk = (state.series[m.id] || {}).look || {}, busy = state.ui.lookBusy, has = !!(lk.wide || lk.tall);
       var setLook = function (patch) { var next = lookOf(m.id); Object.keys(patch).forEach(function (k) { next[k] = patch[k]; }); saveLook(m.id, next); };
@@ -931,7 +1047,7 @@
         ])
       ];
     }
-    return h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', onclick: function (e) { if (e.target === e.currentTarget && m.type !== 'key') closeModal(); } }, h('div', { class: 'sheet' }, body));
+    return h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', onclick: function (e) { if (e.target === e.currentTarget && m.type !== 'key' && m.type !== 'voice') closeModal(); } }, h('div', { class: 'sheet' }, body));
   }
 
   // ---------------------------------------------------------------- go

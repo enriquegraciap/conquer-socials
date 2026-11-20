@@ -91,6 +91,8 @@
     // the site the page was opened on, where this device's admin key is remembered.
     here: function (kind, query) { return address(kind, query, !!pub && framed); },
     framed: framed,
+    // Where "Speak the names" sends its recording (never the real service while on a test database).
+    voiceURL: params.get('voice') || (params.get('db') ? '' : String(cfg.voiceURL || '')),
     // Go to another page. Inside another site's page the whole window moves, not just the frame.
     go: function (url) {
       if (framed) { try { root.top.location.href = url; return; } catch (e) { /* not allowed: move the frame instead */ } }

@@ -8,6 +8,6 @@
     "simulate": "node test/simulate.js 14 8 2026",
     "stats": "node test/stats.js 300 14",
     "mock": "node tools/mock-server.js 8787 test-key",
-    "e2e": "node test/e2e.js && node test/e2e-look.js && node test/e2e-solo.js"
+    "e2e": "node test/e2e.js && node test/e2e-look.js && node test/e2e-solo.js && node test/e2e-voice.js"
   }
 }

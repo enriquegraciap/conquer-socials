@@ -813,9 +813,8 @@
   var BUDDY = '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="bud" cx="35%" cy="30%"><stop offset="0" stop-color="#f8ffa6"/><stop offset=".6" stop-color="#d6ef1f"/><stop offset="1" stop-color="#9db800"/></radialGradient></defs>' +
     '<circle cx="50" cy="50" r="47" fill="url(#bud)" stroke="#5c6f00" stroke-width="2.5"/>' +
     '<path d="M20 12Q36 50 20 88M80 12Q64 50 80 88" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"/>' +
-    '<ellipse cx="38" cy="43" rx="9.5" ry="12" fill="#fff" stroke="#1a1a1a" stroke-width="2"/><ellipse cx="62" cy="43" rx="9.5" ry="12" fill="#fff" stroke="#1a1a1a" stroke-width="2"/>' +
-    '<g class="pupils"><circle cx="39" cy="45" r="5" fill="#1a1a1a"/><circle cx="63" cy="45" r="5" fill="#1a1a1a"/><circle cx="40.6" cy="43.2" r="1.6" fill="#fff"/><circle cx="64.6" cy="43.2" r="1.6" fill="#fff"/></g>' +
-    '<path class="smile" d="M35 64Q50 78 65 64" fill="none" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round"/><ellipse class="gasp" cx="50" cy="69" rx="7" ry="9" fill="#1a1a1a"/></svg>';
+    '<g class="pupils"><circle cx="40" cy="45" r="4.2" fill="#1a1a1a"/><circle cx="60" cy="45" r="4.2" fill="#1a1a1a"/></g>' +
+    '<path class="smile" d="M38 60Q50 69 62 60" fill="none" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/></svg>';
   function racketSvg(colour) {
     var holes = '';
     [[32, 30], [50, 26], [68, 30], [26, 46], [42, 44], [58, 44], [74, 46], [30, 62], [50, 60], [70, 62], [38, 78], [62, 78], [50, 90]].forEach(function (p) { holes += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="3.6"/>'; });
@@ -859,7 +858,7 @@
     inter.style.backgroundColor = has ? L.banner(look).color : '';
     inter.querySelector('.num').textContent = String(n);
     inter.querySelector('.pun').textContent = punFor(n);
-    inter.querySelector('.racket').innerHTML = racketSvg(has ? L.banner(look).colours.a1 : '#f4b63f');
+    inter.querySelector('.racket').innerHTML = racketSvg('#f3ead6');          // a cream racket, whatever the flyer's colours
     inter.hidden = false;
     void inter.offsetWidth;                                             // so the whole show plays again every time
     inter.className = 'inter on ' + kind + (st.flyer ? ' pic' : '');
@@ -867,7 +866,6 @@
     var W = window.innerWidth, H = window.innerHeight, vh = H / 100;
     var later = function (ms, fn) { interTimers.push(setTimeout(function () { if (!inter.hidden) fn(); }, ms)); };
     later(kind === 'spin' ? 850 : 650, function () { boom(W * 0.5, H * 0.4, 60, 50 * vh, 0); boom(W * 0.34, H * 0.3, 30, 34 * vh, 180); boom(W * 0.66, H * 0.3, 30, 34 * vh, 320); });
-    later(4250, function () { inter.classList.add('uhoh'); });                                    // the ball sees the racket coming
     later(4740, function () {                                                                      // ...and gets smacked
       var b = inter.querySelector('.buddy').getBoundingClientRect();
       boom(b.left + b.width / 2, b.top + b.height / 2, 46, 42 * vh, 0);

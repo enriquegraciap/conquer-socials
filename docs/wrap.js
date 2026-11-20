@@ -18,7 +18,7 @@
     var frame = document.createElement('iframe');
     frame.id = 'cq-socials';
     frame.title = 'Conquer Padel socials';
-    frame.setAttribute('allow', 'fullscreen; screen-wake-lock');
+    frame.setAttribute('allow', 'fullscreen; screen-wake-lock; microphone');
     frame.setAttribute('allowfullscreen', '');
     frame.src = app + (v === 'tv' ? 'tv/' : v === 'p' ? 'p/' : v === 'flyers' ? 'flyers/' : '') + (qs ? '?' + qs : '') + location.hash;
     frame.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;border:0;z-index:2147483000;background:#071a30';

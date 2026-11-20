@@ -18,6 +18,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 
 let db = {};
 let writes = 0;
+let voiceSeen = null;
 
 function getPath(obj, parts) {
   let cur = obj;
@@ -66,6 +67,22 @@ http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
   if (u.pathname === '/__reset') { db = {}; writes = 0; return send(res, 200, { ok: true }); }
   if (u.pathname === '/__dump') return send(res, 200, { writes, db });
+  // Stand-in for the "Speak the names" service: remembers what it was sent and answers with a fixed list.
+  if (u.pathname === '/__voice') {
+    if (req.method === 'OPTIONS') return send(res, 200, '');
+    if (req.method === 'GET') return send(res, 200, voiceSeen);
+    let raw = '';
+    req.on('data', d => { raw += d; });
+    req.on('end', () => {
+      const f = new URLSearchParams(raw), audio = f.get('audio') || '';
+      voiceSeen = { key: f.get('key'), format: f.get('format'), known: f.get('known'), audioChars: audio.length, wav: Buffer.from(audio.slice(0, 16), 'base64').toString('latin1').slice(0, 4), type: req.headers['content-type'] };
+      if (f.get('key') !== KEY) return send(res, 200, { ok: false, status: 'key' });
+      if (u.searchParams.get('fail')) return send(res, 200, { ok: false, status: 400 });
+      const teams = [['Carter Maclean', 'Kasey Maclean'], ['Lexi Mecham', 'Spencer Mecham'], ['Jodi Ream', 'Tess Dunn']];
+      send(res, 200, { ok: true, result: f.get('format') === 'solo' ? { teams: [], players: ['Ana Lopez', 'Bruno Diaz', 'Zoe Hart'] } : { teams, players: teams.flat() } });
+    });
+    return;
+  }
   if (u.pathname.startsWith('/db/') || u.pathname === '/db/.json') {
     if (req.method === 'OPTIONS') return send(res, 200, '');
     if (!u.pathname.endsWith('.json')) return send(res, 404, { error: 'append .json' });

@@ -1,24 +1,29 @@
 /* Padel Socials — TV display. Read-only: checks the database every 2 seconds and redraws when something changed.
  *
- * Which event a TV shows:
- *   1. an event named in the address (tv/?s=event-id) always wins;
- *   2. otherwise the event this TV was paired with from the admin page (scan the QR, or type the TV code);
- *   3. otherwise, if the club has exactly one event, that one;
- *   4. otherwise the pairing screen with a QR code.
+ * What a TV shows: one of the socials, the club flyers (a slideshow), or the main menu where you choose.
+ *   1. something named in the address (tv/?s=event-id, tv/?flyers=1) wins until a choice is made on the TV;
+ *   2. otherwise what was last chosen for this TV: on its own main menu with the remote, or from the admin
+ *      page (scan the QR on the menu, or add the TV by its code). The most recent of the two counts;
+ *   3. otherwise, if the club has exactly one social, that one;
+ *   4. otherwise the main menu.
+ * The "Main menu" button sits beside "Full screen" whenever the page is not in full screen.
  */
 (function () {
   'use strict';
   var E = window.Engine, S = window.Store;
-  var root = document.getElementById('tv'), statusEl = document.getElementById('status'), codeEl = document.getElementById('tvcode'), fsBtn = document.getElementById('fs');
+  var root = document.getElementById('tv'), statusEl = document.getElementById('status'), codeEl = document.getElementById('tvcode'), fsBtn = document.getElementById('fs'), menuBtn = document.getElementById('menu');
   var POLL_MS = 2000, MONTH_ROWS = 10;
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var CROWN = '\uD83D\uDC51';   // beside the winning team: after the name on the left side, before it on the right side
   var MEDALS = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];   // gold, silver, bronze
-  var fixed = new URLSearchParams(location.search).get('s');
+  var FLYERS = '@flyers', MENU = '@menu';      // the two things a TV can show that are not a social
+  var FORMATS = { 'kings-fixed': 'Fixed partner, King\u2019s Court' };
+  var q0 = new URLSearchParams(location.search);
+  var fixed = q0.get('flyers') ? FLYERS : q0.get('s');
 
   var st = { id: tvId(), mode: 'boot', series: {}, seriesId: null, seriesName: '', rev: null, ping: 0, session: null, pending: {},
-    month: null, monthKey: null, busy: false, lastOk: 0, lastRound: 0, shown: false, ticks: 0, pendingSince: 0, pairShown: '',
+    month: null, monthKey: null, busy: false, lastOk: 0, lastRound: 0, shown: false, ticks: 0, pendingSince: 0, menuShown: '',
     seenKey: '', seen: {}, cheer: [], fly: {} };
 
   function h(tag, cls, kids) {
@@ -83,56 +88,187 @@
     S.get('pub/series').then(function (list) {
       st.series = list || {};
       st.lastOk = Date.now();
-      return fixed ? null : S.get('pub/screens/' + st.id);
+      return fixed ? null : S.get('pub/screens/' + st.id).catch(function () { return null; });
     }).then(function (scr) {
       st.busy = false;
-      var ids = Object.keys(st.series);
-      var want = fixed && st.series[fixed] ? fixed : (scr && scr.seriesId && st.series[scr.seriesId] ? scr.seriesId : (ids.length === 1 ? ids[0] : null));
-      if (want) { if (want !== st.seriesId || st.mode !== 'show') show(want); }
-      else pairing(ids.length);
+      takePairing(scr);
+      var ids = Object.keys(st.series), choice = S.pref('tvShow') || '';
+      var want = fixed && (fixed === FLYERS || st.series[fixed]) ? fixed
+        : choice === FLYERS ? FLYERS
+        : choice && choice !== MENU && st.series[choice] ? choice
+        : choice !== MENU && ids.length === 1 ? ids[0] : null;
+      if (want === FLYERS) { if (st.mode !== 'flyers') showFlyers(); }
+      else if (want) { if (want !== st.seriesId || st.mode !== 'show') show(want); }
+      else menu();
     }).catch(function () {
       st.busy = false;
       if (st.mode === 'boot') root.replaceChildren(message('Connecting…', 'Waiting for the internet connection.'));
     });
   }
+  // A choice made for this TV on the admin page counts once, when it is made: it replaces whatever the TV was
+  // showing, and a later choice on the TV's own menu replaces it in turn.
+  function takePairing(scr) {
+    if (!scr || !scr.seriesId || String(scr.at || 0) === S.pref('tvPairAt')) return false;
+    S.pref('tvPairAt', String(scr.at || 0));
+    S.pref('tvShow', scr.seriesId);
+    return true;
+  }
   function tick() {
     if (document.hidden) return;
     st.ticks++;
-    if (st.mode === 'show') { poll(); if (!fixed && st.ticks % 3 === 0) checkPairing(); }
+    if (st.mode === 'show') { poll(); if (st.ticks % 15 === 0) refreshEvent(); }
+    else if (st.mode === 'flyers') { if (st.ticks % 15 === 0) loadFlyers(); }
     else decide();
+    if (st.mode !== 'menu' && st.mode !== 'boot' && !fixed && st.ticks % 3 === 0) checkPairing();
     status();
   }
-  // Has someone pointed this TV at a different event from the admin page?
+  // Has someone pointed this TV at something else from the admin page?
   function checkPairing() {
-    S.get('pub/screens/' + st.id).then(function (scr) {
-      if (!scr || !scr.seriesId || scr.seriesId === st.seriesId) return;
-      if (st.series[scr.seriesId]) return show(scr.seriesId);
-      return S.get('pub/series').then(function (list) { st.series = list || {}; if (st.series[scr.seriesId]) show(scr.seriesId); });
-    }).catch(function () { /* tried again on a later tick */ });
+    S.get('pub/screens/' + st.id).then(function (scr) { if (takePairing(scr)) decide(); }).catch(function () { /* tried again on a later tick */ });
+  }
+  // Pick up a new name for the social on screen without reloading the page.
+  function refreshEvent() {
+    var id = st.seriesId;
+    S.get('pub/series/' + id).then(function (meta) {
+      if (!meta || id !== st.seriesId) return;
+      st.series[id] = meta; st.seriesName = meta.name || ''; barTitle();
+    }).catch(function () { /* next time */ });
+  }
+  function setMode(mode) {
+    if (st.mode === 'flyers' && mode !== 'flyers') stopFlyers();
+    st.mode = mode;
+    if (mode !== 'menu') st.menuShown = '';
+    if (mode !== 'show') { st.seriesId = null; st.seriesName = ''; st.session = null; st.pendingSince = 0; }
+    document.body.classList.toggle('mode-flyers', mode === 'flyers');
+    document.body.classList.toggle('mode-menu', mode === 'menu');
+    buttons();
   }
   function show(id) {
-    st.mode = 'show'; st.seriesId = id; st.seriesName = (st.series[id] || {}).name || '';
-    st.rev = null; st.ping = 0; st.session = null; st.pending = {}; st.shown = false; st.lastRound = 0; st.pendingSince = 0; st.pairShown = '';
+    setMode('show');
+    st.seriesId = id; st.seriesName = (st.series[id] || {}).name || '';
+    st.rev = null; st.ping = 0; st.session = null; st.pending = {}; st.shown = false; st.lastRound = 0; st.pendingSince = 0;
     barTitle();
     root.replaceChildren(message(st.seriesName, 'Loading…'));
     poll();
   }
-  function pairing(count) {
-    st.mode = 'pair'; st.seriesId = null; st.seriesName = ''; st.session = null;
+  // Chosen on this TV with the remote: remembered on this TV until someone chooses again.
+  function choose(what) {
+    S.pref('tvShow', what);
+    if (fixed) {                                  // the address no longer decides
+      fixed = null;
+      var q = new URLSearchParams(location.search); q.delete('s'); q.delete('flyers');
+      var qs = q.toString();
+      try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '')); } catch (e) { /* fine */ }
+    }
+    if (what === MENU) { menu(); decide(); }
+    else if (what === FLYERS) showFlyers();
+    else show(what);
+  }
+  // The main menu: every social, and the club flyers. Big buttons, so a TV remote can move through them.
+  function menu() {
+    var ids = Object.keys(st.series).sort(function (a, b) { return (st.series[a].name || '') < (st.series[b].name || '') ? -1 : 1; });
+    var key = st.id + ':' + ids.map(function (id) { return id + '=' + st.series[id].name; }).join('|');
+    if (st.mode === 'menu' && st.menuShown === key) return;       // already on screen: do not redraw every two seconds
+    var had = st.mode === 'menu' && document.activeElement && document.activeElement.getAttribute('data-pick');
+    setMode('menu');
+    st.menuShown = key;
     barTitle();
-    var key = st.id + ':' + count;
-    if (st.pairShown === key) return;            // already on screen: do not redraw every two seconds
-    st.pairShown = key;
+    var item = function (what, title, sub) {
+      var b = h('button', 'pickbtn', [h('b', null, title), h('span', null, sub)]);
+      b.type = 'button'; b.setAttribute('data-pick', what);
+      b.addEventListener('click', function () { choose(what); });
+      return b;
+    };
+    var items = ids.map(function (id) { return item(id, st.series[id].name, FORMATS[st.series[id].format] || 'Social'); });
+    items.push(item(FLYERS, 'Club flyers', 'Slideshow, a new flyer every 15 seconds'));
     var qr = qrSvg(S.link('admin', { tv: st.id }));
-    root.replaceChildren(h('div', 'tvpair', [
-      qr ? h('div', 'qrbox', qr) : null,
-      h('div', 'txt', [
-        h('h1', null, 'Choose what this screen shows'),
-        h('p', null, count ? 'Scan this code with the club iPad, tablet or phone and pick your social.' : 'Scan this code with the club iPad, tablet or phone to create your social.'),
-        h('p', 'or', 'Or open Events on the iPad and add this TV by its code:'),
+    root.replaceChildren(h('div', 'tvmenu', [
+      h('div', 'list', [h('h1', null, 'What should this screen show?'), h('div', 'items' + (items.length > 5 ? ' two' : ''), items)]),
+      h('div', 'side', [
+        qr ? h('div', 'qrbox', qr) : null,
+        h('p', null, 'Or choose from the club iPad: scan this code, or open Events and add this TV by its code.'),
         h('div', 'code', st.id)
       ])
     ]));
+    var again = had && root.querySelector('[data-pick="' + had + '"]');
+    (again || items[0]).focus();
+  }
+
+  // ---------------------------------------------------------------- club flyers
+  // A slideshow of the photos uploaded on the flyers page: each fills the screen, a new one every 15 seconds.
+  var FLY_PATH = 'pub/flyers/club', SLIDE_MS = 15000;
+  var fl = { rev: undefined, list: [], data: {}, cur: null, top: 0, timer: null, loading: false, layers: [], msg: null };
+  function showFlyers() {
+    setMode('flyers');
+    barTitle();
+    fl.layers = [h('img', 'flyer'), h('img', 'flyer')];
+    fl.layers.forEach(function (l) { l.alt = ''; });
+    fl.msg = h('div', 'flymsg');
+    fl.cur = null; fl.top = 0; fl.rev = undefined;
+    root.replaceChildren(h('div', 'tvflyers', [fl.layers[0], fl.layers[1], fl.msg]));
+    flyerMessage();
+    loadFlyers();
+    fl.timer = setInterval(nextFlyer, SLIDE_MS);
+  }
+  function stopFlyers() { clearInterval(fl.timer); fl.timer = null; fl.layers = []; fl.msg = null; }
+  function readyFlyers() { return fl.list.filter(function (f) { return /^data:image\//.test(fl.data[f.id] || ''); }); }
+  // Checks the list (a small number first, so nothing heavy is fetched unless something changed), then
+  // fetches the pictures it does not have yet, one at a time.
+  function loadFlyers() {
+    if (fl.loading || st.mode !== 'flyers') return;
+    fl.loading = true;
+    S.get(FLY_PATH + '/rev').then(function (rev) {
+      st.lastOk = Date.now();
+      rev = rev || 0;
+      if (rev === fl.rev) return null;
+      return S.get(FLY_PATH + '/index').then(function (idx) {
+        idx = idx || {};
+        fl.list = Object.keys(idx).map(function (id) { return { id: id, order: Number(idx[id].order) || 0 }; })
+          .sort(function (a, b) { return a.order - b.order || (a.id < b.id ? -1 : 1); });
+        Object.keys(fl.data).forEach(function (id) { if (!idx[id]) delete fl.data[id]; });
+        fl.rev = rev;
+        if (fl.cur && !idx[fl.cur]) nextFlyer();                   // the flyer on screen was removed
+        flyerMessage();
+        return fetchFlyers();
+      });
+    }).catch(function () { /* tried again in half a minute */ }).then(function () { fl.loading = false; flyerMessage(); });
+  }
+  function fetchFlyers() {
+    var next = fl.list.filter(function (f) { return fl.data[f.id] === undefined; })[0];
+    if (!next || st.mode !== 'flyers') return null;
+    return S.get(FLY_PATH + '/data/' + next.id).then(function (d) {
+      fl.data[next.id] = typeof d === 'string' ? d : '';
+      if (fl.cur === null) nextFlyer();                            // the first one goes up as soon as it arrives
+      return fetchFlyers();
+    });
+  }
+  function nextFlyer() {
+    if (st.mode !== 'flyers') return;
+    var ready = readyFlyers(), at = -1;
+    ready.forEach(function (f, i) { if (f.id === fl.cur) at = i; });
+    flyerMessage();
+    if (!ready.length) { fl.layers.forEach(function (l) { l.classList.remove('on'); }); fl.cur = null; return; }
+    var nxt = ready[(at + 1) % ready.length];
+    if (nxt.id === fl.cur) return;                                 // only one flyer: it simply stays
+    fl.top = 1 - fl.top;
+    var layer = fl.layers[fl.top], other = fl.layers[1 - fl.top];
+    layer.onload = function () { layer.classList.add('on'); other.classList.remove('on'); };
+    layer.setAttribute('data-id', nxt.id);
+    layer.src = fl.data[nxt.id];
+    fl.cur = nxt.id;
+  }
+  function flyerMessage() {
+    if (!fl.msg) return;
+    var ready = readyFlyers().length, wait = fl.rev === undefined || (fl.list.length && !ready);
+    if (ready) { fl.msg.replaceChildren(); fl.msg.hidden = true; return; }
+    fl.msg.hidden = false;
+    var key = wait ? 'wait' : 'none';
+    if (fl.msg.getAttribute('data-k') === key) return;
+    fl.msg.setAttribute('data-k', key);
+    var qr = wait ? null : qrSvg(S.link('flyers'));
+    fl.msg.replaceChildren(h('h1', null, wait ? 'Loading the flyers…' : 'No flyers yet'),
+      wait ? null : h('p', null, 'Add photos from the club iPad, a phone or a computer: open Events, then Club flyers. Or scan this code.'),
+      qr ? h('div', 'qrbox', qr) : null);
   }
   function poll() {
     if (st.busy || document.hidden || st.mode !== 'show') return;
@@ -142,7 +278,7 @@
       st.lastOk = Date.now();
       if (id !== st.seriesId) return null;
       if (!live || !live.sessionId) {
-        if (st.session || !st.shown) { st.session = null; st.rev = null; st.pending = {}; st.shown = true; return loadMonth(E.localDate(new Date()).slice(0, 7)).then(draw); }
+        if (st.session || !st.shown) { st.session = null; st.rev = null; st.pending = {}; st.shown = true; return loadMonth(E.localDate(new Date()).slice(0, 7)).then(function () { if (id === st.seriesId) draw(); }); }
         return null;
       }
       var ping = live.ping || 0;
@@ -165,6 +301,7 @@
       .then(function () { st.busy = false; status(); });
   }
   function loadMonth(monthKey) {
+    if (!st.seriesId) return Promise.resolve();
     return S.get('pub/results/' + st.seriesId + '/' + monthKey).then(function (m) { st.month = m || {}; st.monthKey = monthKey; });
   }
   function status() {
@@ -177,6 +314,7 @@
   function message(title, text) { return h('div', 'tvpick', [h('h1', null, title), h('p', null, text)]); }
 
   function draw() {
+    if (st.mode !== 'show') return;
     var s = st.session, left;
     if (!s || s.discarded) left = bigLeft('Tonight', st.seriesName, h('div', 'tvempty', 'The next night has not been set up yet.'));
     else if (s.status === 'setup') left = setupLeft(s);
@@ -215,7 +353,12 @@
     if (day && day.textContent !== dateText(d)) day.textContent = dateText(d);
     if (time) time.textContent = timeText(d);
   }
-  function barTitle() { var b = document.getElementById('bartitle'); if (b) b.textContent = st.seriesName || ''; }
+  // Top banner: the social's name, and under it, small, the format it is played in.
+  function barTitle() {
+    var b = document.getElementById('bartitle'), sub = document.getElementById('barsub'), meta = st.series[st.seriesId] || {};
+    if (b) b.textContent = st.mode === 'menu' ? 'Main menu' : st.seriesName || '';
+    if (sub) sub.textContent = st.mode === 'show' ? (FORMATS[meta.format] || '') : '';
+  }
   function bigLeft(title, sub, body) { return h('div', 'tvleft', [head(title, false), h('div', 'tvbig', body), h('div')]); }
 
   function setupLeft(s) {
@@ -480,17 +623,34 @@
       }
     } catch (e) { /* not supported in this browser */ }
   }
-  // The button stays visible (it never fades) until the page is in full screen. While it is showing, the
-  // layout leaves a strip free at the bottom so the button never covers the leaderboard.
-  function fullChanged() {
+  // The buttons stay visible (they never fade) until the page is in full screen: "Main menu" on the left,
+  // "Full screen" on the right. While they are showing, the layout leaves a strip free at the bottom so they
+  // never cover the leaderboard. Leaving full screen (the remote's Back button) brings them back.
+  function buttons() {
     fsBtn.hidden = isFull() || !canFull;
-    document.body.classList.toggle('hasbtn', !fsBtn.hidden);
+    menuBtn.hidden = isFull() || st.mode === 'menu' || st.mode === 'boot';
+    document.body.classList.toggle('hasbtn', !fsBtn.hidden || !menuBtn.hidden);
+  }
+  function fullChanged() {
+    buttons();
     setTimeout(fit, 150);
+    if (!isFull() && st.mode !== 'menu' && !fsBtn.hidden) fsBtn.focus();
   }
   fsBtn.addEventListener('click', toggleFull);
+  menuBtn.addEventListener('click', function () { choose(MENU); });
+  // A remote's arrow keys step through the buttons on screen; OK presses the one in focus.
+  document.addEventListener('keydown', function (e) {
+    if (!/^Arrow/.test(e.key || '')) return;
+    var list = Array.prototype.filter.call(document.querySelectorAll('.tvmenu button, .tvbtns button'), function (b) { return !b.hidden; });
+    if (!list.length) return;
+    var at = list.indexOf(document.activeElement), fwd = e.key === 'ArrowDown' || e.key === 'ArrowRight';
+    var to = at < 0 ? 0 : Math.max(0, Math.min(list.length - 1, at + (fwd ? 1 : -1)));
+    list[to].focus();
+    e.preventDefault();
+  });
   document.addEventListener('fullscreenchange', fullChanged);
   document.addEventListener('webkitfullscreenchange', fullChanged);
-  document.addEventListener('keydown', function (e) { if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) toggleFull(); });
+  document.addEventListener('keydown', function (e) { if (e.metaKey || e.ctrlKey) return; if (e.key === 'f' || e.key === 'F') toggleFull(); else if ((e.key === 'm' || e.key === 'M') && st.mode !== 'menu') choose(MENU); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
   window.addEventListener('resize', fit);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);

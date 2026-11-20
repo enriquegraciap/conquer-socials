@@ -49,6 +49,8 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { state.ui.toast = ''; render(); }, 4500);
   }
+  var FLYERS = '@flyers';     // a TV can show the club flyers instead of a social
+  function showName(id) { return id === FLYERS ? 'the club flyers' : (state.series[id] || {}).name || 'that social'; }
   function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'event'; }
   function teamNameOf(id) { var t = state.session.teams[id]; return t ? t.name : '(removed)'; }
 
@@ -258,7 +260,10 @@
       ids.length ? h('div', { class: 'panel' }, [
         h('h2', null, 'Your events'),
         h('div', { class: 'serieslist' }, ids.map(function (id) {
-          return btn([state.series[id].name, h('span', { class: 'hint' }, '  King’s Court, fixed partners')], '', function () { openSeries(id); });
+          return h('div', { class: 'seriesrow' }, [
+            btn([state.series[id].name, h('span', { class: 'hint' }, '  Fixed partner, King’s Court')], '', function () { openSeries(id); }, { 'data-open': id }),
+            btn('Rename', 'small', function () { state.ui.modal = { type: 'renameSeries', id: id, name: state.series[id].name }; state.ui.focus = 'seriesName'; render(); }, { 'data-rename': id })
+          ]);
         }))
       ]) : null,
       h('div', { class: 'panel' }, [
@@ -271,6 +276,11 @@
         ]),
         h('p', { class: 'hint' }, 'Format: King’s Court, fixed partners, with sit-outs. Points belong to the couple.')
       ]),
+      h('div', { class: 'panel' }, [
+        h('h2', null, ['Club flyers', h('small', null, 'a slideshow for the TVs')]),
+        h('p', { class: 'hint', style: 'margin:0 0 10px' }, 'Upload the club’s flyers and any TV can show them, a new one every 15 seconds. On the TV, choose Club flyers from its main menu.'),
+        h('a', { class: 'btn', href: S.link('flyers'), id: 'openFlyers', style: 'display:inline-flex;align-items:center;text-decoration:none;color:inherit' }, 'Open club flyers')
+      ]),
       ids.length ? tvsPanel(ids) : null
     ]);
   }
@@ -278,35 +288,35 @@
   function tvsPanel(ids) {
     var codes = Object.keys(state.screens).sort();
     var options = function (selected) {
-      return [h('option', { value: '' }, 'Choose a social…')].concat(ids.map(function (id) {
+      return [h('option', { value: '' }, 'Choose…')].concat(ids.map(function (id) {
         return h('option', { value: id, selected: id === selected }, state.series[id].name);
-      }));
+      })).concat([h('option', { value: FLYERS, selected: selected === FLYERS }, 'Club flyers')]);
     };
     var add = function () {
       var code = state.ui.tvCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (code.length !== 4) { toast('The TV code has four letters or numbers. It is shown on the TV.'); return render(); }
-      if (!state.ui.tvEvent) { toast('Choose which social that TV should show.'); return render(); }
-      saveScreen(code, { seriesId: state.ui.tvEvent }, function () { state.ui.tvCode = ''; toast('TV ' + code + ' now shows ' + state.series[state.ui.tvEvent].name + '.'); render(); });
+      if (!state.ui.tvEvent) { toast('Choose what that TV should show.'); return render(); }
+      saveScreen(code, { seriesId: state.ui.tvEvent }, function () { state.ui.tvCode = ''; toast('TV ' + code + ' now shows ' + showName(state.ui.tvEvent) + '.'); render(); });
     };
     return h('div', { class: 'panel' }, [
-      h('h2', null, ['TVs', h('small', null, 'which social each screen shows')]),
+      h('h2', null, ['TVs', h('small', null, 'what each screen shows')]),
       codes.length ? h('div', { class: 'tvlist' }, codes.map(function (code) {
         var scr = state.screens[code];
         return h('div', { class: 'tvitem', 'data-tv': code }, [
           h('span', { class: 'code' }, code),
           h('input', { type: 'text', id: 'tvname-' + code, placeholder: 'Name, e.g. Bar', maxlength: 24, value: scr.name || '', 'aria-label': 'Name of TV ' + code,
             onchange: function (e) { saveScreen(code, { name: e.target.value.trim() }); } }),
-          h('select', { id: 'tvevent-' + code, 'aria-label': 'Social shown on TV ' + code, onchange: function (e) { if (e.target.value) saveScreen(code, { seriesId: e.target.value }, function () { toast('TV ' + code + ' now shows ' + state.series[e.target.value].name + '.'); render(); }); } }, options(scr.seriesId)),
+          h('select', { id: 'tvevent-' + code, 'aria-label': 'Social shown on TV ' + code, onchange: function (e) { if (e.target.value) saveScreen(code, { seriesId: e.target.value }, function () { toast('TV ' + code + ' now shows ' + showName(e.target.value) + '.'); render(); }); } }, options(scr.seriesId)),
           btn('Remove', 'small danger', function () { saveScreen(code, { remove: true }); }, { 'aria-label': 'Remove TV ' + code })
         ]);
-      })) : h('p', { class: 'hint' }, 'No TV is paired yet. A TV with no social shows a QR code and a four-character code.'),
+      })) : h('p', { class: 'hint' }, 'No TV has been set from here yet. Every TV has a main menu of its own; its four-character code is on that menu and in the corner of the screen.'),
       h('div', { class: 'tvadd' }, [
         h('input', { type: 'text', id: 'tvCode', placeholder: 'TV code', maxlength: 4, autocapitalize: 'characters', autocomplete: 'off', value: state.ui.tvCode,
           oninput: function (e) { state.ui.tvCode = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') add(); } }),
         h('select', { id: 'tvEvent', 'aria-label': 'Social for the new TV', onchange: function (e) { state.ui.tvEvent = e.target.value; } }, options(state.ui.tvEvent)),
         btn('Add TV', 'primary', add, { id: 'addTv' })
       ]),
-      h('p', { class: 'hint' }, 'Scan the QR code on a TV, or type its code here. The small code in the corner of each TV tells you which is which.')
+      h('p', { class: 'hint' }, 'Scan the QR code on a TV’s main menu, or type its code here. The small code in the corner of each TV tells you which is which. Whatever was chosen last, here or on the TV itself, is what the TV shows.')
     ]);
   }
 
@@ -614,7 +624,7 @@
     } else if (m.type === 'tv') {
       body = [h('h3', null, 'TV screen'),
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Open this address in the browser on each club TV, then press Full screen:'), h('div', { class: 'tvlink' }, S.link('tv')),
-        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'With one social the TV shows it by itself. With several, each TV shows a QR code: scan it with this device, or add the TV by its code under Events \u2192 TVs.'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'With one social the TV shows it by itself. With several, the TV opens on its main menu: choose there with the remote, or from this device under Events \u2192 TVs. The Main menu button is beside Full screen whenever the TV is not in full screen.'),
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Players’ score page (the TV shows it as a QR code during a round):'), h('div', { class: 'tvlink' }, S.link('player', { s: state.seriesId })),
         h('div', { class: 'row end' }, btn('Close', 'primary', closeModal))];
     } else if (m.type === 'courts') {
@@ -654,14 +664,34 @@
             oninput: function (e) { m.p2 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') saveName(); } })
         ]),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Save names', 'primary', saveName, { id: 'saveNames' })])];
+    } else if (m.type === 'renameSeries') {
+      var saveSeries = function () {
+        var nm = m.name.replace(/\s+/g, ' ').trim();
+        if (!nm) return;
+        if (nm === state.series[m.id].name) return closeModal();
+        var up = {}; up['pub/series/' + m.id + '/name'] = nm;
+        S.write(up).then(function () {
+          state.series[m.id].name = nm;
+          state.ui.modal = null; toast('Now called ' + nm + '. The TVs follow within half a minute.'); render();
+        }).catch(function (err) {
+          if (err.status === 401 || err.status === 403) { state.ui.modal = { type: 'key', wrong: !!S.getKey(), then: function () { state.ui.modal = m; saveSeries(); } }; render(); }
+          else { toast('Could not save: ' + err.message); render(); }
+        });
+      };
+      body = [h('h3', null, 'Rename event'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'The new name shows on the TVs, on players’ phones and here. Scores and the monthly leaderboard stay as they are.'),
+        h('input', { type: 'text', id: 'seriesName', placeholder: 'Event name', value: m.name, maxlength: 40, autocapitalize: 'words', autocomplete: 'off',
+          oninput: function (e) { m.name = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') saveSeries(); } }),
+        h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Save name', 'primary', saveSeries, { id: 'saveSeriesName' })])];
     } else if (m.type === 'pair') {
       var evIds = Object.keys(state.series).sort(function (a, b) { return state.series[a].name < state.series[b].name ? -1 : 1; });
       var pick = function (id) {
-        saveScreen(m.code, { seriesId: id }, function () { state.ui.modal = null; state.pairTv = null; toast('TV ' + m.code + ' now shows ' + state.series[id].name + '.'); render(); });
+        saveScreen(m.code, { seriesId: id }, function () { state.ui.modal = null; state.pairTv = null; toast('TV ' + m.code + ' now shows ' + showName(id) + '.'); render(); });
       };
       body = [h('h3', null, 'TV ' + m.code),
-        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, evIds.length ? 'Which social should this screen show?' : 'Create your social first (close this, name it, press Create). Then open Events and add TV ' + m.code + ' under TVs.'),
-        h('div', { class: 'serieslist' }, evIds.map(function (id) { return btn(state.series[id].name, '', function () { pick(id); }, { 'data-pick': id }); })),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'What should this screen show?'),
+        h('div', { class: 'serieslist' }, evIds.map(function (id) { return btn(state.series[id].name, '', function () { pick(id); }, { 'data-pick': id }); })
+          .concat([btn('Club flyers', '', function () { pick(FLYERS); }, { 'data-pick': FLYERS })])),
         h('p', { class: 'hint' }, 'To put a new social on this screen: close this, create it below, then come back to Events and add TV ' + m.code + ' under TVs.'),
         h('div', { class: 'row end' }, btn('Close', '', function () { state.pairTv = null; closeModal(); }))];
     } else if (m.type === 'key') {

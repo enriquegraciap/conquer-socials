@@ -10,6 +10,13 @@ On a TV open the address in the TV's browser and press **Full screen**.
 
 Players' phones: `https://enriquegraciap.github.io/conquer-socials/p/` (the TV shows it as a QR code during a round).
 
+**Club flyers:** `https://enriquegraciap.github.io/conquer-socials/flyers/` is where staff add photos. A TV shows
+them as a slideshow, a new flyer every 15 seconds.
+
+**TV main menu:** whenever the TV page is not in full screen, a **Main menu** button sits beside **Full screen**
+(on a TV remote: Back leaves full screen, then choose Main menu). The menu lists every social and the club flyers.
+With one social and nothing chosen, the TV shows that social by itself.
+
 ## How a night works
 
 1. **Events** – one event per weekly social and club (for example "Lehi Date Night"). Each has its own monthly leaderboard.
@@ -53,6 +60,7 @@ supported for future formats where points belong to each player.
 | `docs/index.html`, `docs/admin.js` | iPad admin page |
 | `docs/tv/index.html`, `docs/tv.js` | TV display page |
 | `docs/p/index.html`, `docs/player.js` | players' phone page for sending in their court's score |
+| `docs/flyers/index.html`, `docs/flyers.js` | club flyers page: add, reorder and remove the photos the TVs show |
 | `docs/qr.js` | QR code generator (MIT licence, Kazuhiko Arase) |
 | `docs/engine.js` | rotation, sit-outs, scoring, leaderboards (no browser code; shared with the tests) |
 | `docs/store.js` | reads and writes the Firebase Realtime Database |
@@ -70,7 +78,9 @@ pub/live/{event}                        which night is on, and a counter the TVs
 pub/sessions/{event}/{night}            the full night: teams, rounds, scores
 pub/results/{event}/{YYYY-MM}/{night}   totals per night; the monthly table is the sum of these
 pub/scores/{event}/{night}/r{n}/c{i}    a score sent from a phone (open to write, numbers 0-6 only)
-pub/screens/{tvCode}                    which event a paired TV shows
+pub/screens/{tvCode}                    what a TV was last told to show from the admin page (a social, or the flyers)
+pub/flyers/club/index/{id}              one line per flyer: name, order, small preview; pub/flyers/club/rev changes with the set
+pub/flyers/club/data/{id}               the flyer itself, resized to fit 1920 x 1080
 ```
 
 The admin key is **not** in this repository. It is set in the Firebase rules (replace `YOUR-ADMIN-KEY` in

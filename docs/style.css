@@ -76,6 +76,7 @@ button { touch-action: manipulation; cursor: pointer; }
 .btn:focus-visible, .chip:focus-visible, .courtcard:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .row.end { justify-content: flex-end; }
+.row .spacer { flex: 1; }
 
 input[type=text], input[type=password] { border: 1px solid var(--rule); border-radius: 8px; padding: 12px; font-size: 17px; min-height: 48px; background: #fff; min-width: 0; }
 .addteam { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr) auto; gap: 8px; align-items: center; }
@@ -147,6 +148,7 @@ table.board td.pts { font-family: var(--display); font-size: 24px; font-weight: 
   padding: 12px 18px; border-radius: 10px; font-size: 16px; max-width: 92vw; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
 .serieslist { display: grid; gap: 10px; }
 .serieslist button { text-align: left; }
+.seriesrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .tvlink { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 10px; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
 
 /* Portrait iPad: one column, so the court cards and score buttons can be bigger. */
@@ -167,6 +169,17 @@ table.board td.pts { font-family: var(--display); font-size: 24px; font-weight: 
   table.board td { font-size: 19px; padding: 9px 6px; }
 }
 
+/* ------------------------------------------------------------------ club flyers page */
+.flypick { display: inline-flex; align-items: center; cursor: pointer; }
+.flypick.off { opacity: .6; pointer-events: none; }
+.flygrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.flycard { display: grid; gap: 8px; min-width: 0; }
+.flycard .pic { position: relative; aspect-ratio: 16 / 9; background: #0b1c2e; border-radius: 8px; overflow: hidden; }
+.flycard .pic img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.flycard .pic .no { position: absolute; left: 8px; top: 8px; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 14px; background: var(--gold); color: var(--ink); font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.flycard .nm { font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flycard .row { gap: 6px; }
+
 /* ------------------------------------------------------------------ TV display */
 body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 /* Top banner: P symbol left, event title centre, club wordmark right. Takes 10% of the screen height. */
@@ -174,8 +187,13 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
   background: #0a2f41; border-bottom: .35vh solid var(--gold); }
 .tvbar-l { justify-self: start; display: flex; align-items: center; }
 .tvbar-l img { height: 7.2vh; width: auto; display: block; filter: brightness(0) invert(1); }   /* always shown in white */
-.tvbar-c { font-family: var(--display); font-weight: 700; font-size: 5.6vh; line-height: 1; letter-spacing: .07em; text-transform: uppercase; text-align: center;
-  max-width: 62vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tvbar-c { text-align: center; max-width: 62vw; min-width: 0; }
+#bartitle { font-family: var(--display); font-weight: 700; font-size: 5.2vh; line-height: 1; letter-spacing: .07em; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the format the social is played in, small, under its name */
+#barsub { font-family: var(--display); font-weight: 500; font-size: 2.1vh; line-height: 1; letter-spacing: .24em; text-transform: uppercase; color: #cfe0f3; margin-top: .7vh;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#barsub:empty { display: none; }
 .tvbar-r { justify-self: end; }
 .tvbar-r img { height: 6.2vh; width: auto; display: block; }
 #tv { flex: 1 1 auto; min-height: 0; }
@@ -248,9 +266,11 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 @keyframes crownland { 0% { transform: scale(1.9) rotate(-14deg); } 55% { transform: scale(.82) rotate(6deg); } 100% { transform: none; } }
 .crownfly { position: fixed; left: 0; top: 0; z-index: 8; pointer-events: none; line-height: 1; will-change: transform; filter: drop-shadow(0 .6vh 1vh rgba(0,0,0,.45)); }
 .tvfx { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 7; }   /* fireworks are drawn here, above the scoreboard */
-.fsbtn { position: fixed; right: 1.2vw; bottom: 1.6vh; z-index: 9; border: .2vh solid rgba(255,255,255,.6); background: rgba(7,26,48,.85); color: #fff; border-radius: 1vh;
+/* Bottom right, until the page is in full screen: Main menu, then Full screen. */
+.tvbtns { position: fixed; right: 1.2vw; bottom: 1.6vh; z-index: 9; display: flex; gap: 1vw; }
+.fsbtn { border: .2vh solid rgba(255,255,255,.6); background: rgba(7,26,48,.85); color: #fff; border-radius: 1vh;
   font-family: var(--display); font-size: 2.6vh; letter-spacing: .1em; text-transform: uppercase; padding: 1vh 1.2vw; }
-.fsbtn:focus { outline: .4vh solid var(--gold); }
+.fsbtn:focus { outline: .4vh solid var(--gold); background: var(--court); }
 body.tv.hasbtn .tvroot { padding-bottom: 8.6vh; }   /* room for the Full screen button until it is used */
 /* Today's date and a running clock, bottom left, under the courts. The right column is left to the leaderboards. */
 .tvdate { position: fixed; left: 1.8vw; bottom: 1.1vh; z-index: 8; font-family: var(--display); font-size: 2.8vh; line-height: 1; letter-spacing: .1em;
@@ -260,13 +280,35 @@ body.tv.hasbtn .tvdate { bottom: 3.2vh; }
 .tvdate #timetext { display: inline-block; min-width: 6.4em; text-align: left; margin-left: 1em; color: #fff; font-weight: 600; }   /* fixed width so the seconds do not make the line jump */
 .tvstatus { margin-left: 1.2em; color: var(--gold); letter-spacing: .04em; text-transform: none; }
 .tvcode { position: fixed; right: .5vw; top: 10.6vh; z-index: 8; font-family: var(--display); font-size: 1.5vh; letter-spacing: .14em; color: #55708f; }
-.tvpair { height: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5vw; align-items: center; padding: 4vh 7vw; }
-.tvpair .qrbox { background: #fff; border-radius: 2vh; padding: 1.6vh; }
-.tvpair .qrbox svg { display: block; height: 54vh; width: 54vh; }
-.tvpair h1 { font-family: var(--display); font-size: 8vh; line-height: 1; text-transform: uppercase; margin: 0 0 2.4vh; }
-.tvpair p { font-size: 3.4vh; line-height: 1.3; color: #cfe0f3; margin: 0 0 1.6vh; max-width: 40vw; }
-.tvpair p.or { margin-top: 4vh; font-size: 2.8vh; color: #a9c3e0; }
-.tvpair .code { font-family: var(--display); font-weight: 700; font-size: 13vh; line-height: 1; letter-spacing: .22em; color: var(--gold); }
+/* Main menu: the socials and the club flyers as big buttons on the left; QR and TV code on the right for choosing from the iPad. */
+.tvmenu { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4vw; align-items: center; padding: 3vh 5vw 9vh; }
+.tvmenu .list { min-width: 0; max-height: 100%; display: flex; flex-direction: column; }
+.tvmenu h1 { font-family: var(--display); font-size: 6vh; line-height: 1; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 2.6vh; }
+.tvmenu .items { display: grid; gap: 1.6vh; min-height: 0; }
+.tvmenu .items.two { grid-template-columns: 1fr 1fr; gap: 1.4vh 1.2vw; }
+.pickbtn { display: flex; flex-direction: column; align-items: flex-start; gap: .6vh; text-align: left; width: 100%; min-width: 0; padding: 1.6vh 2vw; border-radius: 1.2vh;
+  border: .35vh solid rgba(255,255,255,.35); background: var(--court); color: #fff; cursor: pointer; }
+.pickbtn b { font-family: var(--display); font-weight: 700; font-size: 4.6vh; line-height: 1; letter-spacing: .05em; text-transform: uppercase; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pickbtn span { font-size: 2.2vh; line-height: 1.1; color: #cfe0f3; }
+.items.two .pickbtn b { font-size: 3.6vh; }
+.pickbtn[data-pick="@flyers"] { background: #0a2f41; }
+.pickbtn:focus, .pickbtn:hover { outline: none; border-color: var(--gold); background: #1b6fc2; box-shadow: 0 0 0 .5vh var(--gold); }
+.tvmenu .side { width: 26vw; text-align: center; }
+.tvmenu .qrbox { display: inline-block; background: #fff; border-radius: 1.6vh; padding: 1.2vh; }
+.tvmenu .qrbox svg { display: block; height: 30vh; width: 30vh; }
+.tvmenu .side p { font-size: 2.3vh; line-height: 1.3; color: #a9c3e0; margin: 2vh 0 1.2vh; }
+.tvmenu .code { font-family: var(--display); font-weight: 700; font-size: 9vh; line-height: 1; letter-spacing: .22em; color: var(--gold); }
+/* Club flyers: nothing but the flyer, edge to edge. */
+body.tv.mode-flyers .tvbar, body.tv.mode-flyers .tvdate, body.tv.mode-flyers .tvcode { display: none; }
+.tvflyers { position: fixed; inset: 0; background: #000; }
+.tvflyers .flyer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 1.2s ease; }
+.tvflyers .flyer.on { opacity: 1; }
+.flymsg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.4vh; text-align: center; padding: 6vh; }
+.flymsg[hidden] { display: none; }
+.flymsg h1 { font-family: var(--display); font-size: 7vh; text-transform: uppercase; margin: 0; }
+.flymsg p { font-size: 2.8vh; line-height: 1.3; color: #a9c3e0; max-width: 60vw; margin: 0; }
+.flymsg .qrbox { background: #fff; border-radius: 1.6vh; padding: 1.2vh; }
+.flymsg .qrbox svg { display: block; height: 30vh; width: 30vh; }
 .tvpick { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; padding: 4vh; text-align: center; }
 .tvpick h1 { font-family: var(--display); font-size: 7vh; text-transform: uppercase; margin: 0; }
 .tvpick p { font-size: 2.8vh; color: #a9c3e0; max-width: 70vw; margin: 0; }

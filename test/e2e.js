@@ -315,10 +315,12 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   const tv2 = await (await browser.newContext({ viewport: { width: 1920, height: 1080 } })).newPage();
   tv2.on('pageerror', e => errors.push('tv2: ' + e));
   await tv2.goto(BASE + '/tv/?db=' + DB);
-  await tv2.waitForSelector('.tvpair .code');
-  const code = (await tv2.textContent('.tvpair .code')).trim();
+  await tv2.waitForSelector('.tvmenu .code');                       // two socials now: a TV with nothing chosen opens on its main menu
+  const code = (await tv2.textContent('.tvmenu .code')).trim();
   assert.match(code, /^[A-Z2-9]{4}$/);
-  assert.ok((await tv2.getAttribute('.tvpair svg', 'data-qr')).endsWith('/?tv=' + code), 'pairing QR opens the admin page for this TV');
+  assert.ok((await tv2.getAttribute('.tvmenu .side svg', 'data-qr')).endsWith('/?tv=' + code), 'the menu\'s QR opens the admin page for this TV');
+  assert.deepEqual(await tv2.locator('.tvmenu .pickbtn b').allTextContents(), ['Lehi Date Night', 'Tempe Mixer', 'Club flyers'], 'the menu lists every social and the club flyers');
+  assert.equal(await tv2.textContent('#bartitle'), 'Main menu');
   await tv2.screenshot({ path: SHOTS + 'tv-pairing.png' });
   await admin2.goto(BASE + '/?db=' + DB + '&tv=' + code);          // what scanning the QR does
   await admin2.waitForSelector('[data-pick="tempe-mixer"]');
@@ -331,8 +333,8 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await tv2.waitForFunction(() => document.getElementById('bartitle').textContent === 'Lehi Date Night', null, { timeout: 12000 });
   const tv3 = await (await browser.newContext({ viewport: { width: 1920, height: 1080 } })).newPage();
   await tv3.goto(BASE + '/tv/?db=' + DB);
-  await tv3.waitForSelector('.tvpair .code');
-  const code3 = (await tv3.textContent('.tvpair .code')).trim();
+  await tv3.waitForSelector('.tvmenu .code');
+  const code3 = (await tv3.textContent('.tvmenu .code')).trim();
   await admin2.fill('#tvCode', code3.toLowerCase());                 // typed by hand, any case
   await admin2.selectOption('#tvEvent', 'tempe-mixer');
   await admin2.click('#addTv');
@@ -340,6 +342,85 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   assert.equal(await admin2.locator('.tvitem').count(), 2);
   await admin2.screenshot({ path: SHOTS + 'ipad-tvs.png', fullPage: true });
   step('two socials: one TV paired by QR, re-pointed from the TVs list, another added by typing its code');
+
+  // 13d. the format under the title, and the TV's own main menu, worked with the remote's arrow keys
+  assert.equal(await tv3.textContent('#barsub'), 'Fixed partner, King\u2019s Court', 'the format shows under the social\'s name');
+  assert.ok(await tv3.isVisible('#menu'), 'Main menu button is beside Full screen');
+  assert.ok((await tv3.locator('#menu').boundingBox()).x < (await tv3.locator('#fs').boundingBox()).x, 'Main menu sits to the left of Full screen');
+  await tv3.screenshot({ path: SHOTS + 'tv-buttons.png' });
+  await tv3.click('#menu');
+  await tv3.waitForSelector('.tvmenu .pickbtn');
+  assert.ok(!(await tv3.isVisible('#menu')), 'no Main menu button on the main menu itself');
+  assert.equal(await tv3.evaluate(() => document.activeElement.getAttribute('data-pick')), 'lehi-date-night', 'the first choice is in focus');
+  await tv3.waitForTimeout(2500);                                    // the menu refreshes quietly: focus stays where it is
+  await tv3.keyboard.press('ArrowDown');
+  assert.equal(await tv3.evaluate(() => document.activeElement.getAttribute('data-pick')), 'tempe-mixer');
+  await tv3.screenshot({ path: SHOTS + 'tv-menu.png' });
+  await tv3.keyboard.press('ArrowUp');
+  await tv3.keyboard.press('Enter');
+  await tv3.waitForFunction(() => document.getElementById('bartitle').textContent === 'Lehi Date Night');
+  await tv3.reload();
+  await tv3.waitForFunction(() => document.getElementById('bartitle').textContent === 'Lehi Date Night', null, { timeout: 8000 });
+  step('TV main menu: opened with the button, moved with the arrow keys, choice remembered after a reload');
+
+  // 13e. club flyers: none yet, two uploaded from the flyers page, the TV shows them and moves on by itself
+  await tv3.keyboard.press('m');
+  await tv3.waitForSelector('.tvmenu .pickbtn');
+  await tv3.keyboard.press('ArrowDown'); await tv3.keyboard.press('ArrowDown'); await tv3.keyboard.press('Enter');
+  await tv3.waitForSelector('.flymsg:has-text("No flyers yet")', { timeout: 8000 });
+  assert.ok((await tv3.getAttribute('.flymsg svg', 'data-qr')).includes('/flyers/'), 'with no flyers the TV shows where to add them');
+  assert.ok(!(await tv3.isVisible('.tvbar')), 'no banner over the flyers');
+  const fly = await ipad.newPage();
+  fly.on('pageerror', e => errors.push('flyers: ' + e));
+  await fly.goto(BASE + '/flyers/?db=' + DB);
+  await fly.waitForSelector('text=No flyers yet');
+  const picture = (w, hh, colour, label) => fly.evaluate(([w, hh, colour, label]) => { const c = document.createElement('canvas'); c.width = w; c.height = hh; const g = c.getContext('2d'); g.fillStyle = colour; g.fillRect(0, 0, w, hh); g.fillStyle = '#fff'; g.font = 'bold ' + hh / 5 + 'px sans-serif'; g.textAlign = 'center'; g.fillText(label, w / 2, hh / 2); return c.toDataURL('image/png').split(',')[1]; }, [w, hh, colour, label]);
+  await fly.setInputFiles('#pick', [
+    { name: 'Summer League.png', mimeType: 'image/png', buffer: Buffer.from(await picture(3200, 1800, '#12508f', 'SUMMER LEAGUE'), 'base64') },
+    { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not a picture') },
+    { name: 'Kids Camp.png', mimeType: 'image/png', buffer: Buffer.from(await picture(1600, 900, '#1b7a4f', 'KIDS CAMP'), 'base64') }]);
+  await fly.waitForSelector('text=2 flyers added');
+  assert.deepEqual(await fly.locator('.flycard .nm').allTextContents(), ['Summer League', 'Kids Camp']);
+  assert.match(await fly.textContent('.toast'), /Skipped: notes\.txt/);
+  const stored = (await (await fetch(BASE + '/__dump')).json()).db.pub.flyers.club;
+  const big = Object.values(stored.index).find(f => f.name === 'Summer League');
+  const dims = await fly.evaluate(src => new Promise(r => { const i = new Image(); i.onload = () => r([i.naturalWidth, i.naturalHeight]); i.src = src; }), stored.data[Object.keys(stored.index).find(k => stored.index[k] === big)]);
+  assert.deepEqual(dims, [1920, 1080], 'a 3200-wide flyer is stored TV-sized');
+  await fly.screenshot({ path: SHOTS + 'flyers-page.png', fullPage: true });
+  const shown = () => tv3.evaluate(() => { const e = document.querySelector('.flyer.on'); return e ? e.getAttribute('data-id') : null; });
+  await tv3.waitForSelector('.flyer.on', { timeout: 40000 });        // the TV looks for new flyers every half minute
+  // (the TV may have caught the first photo while the second was still uploading, so wait for the lap to come round)
+  const firstId = Object.keys(stored.index).find(k => stored.index[k] === big);
+  await tv3.waitForFunction(id => { const e = document.querySelector('.flyer.on'); return e && e.getAttribute('data-id') === id; }, firstId, { timeout: 40000 });
+  const first = await shown();
+  const box = await tv3.locator('.flyer.on').boundingBox();
+  assert.deepEqual([box.x, box.y, box.width, box.height], [0, 0, 1920, 1080], 'a flyer fills the whole screen');
+  await tv3.waitForTimeout(1500);
+  await tv3.screenshot({ path: SHOTS + 'tv-flyers.png' });
+  const tSlide = Date.now();
+  await tv3.waitForFunction(was => { const e = document.querySelector('.flyer.on'); return e && e.getAttribute('data-id') !== was; }, first, { timeout: 20000 });
+  assert.equal(stored.index[await shown()].name, 'Kids Camp', 'flyers follow the order of the list');
+  step('club flyers: 2 photos uploaded (a text file skipped), TV showed the first and moved to the next after ' + Math.round((Date.now() - tSlide) / 1000) + ' s more');
+  await fly.click('.flycard >> nth=1 >> text=Earlier');
+  await fly.waitForFunction(() => document.querySelector('.flycard .nm').textContent === 'Kids Camp');
+  await fly.click('.flycard >> nth=1 >> text=Remove');
+  await fly.click('#modalOk');
+  await fly.waitForSelector('text=Flyer removed');
+  assert.deepEqual(await fly.locator('.flycard .nm').allTextContents(), ['Kids Camp'], 'reordered, then one removed');
+  const left = (await (await fetch(BASE + '/__dump')).json()).db.pub.flyers.club;
+  assert.equal(Object.keys(left.data).length, 1, 'the removed flyer\'s picture is gone from the database too');
+
+  // 13f. the iPad can send a TV to the flyers or back to a social; a rename reaches the TVs
+  await admin2.selectOption(`#tvevent-${code}`, '@flyers');
+  await tv2.waitForSelector('.flyer.on', { timeout: 15000 });
+  await admin2.selectOption(`#tvevent-${code3}`, 'tempe-mixer');     // tv3 was on the flyers by its own menu: the newer choice wins
+  await tv3.waitForFunction(() => document.getElementById('bartitle').textContent === 'Tempe Mixer', null, { timeout: 12000 });
+  await admin2.click('[data-rename="tempe-mixer"]');
+  await admin2.fill('#seriesName', 'Padel Date Night');
+  await admin2.click('#saveSeriesName');
+  await admin2.waitForSelector('[data-open="tempe-mixer"]:has-text("Padel Date Night")');
+  await tv3.waitForFunction(() => document.getElementById('bartitle').textContent === 'Padel Date Night', null, { timeout: 40000 });
+  step('iPad sent one TV to the flyers and another back to a social; renamed event reached the TV');
 
   // 14. phone-width check of the admin page (no sideways scroll)
   const phone = await browser.newContext({ viewport: { width: 400, height: 800 }, hasTouch: true });

@@ -10,6 +10,8 @@
  *
  *   pub/scores/{seriesId}/{sessionId}/r{round}/c{court}  a score sent from a player's phone (applied by the organizer's device)
  *   pub/screens/{tvCode}                        which event a paired TV shows
+ *   pub/flyers/club/index/{id}                  one line per club flyer (name, order, small preview); rev changes when the set does
+ *   pub/flyers/club/data/{id}                   the flyer itself, as a picture ready to show
  *
  * Reading is open. Writing needs the admin key: every write also touches gate/{key}, and the database
  * rules only accept a write to "pub" when that happens (see database.rules.json). The two exceptions,
@@ -66,15 +68,16 @@
     // A player's phone: no admin key. The database only accepts this for a court's score and the "something
     // changed" counter; everything else is refused.
     writePublic: function (updates) { return request('PATCH', '', updates); },
-    // Address of one of the three pages, for links and QR codes. kind: 'admin', 'tv' or 'player'.
+    // Address of one of the pages, for links and QR codes. kind: 'admin', 'tv', 'player' or 'flyers'.
     link: function (kind, query) {
       var parts = [];
       if (pub && kind === 'tv') parts.push('v=tv');
       if (pub && kind === 'player') parts.push('v=p');
+      if (pub && kind === 'flyers') parts.push('v=flyers');
       Object.keys(query || {}).forEach(function (k) { parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(query[k])); });
       var qs = parts.length ? '?' + parts.join('&') : '';
       if (pub) return pub + qs;
-      return home + (kind === 'tv' ? 'tv/' : kind === 'player' ? 'p/' : '') + qs;
+      return home + (kind === 'tv' ? 'tv/' : kind === 'player' ? 'p/' : kind === 'flyers' ? 'flyers/' : '') + qs;
     },
     // Is this the admin key? Touches only the key's own counter; nothing else changes.
     checkKey: function (key) {

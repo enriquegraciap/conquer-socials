@@ -115,7 +115,7 @@
     if (!r) return bigLeft('Tonight', '', h('div', 'ttl', 'Starting soon'));
     var flash = r.n !== st.lastRound;
     st.lastRound = r.n;
-    var top = s.courts.length - 1;
+    var top = r.top !== undefined && r.top !== null ? r.top : s.courts.length - 1;
     var courts = r.courts.map(function (c) {
       var done = !!c.w && !c.void;
       return h('div', 'tvcourt' + (c.level === top ? ' king' : ''), [

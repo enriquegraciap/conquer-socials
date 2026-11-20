@@ -111,6 +111,20 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await admin.click('#saveScore');
   step('level score asked which team moves up');
 
+  // 7b. change courts mid-round: courts 3 and 4 are swapped for 1 and 2; unscored matches move, nobody changes opponent
+  const sevenCourts = await admin.locator('.chip').count();
+  await admin.click('#changeCourts');
+  assert.equal(await admin.locator('.sheet .chip').count(), 7, 'the picker offers courts 1 to 7');
+  await admin.click('.sheet .chip[data-court="3"]'); await admin.click('.sheet .chip[data-court="4"]');
+  await admin.click('.sheet .chip[data-court="1"]'); await admin.click('.sheet .chip[data-court="2"]');
+  await admin.click('.sheet >> text=Sort low to high');
+  assert.match(await admin.textContent('.sheet .ladder'), /1 → 2 → 5 → 6 → 7 King/);
+  await admin.screenshot({ path: SHOTS + 'ipad-courts.png' });
+  await admin.click('#applyCourts');
+  await admin.waitForSelector('text=moved to the new court numbers');
+  await tv.waitForFunction(() => Array.from(document.querySelectorAll('.tvcourt .cn b')).map(b => b.textContent).join() === '7,6,5,2,1', null, { timeout: 6000 });
+  step('courts changed mid-round: TV now shows courts 7, 6, 5, 2, 1');
+
   // 8. late arrival and a team leaving mid-round
   await admin.fill('#p1', 'Olga'); await admin.fill('#p2', 'Pete'); await admin.click('#addTeam');
   await admin.waitForSelector('text=Joining next round: Olga & Pete');

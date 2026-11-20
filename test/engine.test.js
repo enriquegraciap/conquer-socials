@@ -270,6 +270,78 @@ test('sets are played to 4 or to 6 games: scores above the set length are refuse
   assert.equal(E.newSession({ setTo: 6 }).setTo, 6);
 });
 
+test('courts can be renumbered mid-night: unscored matches move at once, scored ones keep their court', () => {
+  const s = makeNight({ teams: 14, seed: 6 });
+  const rand = rng(3);
+  E.startNight(s); playRound(s, rand);
+  const r2 = E.currentRound(s);
+  E.setScore(s, 2, 0, 4, 1);                                   // King's Court already scored
+  const lineup = r2.courts.map(c => [c.a, c.b].join());
+  const out = E.setCourts(s, [1, 2, 5, 6, 7]);                 // courts 3 and 4 swapped for 1 and 2
+  assert.equal(out.moved, 2);
+  assert.deepEqual(r2.courts.map(c => c.court), [7, 6, 5, 2, 1]);
+  assert.deepEqual(r2.courts.map(c => [c.a, c.b].join()), lineup, 'nobody changes opponent');
+  playRound(s, rand);
+  assert.deepEqual(E.currentRound(s).courts.map(c => c.court), [7, 6, 5, 2, 1], 'later rounds use the new numbers');
+  assert.deepEqual(s.rounds[0].courts.map(c => c.court), [7, 6, 5, 4, 3], 'earlier rounds keep the courts they were played on');
+});
+
+test('fewer or more courts mid-night: King\'s Court stays the anchor and nobody is lost', () => {
+  // 10 teams on 5 courts, then court 3 is taken away before round 3 has any scores
+  const s = makeNight({ teams: 10, seed: 8 });
+  const rand = rng(11);
+  E.startNight(s); playRound(s, rand); playRound(s, rand);
+  const r2 = s.rounds[1];
+  const kingWinner = r2.courts[0].w === 'a' ? r2.courts[0].a : r2.courts[0].b;
+  const sixWinner = r2.courts[1].w === 'a' ? r2.courts[1].a : r2.courts[1].b;
+  const out = E.setCourts(s, [4, 5, 6, 7]);
+  assert.ok(out.redrawn, 'round 3 had no scores, so it is drawn again');
+  const r3 = E.currentRound(s);
+  assert.equal(r3.n, 3);
+  assert.deepEqual(r3.courts.map(c => c.court), [7, 6, 5, 4]);
+  assert.equal(r3.sitting.length, 2);
+  const seen = r3.sitting.concat(...r3.courts.map(c => [c.a, c.b]));
+  assert.equal(new Set(seen).size, 10, 'all 10 teams are either on a court or sitting');
+  const onKing = [r3.courts[0].a, r3.courts[0].b];
+  [kingWinner, sixWinner].forEach(id => assert.ok(onKing.includes(id) || r3.sitting.includes(id), 'the teams that earned King\'s Court are on it (or sitting)'));
+  assert.ok(E.isKingsCourt(s, r3, r3.courts[0]) && E.isKingsCourt(s, r2, r2.courts[0]));
+
+  // 12 teams on 4 courts; two more courts open while round 2 is being played
+  const t = makeNight({ teams: 12, courts: [4, 5, 6, 7], seed: 3 });
+  E.startNight(t); playRound(t, rand);
+  E.setScore(t, 2, 1, 4, 2);
+  const res = E.setCourts(t, [2, 3, 4, 5, 6, 7]);
+  assert.ok(res.nextRound && !res.redrawn);
+  assert.deepEqual(E.currentRound(t).courts.map(c => c.court), [7, 6, 5, 4], 'the round on court finishes where it is');
+  playRound(t, rand);
+  const next = E.currentRound(t);
+  assert.deepEqual(next.courts.map(c => c.court), [7, 6, 5, 4, 3, 2]);
+  assert.equal(next.sitting.length, 0, 'with 6 courts all 12 teams play');
+  const prevTop = t.rounds[1].courts[0];
+  const stays = prevTop.w === 'a' ? prevTop.a : prevTop.b;
+  assert.ok([next.courts[0].a, next.courts[0].b].includes(stays), 'King\'s Court winner is still on King\'s Court');
+});
+
+test('a whole night with court changes keeps sit-outs fair', () => {
+  for (let seed = 1; seed <= 100; seed++) {
+    const s = makeNight({ teams: 14, seed });
+    const rand = rng(seed * 7);
+    E.startNight(s);
+    for (let n = 1; n <= 8; n++) {
+      if (n === 3) E.setCourts(s, [1, 2, 5, 6, 7]);            // same number, different courts
+      if (n === 5) E.setCourts(s, [2, 5, 6, 7]);               // down to 4 courts
+      if (n === 7) E.setCourts(s, [1, 2, 3, 5, 6, 7]);         // up to 6 courts
+      const r = E.currentRound(s);
+      const seen = r.sitting.concat(...r.courts.map(c => [c.a, c.b]));
+      assert.equal(seen.length, 14); assert.equal(new Set(seen).size, 14, `seed ${seed} round ${n}`);
+      playRound(s, rand);
+    }
+    const st = E.teamStats(s, 8);
+    const sits = Object.keys(st).map(id => st[id].sitOuts);
+    assert.ok(Math.max(...sits) - Math.min(...sits) <= 1, `seed ${seed}: sit-outs ${sits.join(',')}`);
+  }
+});
+
 test('ending the night drops an unplayed round; monthly table sums the nights of the month', () => {
   const nights = {};
   ['2026-11-06', '2026-11-13', '2026-11-20'].forEach((date, i) => {

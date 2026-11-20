@@ -120,6 +120,7 @@
       r.sitting = toArray(r.sitting);
       r.entry = r.entry || {};
       r.redraw = r.redraw || 0;
+      if (r.top === undefined || r.top === null) r.top = r.courts.reduce(function (m, c) { return Math.max(m, c.level || 0); }, 0);
       r.courts.forEach(function (c) {
         c.sa = c.sa === undefined ? null : c.sa;
         c.sb = c.sb === undefined ? null : c.sb;
@@ -140,6 +141,9 @@
   function roundComplete(r) { return !!r && r.courts.length > 0 && r.courts.every(courtDone); }
   function roundHasScores(r) { return !!r && r.courts.some(function (c) { return !c.void && (c.w || c.sa !== null || c.sb !== null); }); }
 
+  function roundTop(session, r) { return (r.top !== undefined && r.top !== null) ? r.top : session.courts.length - 1; }
+  function isKingsCourt(session, r, c) { return c.level === roundTop(session, r); }
+
   // ---- Stats by replaying the rounds --------------------------------------------------------
   function teamStats(session, upto) {
     var st = {};
@@ -149,6 +153,7 @@
     });
     session.rounds.forEach(function (r) {
       if (upto !== undefined && upto !== null && r.n > upto) return;
+      var rtop = roundTop(session, r);   // courts are counted down from King's Court: depth 0 = King's Court
       r.sitting.forEach(function (id) {
         if (!st[id]) return;
         st[id].sitOuts++; st[id].satOut++; st[id].lastSat = r.n;
@@ -156,15 +161,15 @@
       r.courts.forEach(function (c) {
         if (c.void) { // opponent left mid-round: the remaining team keeps its place as if it had won, no points
           var stay = c.w === 'a' ? c.a : c.b;
-          if (st[stay]) st[stay].lastPlayed = { n: r.n, level: c.level, won: true };
+          if (st[stay]) st[stay].lastPlayed = { n: r.n, level: c.level, depth: rtop - c.level, won: true };
           return;
         }
         if (!c.w) return;
         var A = st[c.a], B = st[c.b], sa = c.sa || 0, sb = c.sb || 0;
         if (A) { A.points += sa; A.against += sb; A.played++; if (c.w === 'a') A.wins++; else A.losses++;
-          A.lastPlayed = { n: r.n, level: c.level, won: c.w === 'a' }; }
+          A.lastPlayed = { n: r.n, level: c.level, depth: rtop - c.level, won: c.w === 'a' }; }
         if (B) { B.points += sb; B.against += sa; B.played++; if (c.w === 'b') B.wins++; else B.losses++;
-          B.lastPlayed = { n: r.n, level: c.level, won: c.w === 'b' }; }
+          B.lastPlayed = { n: r.n, level: c.level, depth: rtop - c.level, won: c.w === 'b' }; }
       });
     });
     return st;
@@ -180,7 +185,7 @@
     var top = C - 1, L0 = C - k;
     var S = N - 2 * k;                            // teams sitting out this round
     var rng = makeRng(hashSeed(session.seed, n, redraw));
-    var round = { n: n, courts: [], sitting: [], entry: {}, redraw: redraw };
+    var round = { n: n, top: top, courts: [], sitting: [], entry: {}, redraw: redraw };
     if (k === 0) { round.sitting = teams.map(function (t) { return t.id; }); return round; }
 
     var slots = {}, l;
@@ -203,13 +208,14 @@
     } else {
       var st = teamStats(session, n - 1);
       var r1 = session.rounds[0];
-      var entryMap = (r1 && r1.entry) || {};
+      var entryMap = {};                               // round-1 sitters' entry courts, re-anchored to King's Court
+      if (r1 && r1.entry) Object.keys(r1.entry).forEach(function (id) { entryMap[id] = top - (roundTop(session, r1) - r1.entry[id]); });
       var lateLevel = RULES.lateArrivalEntry === 'middle' ? L0 + Math.floor((top - L0) / 2) : L0;
       var info = teams.map(function (t) {
         var s = st[t.id], lp = s.lastPlayed, playedPrev = !!lp && lp.n === n - 1;
         var x = {
           id: t.id, playedPrev: playedPrev, won: lp ? (lp.won ? 1 : 0) : 0,
-          prevL: lp ? clamp(lp.level, L0, top) : -1,
+          prevL: lp ? clamp(top - lp.depth, L0, top) : -1,   // same distance from King's Court as last time
           wins: s.wins, points: s.points, sit: s.sitOuts,
           // a team that has just arrived is treated as if it sat last round, so it plays before it sits
           lastSat: (!lp && !s.satOut) ? n - 1 : s.lastSat,
@@ -466,6 +472,30 @@
     return true;
   }
 
+  // Change tonight's courts (numbers and/or how many), before or during the night. King's Court is always the
+  // last one in the list, and every team keeps its distance from King's Court.
+  //  - round on court has no scores yet: it is drawn again on the new courts
+  //  - same number of courts: matches not yet scored move to the new court numbers straight away
+  //  - different number of courts, round already under way: it finishes as it is; the next round uses the new list
+  function setCourts(session, courts) {
+    var old = session.courts.slice();
+    session.courts = courts.slice();
+    var out = { changed: JSON.stringify(old) !== JSON.stringify(session.courts), redrawn: false, moved: 0, nextRound: false };
+    var cur = currentRound(session);
+    if (!out.changed || session.status !== 'live' || !cur) return out;
+    if (!roundHasScores(cur)) {
+      session.rounds[session.rounds.length - 1] = generateRound(session, cur.n, cur.redraw || 0);
+      out.redrawn = true;
+    } else if (old.length === courts.length) {
+      cur.courts.forEach(function (c) {
+        if (courtDone(c) || c.court === session.courts[c.level]) return;
+        c.court = session.courts[c.level]; out.moved++;
+      });
+      out.nextRound = true;
+    } else out.nextRound = true;
+    return out;
+  }
+
   function redrawRound(session) {
     var cur = currentRound(session);
     if (!cur || roundHasScores(cur)) return false;
@@ -585,7 +615,7 @@
     roundComplete: roundComplete, roundHasScores: roundHasScores, courtDone: courtDone,
     teamStats: teamStats, generateRound: generateRound,
     addTeam: addTeam, removeTeam: removeTeam, startNight: startNight, endNight: endNight, reopenNight: reopenNight,
-    advance: advance, redrawRound: redrawRound, setScore: setScore,
+    advance: advance, redrawRound: redrawRound, setScore: setScore, setCourts: setCourts, isKingsCourt: isKingsCourt,
     scoringEntities: scoringEntities, entityKey: entityKey, keyOf: keyOf, teamName: teamName,
     leaderboard: leaderboard, resultsDoc: resultsDoc, monthlyBoard: monthlyBoard,
     diffPaths: diffPaths

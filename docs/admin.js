@@ -3,7 +3,7 @@
   'use strict';
   var E = window.Engine, S = window.Store;
   var root = document.getElementById('app');
-  var MAX_COURT = 14;
+  var MAX_COURT = 7;         // the club has courts 1 to 7
 
   var state = {
     phase: 'boot',            // boot | nodb | error | series | night
@@ -285,27 +285,29 @@
     return h('div', { class: 'seg' }, [opt(4), opt(6)]);
   }
 
-  function courtsPanel(s) {
-    var toggle = function (n) {
-      commit(function (x) {
-        var i = x.courts.indexOf(n);
-        if (i >= 0) x.courts.splice(i, 1); else x.courts.push(n);
-      });
-    };
+  // The court buttons: tap from the bottom court up to King's Court. `courts` is the list being edited.
+  function courtPicker(courts, onChange) {
     var chips = [];
     for (var n = 1; n <= MAX_COURT; n++) (function (n) {
-      var i = s.courts.indexOf(n), king = i >= 0 && i === s.courts.length - 1;
+      var i = courts.indexOf(n), king = i >= 0 && i === courts.length - 1;
       chips.push(h('button', { type: 'button', class: 'chip' + (i >= 0 ? ' on' : '') + (king ? ' king' : ''), 'aria-pressed': i >= 0 ? 'true' : 'false', 'data-court': n,
-        onclick: function () { toggle(n); } }, [String(n), i >= 0 ? h('span', { class: 'ord' }, king ? 'King' : String(i + 1)) : null]));
+        onclick: function () { var next = courts.slice(), j = next.indexOf(n); if (j >= 0) next.splice(j, 1); else next.push(n); onChange(next); } },
+        [String(n), i >= 0 ? h('span', { class: 'ord' }, king ? 'King' : String(i + 1)) : null]));
     })(n);
+    return [
+      h('div', { class: 'courtpick' }, chips),
+      courts.length ? h('div', { class: 'ladder' }, ['Bottom: ' + courts.slice(0, -1).join(' → ') + (courts.length > 1 ? ' → ' : ''), h('b', null, courts[courts.length - 1] + ' King’s Court')]) : h('p', { class: 'hint' }, 'No courts picked yet.'),
+      courts.length ? h('div', { class: 'row', style: 'margin-top:8px' }, [
+        btn('Sort low to high', 'small', function () { onChange(courts.slice().sort(function (a, b) { return a - b; })); }),
+        btn('Reverse order', 'small', function () { onChange(courts.slice().reverse()); }),
+        btn('Clear', 'small', function () { onChange([]); })
+      ]) : null
+    ];
+  }
+  function courtsPanel(s) {
     return h('div', { class: 'panel' }, [
       h('h2', null, ['Courts', h('small', null, 'tap from the bottom court up to King’s Court')]),
-      h('div', { class: 'courtpick' }, chips),
-      s.courts.length ? h('div', { class: 'ladder' }, ['Bottom: ' + s.courts.slice(0, -1).join(' → ') + (s.courts.length > 1 ? ' → ' : ''), h('b', null, s.courts[s.courts.length - 1] + ' King’s Court')]) : h('p', { class: 'hint' }, 'No courts picked yet.'),
-      s.courts.length ? h('div', { class: 'row', style: 'margin-top:8px' }, [
-        btn('Reverse order', 'small', function () { commit(function (x) { x.courts.reverse(); }); }),
-        btn('Clear', 'small', function () { commit(function (x) { x.courts = []; }); })
-      ]) : null
+      courtPicker(s.courts, function (next) { commit(function (x) { E.setCourts(x, next); }); })
     ]);
   }
 
@@ -379,7 +381,7 @@
 
   // ---- Live
   function courtCard(s, r, c, i, small) {
-    var king = c.level === s.courts.length - 1;
+    var king = E.isKingsCourt(s, r, c);
     var done = !!c.w && !c.void;
     var open = function () { state.ui.modal = { type: 'score', n: r.n, i: i, sa: c.sa, sb: c.sb, w: c.sa === c.sb ? c.w : null }; render(); };
     return h('button', { type: 'button', class: 'courtcard' + (king ? ' king' : '') + (c.void ? ' void' : done ? '' : ' todo'), disabled: c.void, 'data-court': c.court, 'data-round': r.n, onclick: open,
@@ -410,6 +412,7 @@
             waiting.length ? h('p', { class: 'sitlist' }, [h('b', null, 'Joining next round: '), waiting.map(function (t) { return t.name; }).join(', ')]) : null,
             h('div', { class: 'row end', style: 'margin-top:8px' }, [
               h('span', { class: 'hint', style: 'margin:0' }, 'Sets to'), setsControl(s), h('span', { style: 'flex:1' }),
+              btn('Change courts', 'small', function () { state.ui.modal = { type: 'courts', courts: s.courts.slice() }; render(); }, { id: 'changeCourts' }),
               cur && !E.roundHasScores(cur) ? btn('Re-draw this round', 'small', function () {
                 state.ui.modal = { type: 'confirm', title: 'Re-draw round ' + cur.n + '?', text: cur.n === 1 ? 'Makes a new draw for round 1.' : 'Chooses again who sits out and where teams play, following the same rules. Use it after adding or removing a team.', ok: 'Re-draw', onOk: function () { commit(function (x) { E.redrawRound(x); }); render(); } };
                 render();
@@ -501,6 +504,24 @@
       var url = location.origin + location.pathname.replace(/index\.html$/, '') + 'tv/?s=' + encodeURIComponent(state.seriesId);
       body = [h('h3', null, 'TV screen'), h('p', { style: 'margin:0;font-size:17px' }, 'Open this address in the browser on each club TV, then press Full screen:'), h('div', { class: 'tvlink' }, url),
         h('p', { class: 'hint' }, 'If this is your only event you can leave off everything after “tv/”.'), h('div', { class: 'row end' }, btn('Close', 'primary', closeModal))];
+    } else if (m.type === 'courts') {
+      var curR = E.currentRound(s), same = JSON.stringify(m.courts) === JSON.stringify(s.courts);
+      var teamsN = E.activeTeams(s).length, kk = Math.min(m.courts.length, Math.floor(teamsN / 2));
+      var effect = !m.courts.length ? 'Pick at least one court.' : same ? 'These are the courts in use now.' :
+        (curR && !E.roundHasScores(curR)) ? 'Round ' + curR.n + ' has no scores yet, so it will be drawn again on these courts.' :
+        m.courts.length === s.courts.length ? 'Matches in round ' + (curR ? curR.n : 1) + ' that are not scored yet move to the new court numbers now. Every later round uses them too.' :
+        'Round ' + (curR ? curR.n : 1) + ' finishes on the courts it is on. The new courts start with the next round.';
+      var applyCourts = function () {
+        var out = commit(function (x) { return E.setCourts(x, m.courts); });
+        state.ui.modal = null;
+        toast(out.redrawn ? 'Round redrawn on the new courts.' : out.moved ? out.moved + (out.moved === 1 ? ' match' : ' matches') + ' moved to the new court numbers.' : 'New courts start with the next round.');
+        render();
+      };
+      body = [h('h3', null, 'Courts for tonight'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Tap from the bottom court up to King’s Court. You can change the numbers, or use more or fewer courts.'),
+        courtPicker(m.courts, function (next) { m.courts = next; render(); }),
+        h('div', { class: 'notice' }, [effect, m.courts.length ? h('div', { style: 'margin-top:6px' }, teamsN + ' teams on ' + kk + (kk === 1 ? ' court' : ' courts') + ': ' + (2 * kk) + ' play, ' + (teamsN - 2 * kk) + ' sit out each round.') : null]),
+        h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Use these courts', 'primary', applyCourts, { disabled: same || !m.courts.length, id: 'applyCourts' })])];
     } else if (m.type === 'key') {
       var save = function () {
         var k = state.ui.keyInput.trim();
@@ -536,7 +557,7 @@
         render();
       };
       body = [
-        h('h3', null, 'Round ' + m.n + ' · Court ' + c.court + (c.level === s.courts.length - 1 ? ' · King’s Court' : '')),
+        h('h3', null, 'Round ' + m.n + ' · Court ' + c.court + (E.isKingsCourt(s, r, c) ? ' · King’s Court' : '')),
         h('p', { class: 'hint', style: 'margin:-8px 0 0' }, 'Sets to ' + (s.setTo || 4) + ' games. A point for every game won.'),
         h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, teamNameOf(c.a)), h('div', { class: 'digits' }, digits('sa'))]),
         h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, teamNameOf(c.b)), h('div', { class: 'digits' }, digits('sb'))]),

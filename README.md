@@ -15,11 +15,15 @@ On a TV open the address in the TV's browser and press **Full screen**.
    team under "Played before"), choose a random or seeded round 1, press **Start night**.
 3. **Each round** – tap a court, tap the two scores, Save. When the last court is scored the next round appears on
    the iPad and on the TVs by itself.
-4. **Late arrivals / no-shows** – add or remove a team at any time. A late team joins the next round on the bottom
+4. **Changing courts** – each night has its own courts (the picker starts from last night's). During a night,
+   "Change courts" lets you swap court numbers or use more or fewer courts. Unscored matches move to the new
+   numbers at once when the count is the same; otherwise the new courts start with the next round. Teams keep
+   their distance from King's Court.
+5. **Late arrivals / no-shows** – add or remove a team at any time. A late team joins the next round on the bottom
    court. If a team leaves mid-round, a team that was sitting out takes its place.
-5. **Mistyped score** – open "Earlier rounds" and tap the score. Points are always corrected. If the winner changes
+6. **Mistyped score** – open "Earlier rounds" and tap the score. Points are always corrected. If the winner changes
    and nobody has played the next round yet, that round is redone.
-6. **End night** – results are saved to the month. "Discard this night" removes a test run from the month.
+7. **End night** – results are saved to the month. "Discard this night" removes a test run from the month.
 
 ## The format: King's Court, fixed partners, with sit-outs
 

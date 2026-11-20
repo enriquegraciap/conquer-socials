@@ -355,8 +355,8 @@
         h('h2', null, ['Flyers', h('small', null, 'two slideshows for the TVs')]),
         h('p', { class: 'hint', style: 'margin:0 0 10px' }, 'Any TV can show either one, a new flyer every 15 seconds: the club’s everyday flyers (with the monthly leaderboards), or the flyers for a special event. On the TV, choose one from its main menu.'),
         h('div', { class: 'row' }, [
-          h('a', { class: 'btn', href: S.link('flyers'), id: 'openFlyers', style: 'display:inline-flex;align-items:center;text-decoration:none;color:inherit' }, 'Open club flyers'),
-          h('a', { class: 'btn', href: S.link('flyers', { set: 'special' }), id: 'openSpecial', style: 'display:inline-flex;align-items:center;text-decoration:none;color:inherit' }, 'Open special event flyers')
+          h('a', { class: 'btn', href: S.here('flyers'), target: S.framed ? '_top' : null, id: 'openFlyers', style: 'display:inline-flex;align-items:center;text-decoration:none;color:inherit' }, 'Open club flyers'),
+          h('a', { class: 'btn', href: S.here('flyers', { set: 'special' }), target: S.framed ? '_top' : null, id: 'openSpecial', style: 'display:inline-flex;align-items:center;text-decoration:none;color:inherit' }, 'Open special event flyers')
         ])
       ]),
       ids.length ? tvsPanel(ids) : null
@@ -731,7 +731,7 @@
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn(m.ok, m.danger ? 'danger' : 'primary', function () { state.ui.modal = null; m.onOk(); }, { id: 'modalOk' })])];
     } else if (m.type === 'tv') {
       body = [h('h3', null, 'TV screen'),
-        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Open this address in the browser on each club TV, then press Full screen:'), h('div', { class: 'tvlink' }, S.link('tv')),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Open this address in the browser on each club TV, then press Full screen:'), h('div', { class: 'tvlink' }, S.here('tv')),
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'With one social the TV shows it by itself. With several, the TV opens on its main menu: choose there with the remote, or from this device under Events \u2192 TVs. The Main menu button is beside Full screen whenever the TV is not in full screen.'),
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Players’ score page (the TV shows it as a QR code during a round):'), h('div', { class: 'tvlink' }, S.link('player', { s: state.seriesId })),
         h('div', { class: 'row end' }, btn('Close', 'primary', closeModal))];

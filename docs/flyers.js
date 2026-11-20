@@ -162,7 +162,7 @@
   function render() {
     var active = document.activeElement, focusId = active && active.id;
     var kids = [h('div', { class: 'topbar' }, [h('h1', null, SET.title), h('span', { class: 'spacer' }), h('span', { class: 'sync' }, state.busy),
-      h('a', { class: 'linkbtn', href: S.link('admin') }, 'Socials')])];
+      h('a', { class: 'linkbtn', href: S.here('admin'), target: S.framed ? '_top' : null }, 'Socials')])];
     var body = [];
     if (state.phase === 'boot') body.push(h('p', { class: 'hint' }, 'Loading…'));
     else if (state.phase === 'nodb') body.push(h('div', { class: 'notice err' }, 'No database address is set yet. Open config.js and fill in databaseURL.'));
@@ -170,8 +170,8 @@
     else {
       var all = list();
       body.push(h('div', { class: 'settabs', role: 'navigation', 'aria-label': 'Which slideshow' }, [
-        h('a', { href: S.link('flyers'), class: SPECIAL ? '' : 'on', id: 'setClub' }, 'Club flyers'),
-        h('a', { href: S.link('flyers', { set: 'special' }), class: SPECIAL ? 'on' : '', id: 'setSpecial' }, 'Special event flyers')
+        h('a', { href: S.here('flyers'), target: S.framed ? '_top' : null, class: SPECIAL ? '' : 'on', id: 'setClub' }, 'Club flyers'),
+        h('a', { href: S.here('flyers', { set: 'special' }), target: S.framed ? '_top' : null, class: SPECIAL ? 'on' : '', id: 'setSpecial' }, 'Special event flyers')
       ]));
       if (state.askKey) body.push(keyPanel());
       body.push(h('div', { class: 'panel' }, [

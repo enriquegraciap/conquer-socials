@@ -8,7 +8,10 @@ A small web app for running padel socials: the iPad runs the night, the club TVs
 No App Store, no install. On the iPad open the address in Safari and use Share → Add to Home Screen.
 On a TV open the address in the TV's browser and press **Full screen**.
 
-Players' phones: `https://enriquegraciap.github.io/conquer-socials/p/` (the TV shows it as a QR code during a round).
+Players' phones: `https://go.playcnqr.com/socials?v=p` (the TV shows it as a QR code during a round). That page on
+the club's site shows this app inside it (one line: `<script src=".../conquer-socials/wrap.js"></script>`), so
+players see the club's address. `publicURL` in `docs/config.js` sets it; staff pages keep using the direct address,
+where each device remembers its admin key.
 
 **Flyers:** `https://enriquegraciap.github.io/conquer-socials/flyers/` is where staff add photos. There are two
 slideshows, each a new flyer every 15 seconds: **Club flyers** (the everyday set, which also shows the monthly

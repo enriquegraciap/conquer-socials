@@ -213,7 +213,7 @@
     ];
   }
   function adminLink() { return h('button', { type: 'button', class: 'pl-link', style: 'color:#cfe0f3', id: 'roleAdmin', onclick: openAdmin }, 'Organizer? Open the admin page'); }
-  function goAdmin() { location.href = S.link('admin', st.seriesId ? { s: st.seriesId } : {}); }
+  function goAdmin() { S.go(S.here('admin', st.seriesId ? { s: st.seriesId } : {})); }
   // Admin: if this phone already holds a working key go straight in, otherwise ask for it.
   function openAdmin() {
     var have = S.getKey();

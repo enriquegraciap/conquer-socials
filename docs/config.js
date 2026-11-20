@@ -1,7 +1,7 @@
 // The only setting: the address of your Firebase Realtime Database (Firebase console -> Realtime Database -> Data tab).
 window.SOCIALS_CONFIG = {
   databaseURL: 'https://conquer-socials-default-rtdb.firebaseio.com',
-  // Leave empty to use the address the pages are opened on. Set it (for example 'https://go.playcnqr.com/socials')
-  // when the app is shown inside a page on another site: QR codes and links then use that address.
-  publicURL: ''
+  // The address players see. That page (on the club's own site) shows this app inside it through wrap.js, so the
+  // QR code on the TV and the players' phones show the club's address. Leave empty to use this site's own address.
+  publicURL: 'https://go.playcnqr.com/socials'
 };

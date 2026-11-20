@@ -25,7 +25,23 @@
   // Where the site lives: the folder this file was loaded from, or the public address set in config.js.
   var here = (root.document && root.document.currentScript && root.document.currentScript.src) || '';
   var home = here ? here.replace(/[^\/]*(\?.*)?$/, '') : '';
-  var pub = String(cfg.publicURL || '').replace(/\/+$/, '');
+  // The public address is not used with a test database (?db=...), so tests never hand out real links.
+  var pub = params.get('db') ? '' : String(cfg.publicURL || '').replace(/\/+$/, '');
+  // Is this page being shown inside another site's page (see wrap.js)?
+  var framed = false;
+  try { framed = root.top !== root.self; } catch (e) { framed = true; }
+  // The address of one of the pages. viaPublic: through the public address (config.js) rather than this site's own.
+  function address(kind, query, viaPublic) {
+    var parts = [];
+    if (params.get('db')) parts.push('db=' + encodeURIComponent(params.get('db')));   // a test database stays a test database
+    if (viaPublic && kind === 'tv') parts.push('v=tv');
+    if (viaPublic && kind === 'player') parts.push('v=p');
+    if (viaPublic && kind === 'flyers') parts.push('v=flyers');
+    Object.keys(query || {}).forEach(function (k) { parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(query[k])); });
+    var qs = parts.length ? '?' + parts.join('&') : '';
+    if (viaPublic) return pub + qs;
+    return home + (kind === 'tv' ? 'tv/' : kind === 'player' ? 'p/' : kind === 'flyers' ? 'flyers/' : '') + qs;
+  }
 
   function request(method, path, body) {
     var url = base + '/' + path + '.json';
@@ -68,17 +84,17 @@
     // A player's phone: no admin key. The database only accepts this for a court's score and the "something
     // changed" counter; everything else is refused.
     writePublic: function (updates) { return request('PATCH', '', updates); },
-    // Address of one of the pages, for links and QR codes. kind: 'admin', 'tv', 'player' or 'flyers'.
-    link: function (kind, query) {
-      var parts = [];
-      if (params.get('db')) parts.push('db=' + encodeURIComponent(params.get('db')));   // a test database stays a test database
-      if (pub && kind === 'tv') parts.push('v=tv');
-      if (pub && kind === 'player') parts.push('v=p');
-      if (pub && kind === 'flyers') parts.push('v=flyers');
-      Object.keys(query || {}).forEach(function (k) { parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(query[k])); });
-      var qs = parts.length ? '?' + parts.join('&') : '';
-      if (pub) return pub + qs;
-      return home + (kind === 'tv' ? 'tv/' : kind === 'player' ? 'p/' : kind === 'flyers' ? 'flyers/' : '') + qs;
+    // An address for OTHER people to open: players scanning the TV's QR code, an address read out or sent on.
+    // Uses the public address from config.js when one is set. kind: 'admin', 'tv', 'player' or 'flyers'.
+    link: function (kind, query) { return address(kind, query, !!pub); },
+    // An address for moving around on THIS device (buttons and links between the pages, staff QR codes). Stays on
+    // the site the page was opened on, where this device's admin key is remembered.
+    here: function (kind, query) { return address(kind, query, !!pub && framed); },
+    framed: framed,
+    // Go to another page. Inside another site's page the whole window moves, not just the frame.
+    go: function (url) {
+      if (framed) { try { root.top.location.href = url; return; } catch (e) { /* not allowed: move the frame instead */ } }
+      root.location.href = url;
     },
     // Is this the admin key? Touches only the key's own counter; nothing else changes.
     checkKey: function (key) {

@@ -203,7 +203,7 @@
     var items = ids.map(function (id) { return item(id, st.series[id].name, FORMATS[st.series[id].format] || 'Social'); });
     items.push(item(FLYERS, 'Club flyers', 'Slideshow of the club\u2019s flyers and the monthly leaderboards'));
     items.push(item(SPECIAL, 'Special event flyers', 'Slideshow of the flyers for a special event'));
-    var qr = qrSvg(S.link('admin', { tv: st.id }));
+    var qr = qrSvg(S.here('admin', { tv: st.id }));
     root.replaceChildren(h('div', 'tvmenu', [
       h('div', 'list', [h('h1', null, 'What should this screen show?'), h('div', 'items' + (items.length > 5 ? ' two' : ''), items)]),
       h('div', 'side', [
@@ -369,7 +369,7 @@
     var key = wait ? 'wait' : 'none';
     if (fl.msg.getAttribute('data-k') === key) return;
     fl.msg.setAttribute('data-k', key);
-    var special = fl.which === SPECIAL, qr = wait ? null : qrSvg(S.link('flyers', special ? { set: 'special' } : {}));
+    var special = fl.which === SPECIAL, qr = wait ? null : qrSvg(S.here('flyers', special ? { set: 'special' } : {}));
     fl.msg.replaceChildren(h('h1', null, wait ? 'Loading the flyers…' : special ? 'No special event flyers yet' : 'No flyers yet'),
       wait ? null : h('p', null, 'Add photos from the club iPad, a phone or a computer: open Events, then ' + (special ? 'Special event flyers' : 'Club flyers') + '. Or scan this code.'),
       qr ? h('div', 'qrbox', qr) : null);

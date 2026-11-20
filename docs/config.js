@@ -11,8 +11,8 @@ window.SOCIALS_CONFIG = {
   // key, and nothing in common with the first club: its events, TVs, flyers, leaderboards and ratings are its own.
   //   root: where its data lives in the database      dir: its folder on this site
   //   publicURL: the address its players see (a page on the club's site that loads <dir>wrap.js); empty = this site
-  //   formats: the formats offered when an event is created there
+  //   formats: the formats offered when an event is created there      courts: how many courts the club has
   clubs: {
-    tempe: { name: 'Tempe', root: 'tempe', dir: 'tempe/', publicURL: '', formats: ['kings-fixed', 'kings-individual'] }
+    tempe: { name: 'Tempe', root: 'tempe', dir: 'tempe/', publicURL: '', formats: ['kings-fixed', 'kings-individual'], courts: 5 }
   }
 };

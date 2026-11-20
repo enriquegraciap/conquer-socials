@@ -3,7 +3,7 @@
   'use strict';
   var E = window.Engine, S = window.Store, L = window.Look, V = window.Voice;
   var root = document.getElementById('app');
-  var MAX_COURT = 7;         // the club has courts 1 to 7
+  var MAX_COURT = S.club.courts || 7;         // the first club has courts 1 to 7; another club says how many it has (config.js)
 
   var state = {
     phase: 'boot',            // boot | nodb | error | series | night

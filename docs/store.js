@@ -82,7 +82,7 @@
   root.Store = {
     configured: !!base,
     base: base,
-    club: { id: clubId || 'lehi', name: club ? String(club.name || clubId) : '', formats: club && Array.isArray(club.formats) ? club.formats.slice() : null, root: dataRoot },
+    club: { id: clubId || 'lehi', name: club ? String(club.name || clubId) : '', formats: club && Array.isArray(club.formats) ? club.formats.slice() : null, courts: club && club.courts > 0 ? Math.floor(club.courts) : 0, root: dataRoot },
     get: function (path) { return request('GET', place(path)); },
     // updates: { "pub/some/path": value-or-null, ... } applied together
     write: function (updates) {

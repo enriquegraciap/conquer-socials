@@ -12,7 +12,7 @@
 (function () {
   'use strict';
   var E = window.Engine, S = window.Store, L = window.Look;
-  var root = document.getElementById('tv'), statusEl = document.getElementById('status'), codeEl = document.getElementById('tvcode'), fsBtn = document.getElementById('fs'), menuBtn = document.getElementById('menu');
+  var root = document.getElementById('tv'), statusEl = document.getElementById('status'), codeEl = document.getElementById('tvcode'), fsBtn = document.getElementById('fs'), menuBtn = document.getElementById('menu'), turnBtn = document.getElementById('turn');
   var POLL_MS = 2000, MONTH_ROWS = 10;
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -23,6 +23,43 @@
   var FORMATS = {};
   Object.keys(E.FORMATS).forEach(function (f) { FORMATS[f] = E.FORMATS[f].name; });
   var q0 = new URLSearchParams(location.search);
+
+  // ---------------------------------------------------------------- a screen hung sideways
+  // Many TVs cannot turn their own picture. The "Turn screen" button (bottom right) does it here instead: each press
+  // goes on to the next of: as the TV shows it, turned to the left, turned to the right. The TV remembers the choice.
+  // A turned screen is this same page inside a frame that is as wide as the TV is high and turned a quarter;
+  // inside the frame the page simply finds a portrait screen and lays itself out for one.
+  // (?rotate=left, ?rotate=right or ?rotate=off in the address sets it too.)
+  var TURNS = ['', 'left', 'right'];
+  var turnedIn = TURNS.indexOf(q0.get('rotin') || '') > 0 ? q0.get('rotin') : '';      // this page is the one inside the turned frame
+  if (q0.get('rotate')) S.pref('tvTurn', TURNS.indexOf(q0.get('rotate')) > 0 ? q0.get('rotate') : null);
+  var turn = turnedIn || (TURNS.indexOf(S.pref('tvTurn') || '') > 0 ? S.pref('tvTurn') : '');
+  function pageUrl(extra) {
+    var q = new URLSearchParams(location.search);
+    q.delete('rotate'); q.delete('rotin');
+    if (extra) q.set('rotin', extra);
+    var qs = q.toString();
+    return location.pathname + (qs ? '?' + qs : '') + location.hash;
+  }
+  function turnScreen() {
+    var next = TURNS[(TURNS.indexOf(turn) + 1) % TURNS.length];
+    S.pref('tvTurn', next || null);
+    var top = turnedIn ? window.parent : window;
+    top.location.replace(pageUrl(''));                   // the outer page starts again and reads the new choice
+  }
+  if (turn && !turnedIn) {                                // the outer page of a turned screen: nothing but the frame
+    var frame = document.createElement('iframe');
+    frame.className = 'rotframe ' + turn;
+    frame.title = 'Padel Socials TV';
+    frame.setAttribute('allow', 'fullscreen; screen-wake-lock');
+    frame.setAttribute('allowfullscreen', '');
+    frame.src = pageUrl(turn);
+    document.body.classList.add('rotshell');
+    document.body.appendChild(frame);
+    frame.addEventListener('load', function () { try { frame.contentWindow.focus(); } catch (e) { /* the remote's pointer still works */ } });
+    return;
+  }
+
   var fixed = q0.get('flyers') === 'special' ? SPECIAL : q0.get('flyers') ? FLYERS : q0.get('s');
 
   var st = { id: tvId(), mode: 'boot', series: {}, seriesId: null, seriesName: '', rev: null, ping: 0, session: null, pending: {},
@@ -43,13 +80,26 @@
   function name(id) { var t = st.session.teams[id]; return t ? t.name : ''; }
   // One side of a court: a couple, or (individual format) the two players paired for this round.
   // two players paired for a round: each name stays in one piece, so a long side breaks after the "&"
-  function side(c, which) {
-    var ids = E.sideIds(c, which), out = [], t = ids.length === 1 ? st.session.teams[ids[0]] : null;
-    // the two names of a side (a fixed team, or two players paired for the round)
+  // One side of a court: { kids, pair }. crownEl (the winner's crown) goes after the name on the left side and
+  // before it on the right (before = true). With two names, each stays in one piece ("Ana Lopez &" / "Bruno Diaz",
+  // the crown stuck to its name), so a side that is too wide is made smaller instead of being cut anywhere.
+  function side(c, which, crownEl, before) {
+    var ids = E.sideIds(c, which), t = ids.length === 1 ? st.session.teams[ids[0]] : null;
     var parts = ids.length > 1 ? ids.map(name) : t && t.players && t.players.length > 1 && t.players.join(' & ') === t.name ? t.players : null;
-    if (!parts) return ids.map(name).join(' & ');
-    parts.forEach(function (nm, i) { if (i) out.push(' & '); out.push(h('span', 'pn', nm)); });
-    return out;
+    if (!parts) {
+      var text = ids.map(name).join(' & ');
+      return { pair: false, kids: before ? [crownEl ? [crownEl, '\u00a0'] : null, text] : [text, crownEl ? ['\u00a0', crownEl] : null] };
+    }
+    var kids = [], last = parts.length - 1;
+    parts.forEach(function (nm, i) {
+      var inside = [nm];
+      if (i < last) inside.push(' &');
+      if (crownEl && before && i === 0) inside.unshift(crownEl, '\u00a0');
+      if (crownEl && !before && i === last) inside.push('\u00a0', crownEl);
+      if (i) kids.push(' ');
+      kids.push(h('span', 'pn', inside));
+    });
+    return { pair: true, kids: kids };
   }
 
   // Every TV keeps a short code of its own, shown in the bottom corner and inside the pairing QR.
@@ -589,11 +639,12 @@
       // green behind the names once the score is in, so it is easy to see which courts are still missing
       var king = wheel ? E.isKingsCourt(s, r, c) : c.level === top;
       var label = wheel ? (c.label || (c.wait && !has ? 'Next on' : 'Court')) : king ? 'King’s Court' : 'Court';
+      var sideA = side(c, 'a', has && w === 'a' ? crown(i) : null, false), sideB = side(c, 'b', has && w === 'b' ? crown(i) : null, true);
       return h('div', 'tvcourt' + (king ? ' king' : '') + (has ? ' done' : '') + (c.wait && !has ? ' wait' : ''), [
         h('div', 'cn', [h('span', wheel ? 'lbl' : null, label), h('b', null, String(c.court))]),
-        h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), [side(c, 'a'), has && w === 'a' ? ['\u00a0', crown(i)] : null]),
+        h('div', 'tm a' + (sideA.pair ? ' pair' : '') + (has && w === 'b' ? ' lost' : ''), sideA.kids),
         c.void ? h('div', 'mid', 'no match') : has ? h('div', 'mid score', sa + ' – ' + sb) : h('div', 'mid', 'vs'),
-        h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), [has && w === 'b' ? [crown(i), '\u00a0'] : null, side(c, 'b')])
+        h('div', 'tm b' + (sideB.pair ? ' pair' : '') + (has && w === 'a' ? ' lost' : ''), sideB.kids)
       ]);
     });
     st.pendingSince = anySent ? (st.pendingSince || Date.now()) : 0;
@@ -1104,10 +1155,13 @@
   }
 
   // ---------------------------------------------------------------- full screen, keep-awake, clock
-  var canFull = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
-  function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  // (on a turned screen it is the outer page that goes full screen, with the turned frame inside it)
+  var fsDoc = document;
+  if (turnedIn) { try { fsDoc = window.parent.document; } catch (e) { fsDoc = document; } }
+  var canFull = !!(fsDoc.documentElement.requestFullscreen || fsDoc.documentElement.webkitRequestFullscreen);
+  function isFull() { return !!(fsDoc.fullscreenElement || fsDoc.webkitFullscreenElement); }
   function toggleFull() {
-    var el = document.documentElement;
+    var el = fsDoc.documentElement, document = fsDoc;
     try {
       if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
       else {
@@ -1122,7 +1176,8 @@
   function buttons() {
     fsBtn.hidden = isFull() || !canFull;
     menuBtn.hidden = isFull() || st.mode === 'menu' || st.mode === 'boot';
-    document.body.classList.toggle('hasbtn', !fsBtn.hidden || !menuBtn.hidden);
+    turnBtn.hidden = isFull();
+    document.body.classList.toggle('hasbtn', !fsBtn.hidden || !menuBtn.hidden || !turnBtn.hidden);
   }
   function fullChanged() {
     buttons();
@@ -1130,6 +1185,7 @@
     if (!isFull() && st.mode !== 'menu' && !fsBtn.hidden) fsBtn.focus();
   }
   fsBtn.addEventListener('click', toggleFull);
+  turnBtn.addEventListener('click', turnScreen);
   menuBtn.addEventListener('click', function () { choose(MENU); });
   // A remote's arrow keys step through the buttons on screen; OK presses the one in focus.
   document.addEventListener('keydown', function (e) {
@@ -1141,8 +1197,8 @@
     list[to].focus();
     e.preventDefault();
   });
-  document.addEventListener('fullscreenchange', fullChanged);
-  document.addEventListener('webkitfullscreenchange', fullChanged);
+  fsDoc.addEventListener('fullscreenchange', fullChanged);
+  fsDoc.addEventListener('webkitfullscreenchange', fullChanged);
   document.addEventListener('keydown', function (e) { if (e.metaKey || e.ctrlKey) return; if (e.key === 'f' || e.key === 'F') toggleFull(); else if ((e.key === 'm' || e.key === 'M') && st.mode !== 'menu') choose(MENU); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
   window.addEventListener('resize', function () { if (st.mode === 'show' && st.shown) draw(); else fit(); fitTitle(); });      // also when a screen is turned

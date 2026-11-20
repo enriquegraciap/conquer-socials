@@ -272,6 +272,7 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .tvcourt.king .cn span { color: var(--ink); font-weight: 600; }
 .tvcourt .tm { font-family: var(--display); font-weight: 600; font-size: 5.6vmin; line-height: 1.04; min-width: 0; max-height: 100%; overflow: hidden; overflow-wrap: break-word; }
 .tvcourt .tm.b { text-align: right; }
+.tvcourt .tm.pair { overflow-wrap: normal; }
 .tvcourt .tm .pn { white-space: nowrap; }   /* a player's name is never broken in two; the text is made smaller instead */
 .tvcourt .tm.lost { opacity: .6; }
 .tvcourt .mid { font-family: var(--display); font-size: 3vmin; letter-spacing: .1em; color: #cfe0f3; text-align: center; min-width: 5vw; }
@@ -687,7 +688,10 @@ body.tv.themed .inter { background: var(--t-bg); }
   body.tv .tvqr { gap: 2vw; padding-left: 2.4vw; }
   body.tv .tvqr .cap { max-width: 20vw; }
   body.tv .tvdate { left: 2.6vw; }
-  body.tv .tvbtns { right: 2.6vw; }
+  body.tv .tvbtns { right: 2.6vw; gap: 1.2vw; bottom: 1.2vmin; }
+  body.tv .fsbtn { font-size: 2.1vmin; letter-spacing: .06em; padding: .9vmin 1.6vw; }
+  body.tv .tvdate { font-size: 2.4vmin; letter-spacing: .06em; }
+  body.tv .tvdate #timetext { margin-left: .7em; min-width: 6em; }
   body.tv .tvbig .teams { gap: 1vmin 4vw; }
   body.tv .podium div { grid-template-columns: 15vw minmax(0, 1fr) auto; gap: 2.4vw; padding: 1.4vmin 3vw; }
   /* main menu: the list, then the code to pair this screen */
@@ -716,3 +720,11 @@ body.tv.themed .inter { background: var(--t-bg); }
 }
 
 .panel.keywait { border: 2px solid var(--gold); box-shadow: 0 6px 24px rgba(10, 47, 87, .18); }
+
+/* ---- A TV hung sideways that cannot turn its own picture: the "Turn screen" button ---------------------------
+   The outer page shows nothing but a frame as wide as the TV is high, turned a quarter (tv.js). */
+body.tv.rotshell { background: #071a30; }
+body.tv.rotshell > * { display: none !important; }
+body.tv.rotshell > iframe.rotframe { display: block !important; position: fixed; top: 0; left: 0; width: 100vh; height: 100vw; border: 0; transform-origin: top left; background: #071a30; }
+iframe.rotframe.left { transform: rotate(-90deg) translateX(-100%); }      /* the top of the page is at the TV's own left edge */
+iframe.rotframe.right { transform: rotate(90deg) translateY(-100%); }     /* the top of the page is at the TV's own right edge */

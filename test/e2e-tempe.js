@@ -122,6 +122,41 @@ const TEAMS = [['Carter Maclean', 'Kasey Maclean'], ['Lexi Mecham', 'Spencer Mec
   assert.ok(items.includes('Kings of the Desert') && items.includes('Tempe Tapas Night') && !items.some(t => /Lehi/i.test(t)), 'menu: ' + items.join(', '));
   assert.equal(await menu.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   await menu.screenshot({ path: SHOTS + 'tempe-tv-menu-portrait.png' });
+  // 6. a TV hung sideways that cannot turn its own picture: the Turn screen button turns the page instead, and the TV remembers
+  const side = watch(await (await browser.newContext({ viewport: { width: 1920, height: 1080 } })).newPage(), 'tv sideways');
+  await side.goto(BASE + '/tempe/tv/?db=' + DB + '&s=kings-of-the-desert');
+  await side.waitForSelector('.tvcourt', { timeout: 10000 });
+  assert.equal(await side.locator('iframe.rotframe').count(), 0, 'not turned to begin with');
+  await side.click('#turn');
+  await side.waitForSelector('iframe.rotframe.left', { timeout: 10000 });
+  const inner = () => side.frames().find(f => /rotin=/.test(f.url()));
+  await side.waitForFunction(() => { const f = document.querySelector('iframe.rotframe'); return f && f.contentDocument && f.contentDocument.querySelector('.tvcourt'); }, null, { timeout: 15000 });
+  const fr = await side.evaluate(() => { const f = document.querySelector('iframe.rotframe'), b = f.getBoundingClientRect(); return { box: [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)], w: f.contentWindow.innerWidth, h: f.contentWindow.innerHeight,
+    shown: [...document.body.children].filter(e => getComputedStyle(e).display !== 'none').map(e => e.tagName) }; });
+  assert.deepEqual(fr.box, [0, 0, 1920, 1080], 'the turned frame covers the whole TV');
+  assert.deepEqual([fr.w, fr.h], [1080, 1920], 'inside it the page finds a portrait screen');
+  assert.deepEqual(fr.shown, ['IFRAME'], 'the outer page shows nothing else');
+  const T = await inner().evaluate(() => { const r = s => { const b = document.querySelector(s).getBoundingClientRect(); return { t: b.top, b: b.bottom, l: b.left, r: b.right }; };
+    return { courts: r('.tvcourts'), right: r('.tvright'), sign: r('.tvsit.sign'), turn: !document.getElementById('turn').hidden, over: document.documentElement.scrollWidth > innerWidth }; });
+  assert.ok(T.right.t >= T.courts.b && T.sign.t >= T.right.b - 1 && T.turn && !T.over, 'the portrait arrangement, with the Turn screen button still there');
+  // where the top of the page ends up on the TV's own picture: turned left, at its left edge
+  const topAt = () => side.evaluate(() => { const f = document.querySelector('iframe.rotframe'), bar = f.contentDocument.getElementById('tvbar').getBoundingClientRect(), b = f.getBoundingClientRect();
+    return getComputedStyle(f).transform + '|' + f.className; });
+  assert.match(await topAt(), /matrix\(0, -1, 1, 0, 0, 1080\)\|rotframe left/, 'a quarter turn to the left');
+  await side.screenshot({ path: SHOTS + 'tempe-tv-turned-left.png' });
+  await side.reload();                                                           // the TV remembers, no address to type
+  await side.waitForSelector('iframe.rotframe.left', { timeout: 10000 });
+  await side.waitForFunction(() => { const f = document.querySelector('iframe.rotframe'); return f && f.contentDocument && f.contentDocument.getElementById('turn') && f.contentDocument.querySelector('.tvcourt'); }, null, { timeout: 15000 });
+  await inner().click('#turn');                                                  // next: turned to the right
+  await side.waitForSelector('iframe.rotframe.right', { timeout: 10000 });
+  assert.match(await side.evaluate(() => getComputedStyle(document.querySelector('iframe.rotframe')).transform), /matrix\(0, 1, -1, 0, 1920, 0\)/, 'a quarter turn to the right');
+  await side.waitForFunction(() => { const f = document.querySelector('iframe.rotframe'); return f && f.contentDocument && f.contentDocument.getElementById('turn') && f.contentDocument.querySelector('.tvcourt'); }, null, { timeout: 15000 });
+  await inner().click('#turn');                                                  // and back to how the TV shows it
+  await side.waitForFunction(() => !document.querySelector('iframe.rotframe') && document.querySelector('.tvcourt'), null, { timeout: 15000 });
+  assert.equal(await side.evaluate(() => localStorage.getItem('socials.tempe.tvTurn')), null);
+  assert.equal(await lehiTv.evaluate(() => localStorage.getItem('socials.tvTurn')), null, 'each TV (and club) keeps its own setting');
+  step('Turn screen: as the TV shows it, turned left, turned right, and remembered');
+
   // flyers are per club too
   const fly = watch(await ipad.newPage(), 'flyers');
   await fly.goto(BASE + '/tempe/flyers/?db=' + DB);

@@ -162,6 +162,14 @@ what is coming up) with the QR code to its right, and the date and clock at the 
 side), so lettering is as large as on a landscape TV of the same panel; the portrait arrangement is one block at the
 end of `docs/style.css`.
 
+### A TV hung sideways that cannot turn its own picture
+
+Consumer TVs mounted vertically still send a landscape picture. The **Turn screen** button on the TV page (bottom
+right, beside Main menu and Full screen) turns the page instead: each press goes to the next of *as the TV shows it*,
+*turned left*, *turned right*; the TV remembers the choice. A turned screen is the same page inside a frame as wide
+as the TV is high, turned a quarter (`docs/tv.js`, top), so inside it the page finds a portrait screen.
+`?rotate=left`, `?rotate=right` or `?rotate=off` in the address does the same.
+
 ## Files
 
 | Path | What it is |

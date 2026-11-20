@@ -100,8 +100,17 @@
     return h('div', 'tvhead', [h('div', 'round' + (flash ? ' flash' : ''), title), h('div', 'event', sets), clockEl()]);
   }
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  function dateText() { var d = new Date(); return DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear(); }
-  function showDate() { var el = document.getElementById('date'); if (el) el.textContent = dateText(); }
+  // Bottom corner: "Thursday, November 18th" and a clock with seconds, so a glance shows the page is running.
+  function dateText(d) { return DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + ordinal(d.getDate()); }
+  function timeText(d) {
+    var hh = d.getHours(), mm = d.getMinutes(), ss = d.getSeconds();
+    return ((hh + 11) % 12 + 1) + ':' + (mm < 10 ? '0' : '') + mm + ':' + (ss < 10 ? '0' : '') + ss + (hh < 12 ? ' AM' : ' PM');
+  }
+  function showDate() {
+    var d = new Date(), day = document.getElementById('daytext'), time = document.getElementById('timetext');
+    if (day && day.textContent !== dateText(d)) day.textContent = dateText(d);
+    if (time) time.textContent = timeText(d);
+  }
   function barTitle() { var b = document.getElementById('bartitle'); if (b) b.textContent = st.seriesName || ''; }
   function clockEl() { var c = h('div', 'clock', clockText()); c.id = 'clock'; return c; }
   function clockText() {
@@ -220,7 +229,8 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
   window.addEventListener('resize', fit);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
-  setInterval(function () { var c = document.getElementById('clock'); if (c) c.textContent = clockText(); showDate(); status(); }, 5000);
+  setInterval(function () { var c = document.getElementById('clock'); if (c) c.textContent = clockText(); status(); }, 5000);
+  setInterval(showDate, 1000);
   showDate();
 
   window.Awake.start();      // screen stays on for as long as this page is open

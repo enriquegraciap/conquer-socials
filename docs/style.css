@@ -232,6 +232,7 @@ body.tv.hasbtn .tvroot { padding-bottom: 8.6vh; }   /* room for the Full screen 
 .tvdate { position: fixed; right: 1.8vw; bottom: 1.1vh; z-index: 8; font-family: var(--display); font-size: 2.8vh; line-height: 1; letter-spacing: .1em;
   text-transform: uppercase; color: #cfe0f3; white-space: nowrap; }
 body.tv.hasbtn .tvdate { right: 17.5vw; bottom: 3.2vh; }
+.tvdate #timetext { display: inline-block; min-width: 6.6em; text-align: right; margin-left: .5em; color: #fff; font-weight: 600; }   /* fixed width so the seconds do not make the line jump */
 .tvstatus { position: fixed; left: 1.8vw; bottom: .5vh; font-size: 1.6vh; color: #6f8fb3; }
 .tvpick { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; padding: 4vh; text-align: center; }
 .tvpick h1 { font-family: var(--display); font-size: 7vh; text-transform: uppercase; margin: 0; }

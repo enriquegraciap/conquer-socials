@@ -57,7 +57,11 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   assert.match(await tv.textContent('.tvhead .event'), /Sets to 6/);
   assert.equal(await tv.textContent('#bartitle'), 'Lehi Date Night', 'event name is in the top banner');
   assert.ok(await tv.evaluate(() => { const i = document.querySelector('.tvbar-l img'); return !i.hidden && i.naturalWidth > 0; }), 'P symbol is showing top left');
-  assert.match(await tv.textContent('#date'), /^(Sun|Mon|Tues|Wednes|Thurs|Fri|Satur)day, [A-Z][a-z]+ \d{1,2}, \d{4}$/, 'date is showing');
+  assert.match(await tv.textContent('#daytext'), /^(Sun|Mon|Tues|Wednes|Thurs|Fri|Satur)day, [A-Z][a-z]+ \d{1,2}(st|nd|rd|th)$/, 'date reads like "Thursday, November 18th"');
+  const t1 = await tv.textContent('#timetext');
+  assert.match(t1, /^\d{1,2}:\d\d:\d\d (AM|PM)$/, 'clock shows hours, minutes and seconds');
+  await tv.waitForTimeout(2100);
+  assert.notEqual(await tv.textContent('#timetext'), t1, 'and it is running');
   const dateBox = await tv.locator('#date').boundingBox();
   assert.ok(dateBox.x + dateBox.width <= 1920 && dateBox.y + dateBox.height <= 1080 && dateBox.y > 1000, 'date sits at the bottom of the screen');
   assert.equal(await tv.locator('#fs').isVisible(), true, 'Full screen button is showing');

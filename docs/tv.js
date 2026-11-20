@@ -241,9 +241,9 @@
       // green behind the names once the score is in, so it is easy to see which courts are still missing
       return h('div', 'tvcourt' + (c.level === top ? ' king' : '') + (has ? ' done' : ''), [
         h('div', 'cn', [h('span', null, c.level === top ? 'King’s Court' : 'Court'), h('b', null, String(c.court))]),
-        h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), name(c.a) + (has && w === 'a' ? ' ' + CROWN : '')),
+        h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), name(c.a) + (has && w === 'a' ? '\u00a0' + CROWN : '')),
         c.void ? h('div', 'mid', 'no match') : has ? h('div', 'mid score', sa + ' – ' + sb) : h('div', 'mid', 'vs'),
-        h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), (has && w === 'b' ? CROWN + ' ' : '') + name(c.b))
+        h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), (has && w === 'b' ? CROWN + '\u00a0' : '') + name(c.b))
       ]);
     });
     st.pendingSince = anySent ? (st.pendingSince || Date.now()) : 0;

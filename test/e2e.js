@@ -118,7 +118,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await tv.waitForTimeout(2100);
   assert.equal(await lit(), 0, 'and they have faded away about two seconds later');
   assert.match(await tv.textContent('.tvcourt.done .mid'), /6 . 2/);
-  assert.equal((await tv.textContent('.tvcourt.done .tm.a')).trim(), bottomTeam + ' \uD83D\uDC51', 'left side wins: the crown follows the name');
+  assert.equal((await tv.textContent('.tvcourt.done .tm.a')).trim(), bottomTeam + '\u00a0\uD83D\uDC51', 'left side wins: the crown follows the name');
   assert.ok(!(await tv.textContent('.tvcourt.done .tm.b')).includes('\uD83D\uDC51'), 'and not the losing team\'s');
   const medals = await tv.locator('.tvboard >> nth=0 >> .tvrow .md').allTextContents();
   assert.deepEqual(medals.filter(Boolean), ['\uD83E\uDD47', '\uD83E\uDD48'], 'gold for the leader, silver for second; no medal for teams on zero');

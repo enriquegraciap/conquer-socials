@@ -532,6 +532,38 @@
     return out;
   }
 
+  // ---- Scores sent in by players from their phones ------------------------------------------
+  // Players write to a separate, narrow place in the database (never to the night itself). The organizer's
+  // device reads those entries and applies them here, so the night keeps a single owner.
+  // entries: { c0: {sa, sb, w, at, by}, c1: ... } for round `roundNo`; c0 is the first court of that round.
+  // An entry counts only for the round being played now, and only once (court.pat remembers the last one used).
+  function pendingPlayerScores(session, roundNo, entries) {
+    var cur = currentRound(session), out = [];
+    if (!entries || session.status !== 'live' || !cur || cur.n !== roundNo) return out;
+    var max = session.setTo === 6 ? 6 : 4;
+    Object.keys(entries).sort().forEach(function (key) {
+      var e = entries[key], idx = Number(String(key).replace(/^c/, '')), c = cur.courts[idx];
+      if (!e || !c || c.void || typeof e.sa !== 'number' || typeof e.sb !== 'number' || typeof e.at !== 'number') return;
+      if (e.sa % 1 || e.sb % 1 || e.sa < 0 || e.sb < 0 || e.sa > max || e.sb > max) return;
+      var w = e.sa > e.sb ? 'a' : e.sb > e.sa ? 'b' : (e.w === 'a' || e.w === 'b' ? e.w : null);
+      if (!w || c.pat === e.at) return;
+      out.push({ idx: idx, court: c.court, sa: e.sa, sb: e.sb, w: w, at: e.at, by: e.by || null });
+    });
+    return out;
+  }
+  function applyPlayerScores(session, roundNo, entries) {
+    var out = { applied: [], advanced: false };
+    var list = pendingPlayerScores(session, roundNo, entries);
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i], c = session.rounds[roundNo - 1].courts[p.idx];
+      c.pat = p.at;
+      var res = setScore(session, roundNo, p.idx, p.sa, p.sb, p.w);
+      if (res.ok) out.applied.push(p);
+      if (res.advanced) { out.advanced = true; break; }   // the round is over: anything left belongs to the past
+    }
+    return out;
+  }
+
   // ---- Scoring ------------------------------------------------------------------------------
   // Who gets the points for a team: the couple as one entry, or each player on their own.
   function entityKey(players) {
@@ -616,6 +648,7 @@
     teamStats: teamStats, generateRound: generateRound,
     addTeam: addTeam, removeTeam: removeTeam, startNight: startNight, endNight: endNight, reopenNight: reopenNight,
     advance: advance, redrawRound: redrawRound, setScore: setScore, setCourts: setCourts, isKingsCourt: isKingsCourt,
+    pendingPlayerScores: pendingPlayerScores, applyPlayerScores: applyPlayerScores,
     scoringEntities: scoringEntities, entityKey: entityKey, keyOf: keyOf, teamName: teamName,
     leaderboard: leaderboard, resultsDoc: resultsDoc, monthlyBoard: monthlyBoard,
     diffPaths: diffPaths

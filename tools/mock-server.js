@@ -80,6 +80,10 @@ http.createServer((req, res) => {
       let body;
       try { body = JSON.parse(raw); } catch (e) { return send(res, 400, { error: 'Invalid data; couldn\'t parse JSON object.' }); }
       const updates = req.method === 'PATCH' ? Object.keys(body).map(k => [parts.concat(k.split('/').filter(Boolean)), body[k]]) : [[parts, body]];
+      // what a player's phone may write without the admin key, as in database.rules.json
+      const okScore = v => v === null || (v && typeof v.sa === 'number' && typeof v.sb === 'number' && typeof v.at === 'number' && v.sa >= 0 && v.sa <= 6 && v.sb >= 0 && v.sb <= 6);
+      const isPublic = ([p, v]) => (p[0] === 'pub' && p[1] === 'scores' && p.length === 6 && okScore(v)) || (p[0] === 'pub' && p[1] === 'live' && p.length === 4 && p[3] === 'ping' && typeof v === 'number');
+      if (updates.length && updates.every(isPublic)) { updates.forEach(([p, v]) => setPath(db, p, v)); writes++; return send(res, 200, body); }
       const gateBefore = getPath(db, ['gate', KEY]);
       const gateWrite = updates.filter(([p]) => p[0] === 'gate');
       const okGate = gateWrite.length === 1 && gateWrite[0][0].length === 2 && gateWrite[0][0][1] === KEY && gateWrite[0][1] !== gateBefore;

@@ -12,10 +12,11 @@
     session: null,            // the night being edited (working copy)
     remote: null,             // the copy known to be saved
     remoteResults: null,
-    liveRev: null,
+    liveRev: null, livePing: 0,
+    screens: {}, pairTv: null,
     version: 0, dirty: false, saving: false, saveError: '', needKey: false,
     regulars: [],
-    ui: { p1: '', p2: '', modal: null, toast: '', newSeries: '', keyInput: '', prevOpen: false, focus: null }
+    ui: { p1: '', p2: '', modal: null, toast: '', newSeries: '', keyInput: '', prevOpen: false, focus: null, tvCode: '', tvEvent: '' }
   };
   var toastTimer = null, retryTimer = null;
 
@@ -57,13 +58,20 @@
     if (m) { S.setKey(decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname + location.search); }
     if (!S.configured) { state.phase = 'nodb'; return render(); }
     render();
+    var q = new URLSearchParams(location.search);
+    var tv = (q.get('tv') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+    if (tv.length === 4) {            // arrived by scanning a TV: ask what that TV should show
+      state.pairTv = tv;
+      history.replaceState(null, '', location.pathname);
+    }
     S.get('pub/series').then(function (list) {
       state.series = list || {};
-      var want = new URLSearchParams(location.search).get('s') || S.pref('series');
+      var want = q.get('s') || S.pref('series');
       var ids = Object.keys(state.series);
+      if (state.pairTv) { state.phase = 'series'; state.ui.modal = { type: 'pair', code: state.pairTv }; loadScreens(); return render(); }
       if (want && state.series[want]) return openSeries(want);
       if (ids.length === 1) return openSeries(ids[0]);
-      state.phase = 'series'; render();
+      state.phase = 'series'; loadScreens(); render();
     }).catch(fail);
   }
   function fail(err) { state.phase = 'error'; state.error = (err && err.message) || String(err); render(); }
@@ -77,7 +85,7 @@
     var id = state.seriesId;
     return S.get('pub/live/' + id).then(function (live) {
       if (!live || !live.sessionId) return null;
-      state.liveRev = live.rev;
+      state.liveRev = live.rev; state.livePing = live.ping || 0;
       return S.get('pub/sessions/' + id + '/' + live.sessionId);
     }).then(function (data) {
       var s = E.normalize(data);
@@ -87,6 +95,7 @@
         state.dirty = false;
       } else newNight(s && s.discarded ? s : null);
       state.phase = 'night'; render();
+      applyPhoneScores();
       return S.get('pub/results/' + id).then(function (all) { state.regulars = regularsFrom(all); render(); }).catch(function () { /* optional */ });
     });
   }
@@ -154,9 +163,44 @@
     if (state.phase !== 'night' || state.dirty || state.saving || document.hidden) return;
     var id = state.seriesId;
     S.get('pub/live/' + id).then(function (live) {
-      if (!live || live.rev === state.liveRev || state.dirty || state.saving || id !== state.seriesId) return;
-      return loadNight();
+      if (!live || state.dirty || state.saving || id !== state.seriesId) return;
+      if (live.rev !== state.liveRev) return loadNight();
+      if ((live.ping || 0) !== state.livePing) { state.livePing = live.ping || 0; return applyPhoneScores(); }
     }).catch(function () { /* offline for a moment: the next tick tries again */ });
+  }
+  // Scores that players sent from their phones for the round on court: put them into the night. When the
+  // last court comes in, this also starts the next round, exactly as if it had been typed here.
+  function applyPhoneScores() {
+    var s = state.session, id = state.seriesId, cur = s ? E.currentRound(s) : null;
+    if (!s || s.status !== 'live' || !cur) return Promise.resolve();
+    return S.get('pub/scores/' + id + '/' + s.id + '/r' + cur.n).then(function (entries) {
+      if (state.session !== s || !entries || !E.pendingPlayerScores(s, cur.n, entries).length) return;
+      var out = commit(function (x) { return E.applyPlayerScores(x, cur.n, entries); });
+      if (out.applied.length) {
+        var last = out.applied[out.applied.length - 1];
+        toast(out.advanced ? 'Last score came in from a phone. Round ' + (cur.n + 1) + ' is up.' :
+          'Court ' + last.court + ': ' + last.sa + '\u2013' + last.sb + ' sent from a phone.');
+        render();
+      }
+    }).catch(function () { /* tried again on the next change */ });
+  }
+
+  // ---- TVs: which event each paired screen shows
+  function loadScreens() {
+    return S.get('pub/screens').then(function (all) { state.screens = all || {}; render(); }).catch(function () { /* optional */ });
+  }
+  function saveScreen(code, patch, done) {
+    var cur = state.screens[code] || {};
+    var next = { seriesId: patch.seriesId !== undefined ? patch.seriesId : (cur.seriesId || ''), name: patch.name !== undefined ? patch.name : (cur.name || ''), at: Date.now() };
+    var up = {}; up['pub/screens/' + code] = patch.remove ? null : next;
+    var again = function () { saveScreen(code, patch, done); };
+    S.write(up).then(function () {
+      if (patch.remove) delete state.screens[code]; else state.screens[code] = next;
+      if (done) done(); else render();
+    }).catch(function (err) {
+      if (err.status === 401 || err.status === 403) { state.ui.modal = { type: 'key', wrong: !!S.getKey(), then: again }; render(); }
+      else { toast('Could not save: ' + err.message); render(); }
+    });
   }
 
   // ---------------------------------------------------------------- views
@@ -191,7 +235,7 @@
       h('h1', null, state.phase === 'night' ? (meta.name || 'Padel Socials') : 'Padel Socials'),
       pill, h('span', { class: 'spacer' }), sync,
       state.phase === 'night' ? h('button', { class: 'linkbtn', type: 'button', onclick: function () { state.ui.modal = { type: 'tv' }; render(); } }, 'TV screen') : null,
-      state.phase === 'night' ? h('button', { class: 'linkbtn', type: 'button', onclick: function () { state.phase = 'series'; render(); } }, 'Events') : null
+      state.phase === 'night' ? h('button', { class: 'linkbtn', type: 'button', onclick: function () { state.phase = 'series'; loadScreens(); render(); } }, 'Events') : null
     ]);
   }
 
@@ -226,7 +270,43 @@
           btn('Create', 'primary', create)
         ]),
         h('p', { class: 'hint' }, 'Format: King’s Court, fixed partners, with sit-outs. Points belong to the couple.')
-      ])
+      ]),
+      ids.length ? tvsPanel(ids) : null
+    ]);
+  }
+
+  function tvsPanel(ids) {
+    var codes = Object.keys(state.screens).sort();
+    var options = function (selected) {
+      return [h('option', { value: '' }, 'Choose a social…')].concat(ids.map(function (id) {
+        return h('option', { value: id, selected: id === selected }, state.series[id].name);
+      }));
+    };
+    var add = function () {
+      var code = state.ui.tvCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (code.length !== 4) { toast('The TV code has four letters or numbers. It is shown on the TV.'); return render(); }
+      if (!state.ui.tvEvent) { toast('Choose which social that TV should show.'); return render(); }
+      saveScreen(code, { seriesId: state.ui.tvEvent }, function () { state.ui.tvCode = ''; toast('TV ' + code + ' now shows ' + state.series[state.ui.tvEvent].name + '.'); render(); });
+    };
+    return h('div', { class: 'panel' }, [
+      h('h2', null, ['TVs', h('small', null, 'which social each screen shows')]),
+      codes.length ? h('div', { class: 'tvlist' }, codes.map(function (code) {
+        var scr = state.screens[code];
+        return h('div', { class: 'tvitem', 'data-tv': code }, [
+          h('span', { class: 'code' }, code),
+          h('input', { type: 'text', id: 'tvname-' + code, placeholder: 'Name, e.g. Bar', maxlength: 24, value: scr.name || '', 'aria-label': 'Name of TV ' + code,
+            onchange: function (e) { saveScreen(code, { name: e.target.value.trim() }); } }),
+          h('select', { id: 'tvevent-' + code, 'aria-label': 'Social shown on TV ' + code, onchange: function (e) { if (e.target.value) saveScreen(code, { seriesId: e.target.value }, function () { toast('TV ' + code + ' now shows ' + state.series[e.target.value].name + '.'); render(); }); } }, options(scr.seriesId)),
+          btn('Remove', 'small danger', function () { saveScreen(code, { remove: true }); }, { 'aria-label': 'Remove TV ' + code })
+        ]);
+      })) : h('p', { class: 'hint' }, 'No TV is paired yet. A TV with no social shows a QR code and a four-character code.'),
+      h('div', { class: 'tvadd' }, [
+        h('input', { type: 'text', id: 'tvCode', placeholder: 'TV code', maxlength: 4, autocapitalize: 'characters', autocomplete: 'off', value: state.ui.tvCode,
+          oninput: function (e) { state.ui.tvCode = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') add(); } }),
+        h('select', { id: 'tvEvent', 'aria-label': 'Social for the new TV', onchange: function (e) { state.ui.tvEvent = e.target.value; } }, options(state.ui.tvEvent)),
+        btn('Add TV', 'primary', add, { id: 'addTv' })
+      ]),
+      h('p', { class: 'hint' }, 'Scan the QR code on a TV, or type its code here. The small code in the corner of each TV tells you which is which.')
     ]);
   }
 
@@ -501,9 +581,12 @@
       body = [h('h3', null, m.title), h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, m.text),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn(m.ok, m.danger ? 'danger' : 'primary', function () { state.ui.modal = null; m.onOk(); }, { id: 'modalOk' })])];
     } else if (m.type === 'tv') {
-      var url = location.origin + location.pathname.replace(/index\.html$/, '') + 'tv/?s=' + encodeURIComponent(state.seriesId);
-      body = [h('h3', null, 'TV screen'), h('p', { style: 'margin:0;font-size:17px' }, 'Open this address in the browser on each club TV, then press Full screen:'), h('div', { class: 'tvlink' }, url),
-        h('p', { class: 'hint' }, 'If this is your only event you can leave off everything after “tv/”.'), h('div', { class: 'row end' }, btn('Close', 'primary', closeModal))];
+      var site = location.origin + location.pathname.replace(/index\.html$/, '');
+      body = [h('h3', null, 'TV screen'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Open this address in the browser on each club TV, then press Full screen:'), h('div', { class: 'tvlink' }, site + 'tv/'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'With one social the TV shows it by itself. With several, each TV shows a QR code: scan it with this device, or add the TV by its code under Events \u2192 TVs.'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Players’ score page (the TV shows it as a QR code during a round):'), h('div', { class: 'tvlink' }, site + 'p/?s=' + encodeURIComponent(state.seriesId)),
+        h('div', { class: 'row end' }, btn('Close', 'primary', closeModal))];
     } else if (m.type === 'courts') {
       var curR = E.currentRound(s), same = JSON.stringify(m.courts) === JSON.stringify(s.courts);
       var teamsN = E.activeTeams(s).length, kk = Math.min(m.courts.length, Math.floor(teamsN / 2));
@@ -522,6 +605,16 @@
         courtPicker(m.courts, function (next) { m.courts = next; render(); }),
         h('div', { class: 'notice' }, [effect, m.courts.length ? h('div', { style: 'margin-top:6px' }, teamsN + ' teams on ' + kk + (kk === 1 ? ' court' : ' courts') + ': ' + (2 * kk) + ' play, ' + (teamsN - 2 * kk) + ' sit out each round.') : null]),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Use these courts', 'primary', applyCourts, { disabled: same || !m.courts.length, id: 'applyCourts' })])];
+    } else if (m.type === 'pair') {
+      var evIds = Object.keys(state.series).sort(function (a, b) { return state.series[a].name < state.series[b].name ? -1 : 1; });
+      var pick = function (id) {
+        saveScreen(m.code, { seriesId: id }, function () { state.ui.modal = null; state.pairTv = null; toast('TV ' + m.code + ' now shows ' + state.series[id].name + '.'); render(); });
+      };
+      body = [h('h3', null, 'TV ' + m.code),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, evIds.length ? 'Which social should this screen show?' : 'Create your social first (close this, name it, press Create). Then open Events and add TV ' + m.code + ' under TVs.'),
+        h('div', { class: 'serieslist' }, evIds.map(function (id) { return btn(state.series[id].name, '', function () { pick(id); }, { 'data-pick': id }); })),
+        h('p', { class: 'hint' }, 'To put a new social on this screen: close this, create it below, then come back to Events and add TV ' + m.code + ' under TVs.'),
+        h('div', { class: 'row end' }, btn('Close', '', function () { state.pairTv = null; closeModal(); }))];
     } else if (m.type === 'key') {
       var save = function () {
         var k = state.ui.keyInput.trim();
@@ -575,7 +668,7 @@
   }
 
   // ---------------------------------------------------------------- go
-  setInterval(watch, 5000);
+  setInterval(watch, 2000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) { watch(); flush(); } });
   window.addEventListener('online', flush);
   window.addEventListener('beforeunload', function (e) { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });

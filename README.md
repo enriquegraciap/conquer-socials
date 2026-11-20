@@ -8,6 +8,8 @@ A small web app for running padel socials: the iPad runs the night, the club TVs
 No App Store, no install. On the iPad open the address in Safari and use Share → Add to Home Screen.
 On a TV open the address in the TV's browser and press **Full screen**.
 
+Players' phones: `https://enriquegraciap.github.io/conquer-socials/p/` (the TV shows it as a QR code during a round).
+
 ## How a night works
 
 1. **Events** – one event per weekly social and club (for example "Lehi Date Night"). Each has its own monthly leaderboard.
@@ -23,7 +25,12 @@ On a TV open the address in the TV's browser and press **Full screen**.
    court. If a team leaves mid-round, a team that was sitting out takes its place.
 6. **Mistyped score** – open "Earlier rounds" and tap the score. Points are always corrected. If the winner changes
    and nobody has played the next round yet, that round is redone.
-7. **End night** – results are saved to the month. "Discard this night" removes a test run from the month.
+7. **Scores from phones** – during a round the TV shows a QR code. A player scans it, picks their team once, and
+   sees only their own court; either team can send that court's score. The court turns green on the TV. The
+   organizer's device (admin page open) applies the score, and the last one starts the next round.
+8. **Several socials, several TVs** – a TV with no social shows a QR code and a four-character code. Scan it from
+   the admin page, or add the code under Events → TVs, and choose which social that screen shows.
+9. **End night** – results are saved to the month. "Discard this night" removes a test run from the month.
 
 ## The format: King's Court, fixed partners, with sit-outs
 
@@ -45,6 +52,8 @@ supported for future formats where points belong to each player.
 | --- | --- |
 | `docs/index.html`, `docs/admin.js` | iPad admin page |
 | `docs/tv/index.html`, `docs/tv.js` | TV display page |
+| `docs/p/index.html`, `docs/player.js` | players' phone page for sending in their court's score |
+| `docs/qr.js` | QR code generator (MIT licence, Kazuhiko Arase) |
 | `docs/engine.js` | rotation, sit-outs, scoring, leaderboards (no browser code; shared with the tests) |
 | `docs/store.js` | reads and writes the Firebase Realtime Database |
 | `docs/awake.js` | keeps the iPad and TV screens on while the page is open |
@@ -60,6 +69,8 @@ pub/series/{event}                      name, format, scoring
 pub/live/{event}                        which night is on, and a counter the TVs watch
 pub/sessions/{event}/{night}            the full night: teams, rounds, scores
 pub/results/{event}/{YYYY-MM}/{night}   totals per night; the monthly table is the sum of these
+pub/scores/{event}/{night}/r{n}/c{i}    a score sent from a phone (open to write, numbers 0-6 only)
+pub/screens/{tvCode}                    which event a paired TV shows
 ```
 
 The admin key is **not** in this repository. It is set in the Firebase rules (replace `YOUR-ADMIN-KEY` in

@@ -177,8 +177,8 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .tvbar-r { justify-self: end; }
 .tvbar-r img { height: 6.2vh; width: auto; display: block; }
 #tv { flex: 1 1 auto; min-height: 0; }
-.tvroot { height: 100%; width: 100vw; display: grid; grid-template-columns: 2fr 1fr; gap: 1.6vw; padding: 2.2vh 1.8vw 5vh; }
-.tvleft { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 1.6vh; min-width: 0; min-height: 0; }
+.tvroot { height: 100%; width: 100vw; display: grid; grid-template-columns: 2fr 1fr; gap: 1.6vw; padding: 2.2vh 1.8vw; }
+.tvleft { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 1.6vh; min-width: 0; min-height: 0; padding-bottom: 3.6vh; }
 .tvhead { display: flex; align-items: flex-end; gap: 1.6vw; border-bottom: .35vh solid var(--line); padding-bottom: 1vh; }
 .tvhead .round { font-family: var(--display); font-weight: 700; font-size: 8vh; line-height: .9; text-transform: uppercase; letter-spacing: .02em; }
 .tvhead .round.flash { animation: flash 2.4s ease-out 1; }
@@ -192,14 +192,22 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .tvcourt .cn { align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--court-deep); font-family: var(--display); line-height: .95; }
 .tvcourt .cn span { font-size: 2.1vh; letter-spacing: .16em; text-transform: uppercase; color: #a9c3e0; }
 .tvcourt .cn b { font-size: 8.4vh; font-weight: 700; }
+.tvcourt.done { background: #1b7a4f; border-color: rgba(255,255,255,.75); }
+.tvcourt.done:not(.king) .cn { background: #115235; }
 .tvcourt.king { border-color: var(--gold); }
 .tvcourt.king .cn { background: var(--gold); color: var(--ink); }
 .tvcourt.king .cn span { color: var(--ink); font-weight: 600; }
 .tvcourt .tm { font-family: var(--display); font-weight: 600; font-size: 5.6vh; line-height: 1.04; min-width: 0; max-height: 100%; overflow: hidden; overflow-wrap: break-word; }
 .tvcourt .tm.b { text-align: right; }
-.tvcourt .tm.lost { opacity: .55; }
+.tvcourt .tm.lost { opacity: .6; }
 .tvcourt .mid { font-family: var(--display); font-size: 3vh; letter-spacing: .1em; color: #cfe0f3; text-align: center; min-width: 5vw; }
 .tvcourt .mid.score { font-size: 6.4vh; font-weight: 700; color: #fff; letter-spacing: .02em; }
+.tvbottom { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.2vw; align-items: stretch; min-height: 0; }
+.tvbottom .tvsit { grid-template-columns: minmax(0, 1fr); gap: .5vh; align-content: center; }   /* label above the names, so the names get the full width */
+.tvqr { display: flex; align-items: center; gap: 1vw; background: #fff; color: var(--ink); border-radius: 1vh; padding: .7vh .7vh .7vh 1.2vw; }
+.tvqr .cap { font-family: var(--display); font-weight: 700; font-size: 2.9vh; line-height: 1.05; letter-spacing: .05em; text-transform: uppercase; max-width: 8.5vw; }
+.tvqr .cap small { display: block; margin-top: .7vh; font-weight: 500; font-size: 1.9vh; letter-spacing: .03em; text-transform: none; color: var(--muted); }
+.tvqr svg { height: 13.5vh; width: 13.5vh; display: block; }
 .tvsit { background: rgba(255,255,255,.07); border-radius: 1vh; padding: 1.2vh 1.2vw; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1.2vw; align-items: baseline; }
 .tvsit .lab { font-family: var(--display); font-size: 2.8vh; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); white-space: nowrap; }
 .tvsit .names { font-family: var(--display); font-size: 3.8vh; font-weight: 500; line-height: 1.15; min-width: 0; overflow: hidden; overflow-wrap: break-word; }
@@ -228,15 +236,71 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
   font-family: var(--display); font-size: 2.6vh; letter-spacing: .1em; text-transform: uppercase; padding: 1vh 1.2vw; }
 .fsbtn:focus { outline: .4vh solid var(--gold); }
 body.tv.hasbtn .tvroot { padding-bottom: 8.6vh; }   /* room for the Full screen button until it is used */
-/* Today's date, bottom right. It sits beside the Full screen button until the page is in full screen. */
-.tvdate { position: fixed; right: 1.8vw; bottom: 1.1vh; z-index: 8; font-family: var(--display); font-size: 2.8vh; line-height: 1; letter-spacing: .1em;
+/* Today's date and a running clock, bottom left, under the courts. The right column is left to the leaderboards. */
+.tvdate { position: fixed; left: 1.8vw; bottom: 1.1vh; z-index: 8; font-family: var(--display); font-size: 2.8vh; line-height: 1; letter-spacing: .1em;
   text-transform: uppercase; color: #cfe0f3; white-space: nowrap; }
-body.tv.hasbtn .tvdate { right: 17.5vw; bottom: 3.2vh; }
-.tvdate #timetext { display: inline-block; min-width: 6.6em; text-align: right; margin-left: .5em; color: #fff; font-weight: 600; }   /* fixed width so the seconds do not make the line jump */
-.tvstatus { position: fixed; left: 1.8vw; bottom: .5vh; font-size: 1.6vh; color: #6f8fb3; }
+body.tv.hasbtn .tvleft { padding-bottom: 0; }
+body.tv.hasbtn .tvdate { bottom: 3.2vh; }
+.tvdate #timetext { display: inline-block; min-width: 6.4em; text-align: left; margin-left: 1em; color: #fff; font-weight: 600; }   /* fixed width so the seconds do not make the line jump */
+.tvstatus { margin-left: 1.2em; color: var(--gold); letter-spacing: .04em; text-transform: none; }
+.tvcode { position: fixed; right: .5vw; top: 10.6vh; z-index: 8; font-family: var(--display); font-size: 1.5vh; letter-spacing: .14em; color: #55708f; }
+.tvpair { height: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5vw; align-items: center; padding: 4vh 7vw; }
+.tvpair .qrbox { background: #fff; border-radius: 2vh; padding: 1.6vh; }
+.tvpair .qrbox svg { display: block; height: 54vh; width: 54vh; }
+.tvpair h1 { font-family: var(--display); font-size: 8vh; line-height: 1; text-transform: uppercase; margin: 0 0 2.4vh; }
+.tvpair p { font-size: 3.4vh; line-height: 1.3; color: #cfe0f3; margin: 0 0 1.6vh; max-width: 40vw; }
+.tvpair p.or { margin-top: 4vh; font-size: 2.8vh; color: #a9c3e0; }
+.tvpair .code { font-family: var(--display); font-weight: 700; font-size: 13vh; line-height: 1; letter-spacing: .22em; color: var(--gold); }
 .tvpick { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; padding: 4vh; text-align: center; }
 .tvpick h1 { font-family: var(--display); font-size: 7vh; text-transform: uppercase; margin: 0; }
 .tvpick p { font-size: 2.8vh; color: #a9c3e0; max-width: 70vw; margin: 0; }
 .tvpick button { font-family: var(--display); font-size: 5vh; padding: 1.6vh 3vw; border-radius: 1vh; border: .3vh solid #fff; background: var(--court); color: #fff; min-width: 40vw; }
 .tvpick button:focus { outline: .5vh solid var(--gold); }
 @media (prefers-reduced-motion: reduce) { .tvhead .round.flash { animation: none; } }
+
+/* ------------------------------------------------------------------ players' phone page */
+body.pl { background: #0a2f41; color: var(--ink); min-height: 100vh; }
+.pl-top { display: flex; align-items: center; gap: 12px; padding: calc(12px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px)); color: #fff; }
+.pl-top img { height: 34px; width: auto; }
+.pl-top b { display: block; font-family: var(--display); font-size: 22px; letter-spacing: .05em; text-transform: uppercase; line-height: 1.1; }
+.pl-top span { display: block; font-size: 15px; color: #a9c3e0; }
+.pl-main { display: grid; gap: 12px; padding: 4px max(16px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); max-width: 560px; margin: 0 auto; }
+.pl-card { background: #fff; border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
+.pl-card.done { background: #e9f7ef; border: 2px solid var(--good); }
+.pl-card h2 { margin: 0; font-family: var(--display); font-size: 28px; line-height: 1.1; text-transform: uppercase; letter-spacing: .03em; color: var(--court-deep); text-wrap: balance; }
+.pl-card p { margin: 0; font-size: 17px; line-height: 1.4; color: #33475c; }
+.pl-card p.ok { color: #14613f; font-weight: 600; }
+.pl-card p.err { color: var(--bad); font-weight: 600; }
+.pl-court { display: flex; align-items: baseline; gap: 10px; font-family: var(--display); color: var(--court-deep); }
+.pl-court span { font-size: 16px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.pl-court b { font-size: 44px; line-height: 1; }
+.pl-court.king span { color: #9a6b00; font-weight: 600; }
+.pl-vs { display: grid; gap: 2px; font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.pl-vs .us { color: var(--court); }
+.pl-vs .v { font-family: var(--display); font-size: 14px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.pl-row { display: grid; gap: 6px; }
+.pl-row label { font-size: 14px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.pl-digits { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
+.pl-digits button, .pl-two button { border: 1px solid var(--rule); background: #fff; border-radius: 10px; min-height: 58px; font-family: var(--display); font-size: 30px; font-weight: 700; color: var(--ink); }
+.pl-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pl-two button { font-size: 22px; }
+.pl-digits button.on, .pl-two button.on { background: var(--court); border-color: var(--court); color: #fff; }
+.pl-send { border: 0; border-radius: 10px; min-height: 60px; background: var(--gold); color: var(--ink); font-size: 20px; font-weight: 700; }
+.pl-send:disabled { opacity: .45; }
+.pl-score { display: flex; align-items: baseline; justify-content: center; gap: 14px; font-family: var(--display); color: #14613f; }
+.pl-score b { font-size: 72px; line-height: 1; } .pl-score span { font-size: 40px; }
+.pl-link { background: none; border: 0; padding: 10px 4px; font-size: 16px; text-decoration: underline; color: var(--court); justify-self: start; }
+.pl-list { display: grid; gap: 8px; }
+.pl-pick { text-align: left; border: 0; background: #fff; border-radius: 12px; min-height: 58px; padding: 12px 16px; font-size: 20px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.pl-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #fff; padding: 4px 2px; }
+.pl-foot b { display: block; font-size: 17px; overflow-wrap: anywhere; } .pl-foot span { display: block; font-size: 15px; color: #a9c3e0; }
+.pl-foot .pl-link { color: #cfe0f3; white-space: nowrap; }
+.pl button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+/* TVs list on the iPad's Events screen */
+.tvlist { display: grid; gap: 8px; }
+.tvitem { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.2fr) auto; gap: 8px; align-items: center; border: 1px solid var(--rule); border-radius: 8px; padding: 8px; }
+.tvitem .code { font-family: var(--display); font-size: 24px; font-weight: 700; letter-spacing: .12em; color: var(--court-deep); padding: 0 6px; }
+.tvitem select, .tvadd select { border: 1px solid var(--rule); border-radius: 8px; padding: 10px; font-size: 16px; min-height: 46px; background: #fff; min-width: 0; width: 100%; }
+.tvadd { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-top: 10px; }
+@media (max-width: 599px) { .tvitem { grid-template-columns: auto minmax(0, 1fr); } .tvadd { grid-template-columns: minmax(0, 1fr); } }

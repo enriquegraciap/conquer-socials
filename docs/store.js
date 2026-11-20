@@ -8,8 +8,12 @@
  *   pub/sessions/{seriesId}/{sessionId}         the full night (teams, rounds, scores)
  *   pub/results/{seriesId}/{YYYY-MM}/{sessionId} per-night totals; the monthly table is the sum of these
  *
+ *   pub/scores/{seriesId}/{sessionId}/r{round}/c{court}  a score sent from a player's phone (applied by the organizer's device)
+ *   pub/screens/{tvCode}                        which event a paired TV shows
+ *
  * Reading is open. Writing needs the admin key: every write also touches gate/{key}, and the database
- * rules only accept a write to "pub" when that happens (see database.rules.json).
+ * rules only accept a write to "pub" when that happens (see database.rules.json). The two exceptions,
+ * open to players' phones, are pub/scores/... (numbers 0 to 6 only) and pub/live/{seriesId}/ping.
  */
 (function (root) {
   'use strict';
@@ -55,6 +59,9 @@
       body['gate/' + key] = Date.now() * 1000 + Math.floor(Math.random() * 1000);
       return request('PATCH', '', body);
     },
+    // A player's phone: no admin key. The database only accepts this for a court's score and the "something
+    // changed" counter; everything else is refused.
+    writePublic: function (updates) { return request('PATCH', '', updates); },
     getKey: getKey,
     setKey: setKey,
     pref: function (name, value) {

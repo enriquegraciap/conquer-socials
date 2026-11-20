@@ -71,12 +71,40 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   assert.ok(boardBox.y + boardBox.height <= btnBox.y, 'the button does not cover the leaderboard');
   await tv.screenshot({ path: SHOTS + 'tv-round1.png' });
 
+  // 4b. the TV shows a QR code for players; one of them sends in the bottom court's score from a phone
+  assert.ok((await tv.getAttribute('.tvqr svg', 'data-qr')).endsWith('/p/?s=lehi-date-night'), 'players\' QR points at the score page for this social');
+  const bottomTeam = (await admin.locator('.courtcard[data-court="3"] .tm div').first().textContent()).trim();
+  const phoneCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const player = await phoneCtx.newPage();
+  player.on('pageerror', e => errors.push('player: ' + e));
+  await player.goto(BASE + '/p/?db=' + DB + '&s=lehi-date-night');
+  await player.waitForSelector('.pl-pick');
+  assert.equal(await player.locator('.pl-pick').count(), 14, 'the phone lists tonight\'s teams');
+  await player.click(`.pl-pick[data-team="${bottomTeam}"]`);
+  await player.waitForSelector('#send');
+  assert.match(await player.textContent('.pl-court'), /Court\s*3/);
+  assert.deepEqual(await player.locator('.pl-digits button[data-who="us"]').allTextContents(), ['0', '1', '2', '3', '4', '5', '6']);
+  assert.ok(await player.locator('#send').isDisabled(), 'nothing to send until both scores are picked');
+  await player.screenshot({ path: SHOTS + 'phone-entry.png' });
+  await player.click('.pl-digits button[data-who="us"][data-v="6"]');
+  await player.click('.pl-digits button[data-who="them"][data-v="2"]');
+  await player.click('#send');
+  await player.waitForSelector('text=Score is in');
+  await tv.waitForSelector('.tvcourt.done', { timeout: 6000 });
+  assert.equal(await tv.locator('.tvcourt.done').count(), 1, 'that court turns green on the TV');
+  assert.match(await tv.textContent('.tvcourt.done .mid'), /6 . 2/);
+  await admin.waitForSelector('text=sent from a phone', { timeout: 8000 });
+  assert.equal(await admin.locator('.panel >> nth=0 >> .courtcard.todo').count(), 4, 'the organizer\'s page picked the score up');
+  assert.equal(await player.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) <= 0, true, 'phone page has no sideways scroll');
+  await player.screenshot({ path: SHOTS + 'phone-sent.png' });
+  step('a player sent 6-2 for court 3 from a phone: TV went green, organizer\'s page applied it');
+
   // 5. enter a round of scores; the next round appears by itself
   async function scoreRound(n, shots) {
-    const cards = admin.locator(`.courtcards >> nth=0 >> .courtcard`);
-    const count = await cards.count();
-    for (let i = 0; i < count; i++) {
-      await admin.locator(`.panel >> nth=0 >> .courtcard.todo`).first().click();
+    for (let i = 0; i < 20; i++) {
+      const todo = admin.locator(`.panel >> nth=0 >> .courtcard.todo[data-round="${n}"]`);
+      if (!(await todo.count())) break;
+      await todo.first().click();
       const aWins = (n + i) % 2 === 0, lose = (n * 3 + i) % 4;
       await admin.click(`.digits button[data-side="sa"][data-v="${aWins ? 4 : lose}"]`);
       await admin.click(`.digits button[data-side="sb"][data-v="${aWins ? lose : 4}"]`);
@@ -91,6 +119,8 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   }
   await scoreRound(1, true);
   await admin.waitForSelector('.roundhead .big:text("Round 2")');
+  await player.waitForFunction(() => /Round 2/.test(document.querySelector('.pl-top span').textContent), null, { timeout: 8000 });
+  assert.ok(await player.locator('#send, .pl-card h2').count(), 'the phone moved on to round 2 by itself');
   t0 = Date.now();
   await tv.waitForSelector('.tvhead .round:text("Round 2")', { timeout: 6000 });
   step('round 2 generated automatically; TV caught up after ' + (Date.now() - t0) + ' ms');
@@ -201,11 +231,68 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await admin.click('text=Cancel');
   step('score buttons: 0-6 for sets to 6, 0-4 for sets to 4');
 
+  // 13b. two teams, one court: the phone sends the only score and the next round starts without touching the iPad
+  await admin.waitForSelector('.sync:text("Saved")');
+  const solo = await phoneCtx.newPage();
+  await solo.goto(BASE + '/p/?db=' + DB + '&s=lehi-date-night');
+  await solo.waitForSelector('.pl-pick');
+  assert.equal(await solo.locator('.pl-pick').count(), 2);
+  await solo.locator('.pl-pick').first().click();
+  await solo.waitForSelector('#send');
+  await solo.click('.pl-digits button[data-who="us"][data-v="4"]');
+  await solo.click('.pl-digits button[data-who="them"][data-v="4"]');
+  assert.ok(await solo.locator('#send').isDisabled(), 'level score: must say who moves up');
+  await solo.click('.pl-two button >> nth=0');
+  await solo.click('#send');
+  await tv.waitForSelector('.tvhead .round:text("Round 2")', { timeout: 10000 });
+  await solo.waitForFunction(() => /Round 2/.test(document.querySelector('.pl-top span').textContent), null, { timeout: 8000 });
+  await solo.waitForSelector('#send');
+  step('last score sent from a phone: round 2 started by itself on the TV and on the phone');
+
+  // 13c. a second social, and TVs paired to one or the other
+  const admin2 = await ipad.newPage();
+  admin2.on('pageerror', e => errors.push('admin2: ' + e));
+  await admin2.goto(BASE + '/?db=' + DB);
+  await admin2.waitForSelector('.topbar .linkbtn:text("Events")');
+  await admin2.click('.topbar .linkbtn:text("Events")');
+  await admin2.fill('#newSeries', 'Tempe Mixer');
+  await admin2.click('text=Create');
+  await admin2.waitForSelector('text=Courts');
+  await admin2.waitForSelector('.sync:text("Saved")');
+  const tv2 = await (await browser.newContext({ viewport: { width: 1920, height: 1080 } })).newPage();
+  tv2.on('pageerror', e => errors.push('tv2: ' + e));
+  await tv2.goto(BASE + '/tv/?db=' + DB);
+  await tv2.waitForSelector('.tvpair .code');
+  const code = (await tv2.textContent('.tvpair .code')).trim();
+  assert.match(code, /^[A-Z2-9]{4}$/);
+  assert.ok((await tv2.getAttribute('.tvpair svg', 'data-qr')).endsWith('/?tv=' + code), 'pairing QR opens the admin page for this TV');
+  await tv2.screenshot({ path: SHOTS + 'tv-pairing.png' });
+  await admin2.goto(BASE + '/?db=' + DB + '&tv=' + code);          // what scanning the QR does
+  await admin2.waitForSelector('[data-pick="tempe-mixer"]');
+  await admin2.screenshot({ path: SHOTS + 'ipad-pair.png' });
+  await admin2.click('[data-pick="tempe-mixer"]');
+  await tv2.waitForFunction(() => document.getElementById('bartitle').textContent === 'Tempe Mixer', null, { timeout: 8000 });
+  assert.equal(await tv.textContent('#bartitle'), 'Lehi Date Night', 'the first TV is untouched');
+  await admin2.waitForSelector(`#tvevent-${code}`);
+  await admin2.selectOption(`#tvevent-${code}`, 'lehi-date-night');     // re-point it from the TVs list
+  await tv2.waitForFunction(() => document.getElementById('bartitle').textContent === 'Lehi Date Night', null, { timeout: 12000 });
+  const tv3 = await (await browser.newContext({ viewport: { width: 1920, height: 1080 } })).newPage();
+  await tv3.goto(BASE + '/tv/?db=' + DB);
+  await tv3.waitForSelector('.tvpair .code');
+  const code3 = (await tv3.textContent('.tvpair .code')).trim();
+  await admin2.fill('#tvCode', code3.toLowerCase());                 // typed by hand, any case
+  await admin2.selectOption('#tvEvent', 'tempe-mixer');
+  await admin2.click('#addTv');
+  await tv3.waitForFunction(() => document.getElementById('bartitle').textContent === 'Tempe Mixer', null, { timeout: 8000 });
+  assert.equal(await admin2.locator('.tvitem').count(), 2);
+  await admin2.screenshot({ path: SHOTS + 'ipad-tvs.png', fullPage: true });
+  step('two socials: one TV paired by QR, re-pointed from the TVs list, another added by typing its code');
+
   // 14. phone-width check of the admin page (no sideways scroll)
   const phone = await browser.newContext({ viewport: { width: 400, height: 800 }, hasTouch: true });
   const pp = await phone.newPage();
   await pp.goto(BASE + '/?db=' + DB + '#k=test-key');
-  await pp.waitForSelector('.roundhead .big');
+  await pp.waitForSelector('.tvadd');
   const overflow = await pp.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   assert.ok(overflow <= 0, 'no sideways scroll at phone width (overflow ' + overflow + 'px)');
 

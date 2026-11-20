@@ -1,13 +1,23 @@
-/* Padel Socials — TV display. Read-only: checks the database every 2 seconds and redraws when something changed. */
+/* Padel Socials — TV display. Read-only: checks the database every 2 seconds and redraws when something changed.
+ *
+ * Which event a TV shows:
+ *   1. an event named in the address (tv/?s=event-id) always wins;
+ *   2. otherwise the event this TV was paired with from the admin page (scan the QR, or type the TV code);
+ *   3. otherwise, if the club has exactly one event, that one;
+ *   4. otherwise the pairing screen with a QR code.
+ */
 (function () {
   'use strict';
   var E = window.Engine, S = window.Store;
-  var root = document.getElementById('tv'), statusEl = document.getElementById('status'), fsBtn = document.getElementById('fs');
+  var root = document.getElementById('tv'), statusEl = document.getElementById('status'), codeEl = document.getElementById('tvcode'), fsBtn = document.getElementById('fs');
   var POLL_MS = 2000, MONTH_ROWS = 10;
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var fixed = new URLSearchParams(location.search).get('s');
+  var SITE = new URL('../', location.href).href;          // the site's home address, where the admin and player pages live
 
-  var st = { seriesId: null, seriesName: '', series: null, rev: null, sessionId: null, session: null, month: null, monthKey: null,
-    busy: false, lastOk: 0, lastRound: 0, shown: false };
+  var st = { id: tvId(), mode: 'boot', series: {}, seriesId: null, seriesName: '', rev: null, ping: 0, session: null, pending: {},
+    month: null, monthKey: null, busy: false, lastOk: 0, lastRound: 0, shown: false, ticks: 0, pendingSince: 0, pairShown: '' };
 
   function h(tag, cls, kids) {
     var el = document.createElement(tag);
@@ -22,53 +32,132 @@
   }
   function name(id) { var t = st.session.teams[id]; return t ? t.name : ''; }
 
+  // Every TV keeps a short code of its own, shown in the bottom corner and inside the pairing QR.
+  function tvId() {
+    var id = S.pref('tvId');
+    if (!id || !/^[A-HJ-NP-Z2-9]{4}$/.test(id)) {
+      var abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      id = '';
+      for (var i = 0; i < 4; i++) id += abc.charAt(Math.floor(Math.random() * abc.length));
+      S.pref('tvId', id);
+    }
+    return id;
+  }
+
+  // A QR code as a crisp, scalable drawing.
+  function qrSvg(text) {
+    try {
+      var q = window.qrcode(0, 'L');
+      q.addData(text); q.make();
+      var n = q.getModuleCount(), quiet = 3, size = n + quiet * 2, d = '';
+      for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (q.isDark(r, c)) d += 'M' + (c + quiet) + ' ' + (r + quiet) + 'h1v1h-1z';
+      var ns = 'http://www.w3.org/2000/svg';
+      var svg = document.createElementNS(ns, 'svg');
+      svg.setAttribute('viewBox', '0 0 ' + size + ' ' + size);
+      svg.setAttribute('shape-rendering', 'crispEdges');
+      svg.setAttribute('role', 'img');
+      svg.setAttribute('aria-label', 'QR code');
+      var bg = document.createElementNS(ns, 'rect');
+      bg.setAttribute('width', size); bg.setAttribute('height', size); bg.setAttribute('fill', '#ffffff');
+      var path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', d); path.setAttribute('fill', '#000000');
+      svg.appendChild(bg); svg.appendChild(path);
+      svg.setAttribute('data-qr', text);
+      return svg;
+    } catch (e) { return null; }
+  }
+
   // ---------------------------------------------------------------- data
   function start() {
     if (!S.configured) { root.replaceChildren(message('Not set up yet', 'No database address is set in config.js.')); return; }
-    var want = new URLSearchParams(location.search).get('s') || S.pref('tvSeries');
+    if (codeEl) codeEl.textContent = 'TV ' + st.id;
+    setInterval(tick, POLL_MS);
+    decide();
+  }
+  // Work out what this screen should show.
+  function decide() {
+    if (st.busy) return;
+    st.busy = true;
     S.get('pub/series').then(function (list) {
       st.series = list || {};
+      st.lastOk = Date.now();
+      return fixed ? null : S.get('pub/screens/' + st.id);
+    }).then(function (scr) {
+      st.busy = false;
       var ids = Object.keys(st.series);
-      if (want && st.series[want]) return choose(want);
-      if (ids.length === 1) return choose(ids[0]);
-      if (!ids.length) { root.replaceChildren(message('Padel Socials', 'No event has been created yet. Create one on the iPad and this screen will pick it up.')); setTimeout(start, 5000); return; }
-      picker(ids);
-    }).catch(function () { root.replaceChildren(message('Connecting…', 'Waiting for the internet connection.')); setTimeout(start, 4000); });
-  }
-  function picker(ids) {
-    var box = h('div', 'tvpick', [h('h1', null, 'Which event is on this screen?')]);
-    ids.forEach(function (id, i) {
-      var b = h('button', null, st.series[id].name);
-      b.type = 'button';
-      b.addEventListener('click', function () { choose(id); });
-      box.appendChild(b);
-      if (i === 0) setTimeout(function () { b.focus(); }, 50);
+      var want = fixed && st.series[fixed] ? fixed : (scr && scr.seriesId && st.series[scr.seriesId] ? scr.seriesId : (ids.length === 1 ? ids[0] : null));
+      if (want) { if (want !== st.seriesId || st.mode !== 'show') show(want); }
+      else pairing(ids.length);
+    }).catch(function () {
+      st.busy = false;
+      if (st.mode === 'boot') root.replaceChildren(message('Connecting…', 'Waiting for the internet connection.'));
     });
-    root.replaceChildren(box);
   }
-  function choose(id) {
-    st.seriesId = id; st.seriesName = (st.series[id] || {}).name || '';
+  function tick() {
+    if (document.hidden) return;
+    st.ticks++;
+    if (st.mode === 'show') { poll(); if (!fixed && st.ticks % 3 === 0) checkPairing(); }
+    else decide();
+    status();
+  }
+  // Has someone pointed this TV at a different event from the admin page?
+  function checkPairing() {
+    S.get('pub/screens/' + st.id).then(function (scr) {
+      if (!scr || !scr.seriesId || scr.seriesId === st.seriesId) return;
+      if (st.series[scr.seriesId]) return show(scr.seriesId);
+      return S.get('pub/series').then(function (list) { st.series = list || {}; if (st.series[scr.seriesId]) show(scr.seriesId); });
+    }).catch(function () { /* tried again on a later tick */ });
+  }
+  function show(id) {
+    st.mode = 'show'; st.seriesId = id; st.seriesName = (st.series[id] || {}).name || '';
+    st.rev = null; st.ping = 0; st.session = null; st.pending = {}; st.shown = false; st.lastRound = 0; st.pendingSince = 0; st.pairShown = '';
     barTitle();
-    S.pref('tvSeries', id);
     root.replaceChildren(message(st.seriesName, 'Loading…'));
     poll();
-    setInterval(poll, POLL_MS);
+  }
+  function pairing(count) {
+    st.mode = 'pair'; st.seriesId = null; st.seriesName = ''; st.session = null;
+    barTitle();
+    var key = st.id + ':' + count;
+    if (st.pairShown === key) return;            // already on screen: do not redraw every two seconds
+    st.pairShown = key;
+    var qr = qrSvg(SITE + '?tv=' + st.id);
+    root.replaceChildren(h('div', 'tvpair', [
+      qr ? h('div', 'qrbox', qr) : null,
+      h('div', 'txt', [
+        h('h1', null, 'Choose what this screen shows'),
+        h('p', null, count ? 'Scan this code with the club iPad, tablet or phone and pick your social.' : 'Scan this code with the club iPad, tablet or phone to create your social.'),
+        h('p', 'or', 'Or open Events on the iPad and add this TV by its code:'),
+        h('div', 'code', st.id)
+      ])
+    ]));
   }
   function poll() {
-    if (st.busy || document.hidden) return;
+    if (st.busy || document.hidden || st.mode !== 'show') return;
     st.busy = true;
     var id = st.seriesId;
     S.get('pub/live/' + id).then(function (live) {
       st.lastOk = Date.now();
+      if (id !== st.seriesId) return null;
       if (!live || !live.sessionId) {
-        if (st.session || !st.shown) { st.session = null; st.rev = null; st.shown = true; return loadMonth(E.localDate(new Date()).slice(0, 7)).then(draw); }
+        if (st.session || !st.shown) { st.session = null; st.rev = null; st.pending = {}; st.shown = true; return loadMonth(E.localDate(new Date()).slice(0, 7)).then(draw); }
         return null;
       }
-      if (live.rev === st.rev && st.shown) return null;
-      return S.get('pub/sessions/' + id + '/' + live.sessionId).then(function (data) {
-        var s = E.normalize(data);
-        if (!s) return null;
-        return loadMonth(s.month).then(function () { st.session = s; st.rev = live.rev; st.shown = true; draw(); });
+      var ping = live.ping || 0;
+      var needSession = live.rev !== st.rev || !st.session || !st.shown;
+      if (!needSession && ping === st.ping) return null;
+      var getSession = needSession ? S.get('pub/sessions/' + id + '/' + live.sessionId).then(E.normalize) : Promise.resolve(st.session);
+      return getSession.then(function (s) {
+        if (!s || id !== st.seriesId) return null;
+        var cur = E.currentRound(s);
+        var getScores = s.status === 'live' && cur ? S.get('pub/scores/' + id + '/' + s.id + '/r' + cur.n).catch(function () { return null; }) : Promise.resolve(null);
+        return getScores.then(function (entries) {
+          return (needSession ? loadMonth(s.month) : Promise.resolve()).then(function () {
+            if (id !== st.seriesId) return;
+            st.session = s; st.rev = live.rev; st.ping = ping; st.pending = entries || {}; st.shown = true;
+            draw();
+          });
+        });
       });
     }).catch(function () { /* shown as "reconnecting" by the status line */ })
       .then(function () { st.busy = false; status(); });
@@ -77,8 +166,9 @@
     return S.get('pub/results/' + st.seriesId + '/' + monthKey).then(function (m) { st.month = m || {}; st.monthKey = monthKey; });
   }
   function status() {
-    var late = Date.now() - st.lastOk > 10000;
-    statusEl.textContent = late ? 'Reconnecting…' : '';
+    var late = st.lastOk && Date.now() - st.lastOk > 10000;
+    var waiting = st.pendingSince && Date.now() - st.pendingSince > 8000;
+    statusEl.textContent = late ? 'Reconnecting…' : waiting ? 'Scores are in. Open the organizer’s iPad to continue.' : '';
   }
 
   // ---------------------------------------------------------------- drawing
@@ -90,6 +180,7 @@
     else if (s.status === 'setup') left = setupLeft(s);
     else if (s.status === 'ended') left = endedLeft(s);
     else left = liveLeft(s);
+    if (!s || s.status !== 'live') st.pendingSince = 0;
     root.replaceChildren(h('div', 'tvroot', [left, rightSide(s)]));
     fit();
   }
@@ -99,8 +190,7 @@
     barTitle();
     return h('div', 'tvhead', [h('div', 'round' + (flash ? ' flash' : ''), title), h('div', 'event', sets), clockEl()]);
   }
-  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  // Bottom corner: "Thursday, November 18th" and a clock with seconds, so a glance shows the page is running.
+  // Bottom left corner: "Thursday, November 18th" and a clock with seconds, so a glance shows the page is running.
   function dateText(d) { return DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + ordinal(d.getDate()); }
   function timeText(d) {
     var hh = d.getHours(), mm = d.getMinutes(), ss = d.getSeconds();
@@ -132,21 +222,35 @@
     var flash = r.n !== st.lastRound;
     st.lastRound = r.n;
     var top = r.top !== undefined && r.top !== null ? r.top : s.courts.length - 1;
-    var courts = r.courts.map(function (c) {
-      var done = !!c.w && !c.void;
-      return h('div', 'tvcourt' + (c.level === top ? ' king' : ''), [
+    // scores sent from phones that the organizer's device has not applied yet: shown at once, in green
+    var sent = {};
+    E.pendingPlayerScores(s, r.n, st.pending).forEach(function (p) { sent[p.idx] = p; });
+    var anySent = false;
+    var courts = r.courts.map(function (c, i) {
+      var done = !!c.w && !c.void, p = !done && !c.void ? sent[i] : null;
+      if (p) anySent = true;
+      var sa = done ? c.sa : p ? p.sa : null, sb = done ? c.sb : p ? p.sb : null, w = done ? c.w : p ? p.w : null;
+      var has = done || !!p;
+      // green behind the names once the score is in, so it is easy to see which courts are still missing
+      return h('div', 'tvcourt' + (c.level === top ? ' king' : '') + (has ? ' done' : ''), [
         h('div', 'cn', [h('span', null, c.level === top ? 'King’s Court' : 'Court'), h('b', null, String(c.court))]),
-        h('div', 'tm a' + (done && c.w === 'b' ? ' lost' : ''), name(c.a)),
-        c.void ? h('div', 'mid', 'no match') : done ? h('div', 'mid score', c.sa + ' – ' + c.sb) : h('div', 'mid', 'vs'),
-        h('div', 'tm b' + (done && c.w === 'a' ? ' lost' : ''), name(c.b))
+        h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), name(c.a)),
+        c.void ? h('div', 'mid', 'no match') : has ? h('div', 'mid score', sa + ' – ' + sb) : h('div', 'mid', 'vs'),
+        h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), name(c.b))
       ]);
     });
+    st.pendingSince = anySent ? (st.pendingSince || Date.now()) : 0;
     var waiting = E.activeTeams(s).filter(function (t) { return r.sitting.indexOf(t.id) < 0 && !r.courts.some(function (c) { return c.a === t.id || c.b === t.id; }); });
     // keep each team's name on one line, let the list wrap between teams
-    var keep = function (txt) { return txt.replace(/ /g, '\u00a0'); };
-    var names = r.sitting.map(function (id) { return keep(name(id)); }).concat(waiting.map(function (t) { return keep(t.name + ' (next round)'); })).join('  \u00b7  ');
+    var keep = function (txt) { return txt.replace(/ /g, ' '); };
+    var names = r.sitting.map(function (id) { return keep(name(id)); }).concat(waiting.map(function (t) { return keep(t.name + ' (next round)'); })).join('  ·  ');
+    // players scan this to enter their own court's score from their phone
+    var qr = qrSvg(SITE + 'p/?s=' + encodeURIComponent(st.seriesId));
     return h('div', 'tvleft', [head('Round ' + r.n, flash), h('div', 'tvcourts', courts),
-      names ? h('div', 'tvsit', [h('div', 'lab', 'Sitting out this round'), h('div', 'names', names)]) : h('div')]);
+      h('div', 'tvbottom', [
+        names ? h('div', 'tvsit', [h('div', 'lab', 'Sitting out this round'), h('div', 'names', names)]) : h('div', 'tvsit', [h('div', 'lab', 'Everyone is playing'), h('div', 'names', '')]),
+        qr ? h('div', 'tvqr', [h('div', 'cap', ['Enter your score', h('small', null, 'Scan with your phone')]), qr]) : null
+      ])]);
   }
   function endedLeft(s) {
     var rows = E.leaderboard(s).slice(0, 5);
@@ -187,18 +291,18 @@
     Array.prototype.forEach.call(document.querySelectorAll('.tvrows'), function (list) {
       var per = Number(list.getAttribute('data-per')) || 1;
       var rowH = list.clientHeight / per;
-      list.style.fontSize = Math.max(10, Math.min(rowH * 0.62, 4.4 * vh)) + 'px';
+      list.style.fontSize = Math.max(10, Math.min(rowH * 0.66, 4.8 * vh)) + 'px';
     });
     Array.prototype.forEach.call(document.querySelectorAll('.tvcourt'), function (c) {
       var hgt = c.clientHeight;
-      var tm = Math.min(hgt * 0.4, 5.6 * vh);
+      var tm = Math.min(hgt * 0.46, 5.6 * vh);
       Array.prototype.forEach.call(c.querySelectorAll('.tm'), function (t) {
         var size = tm, guard = 0;
         t.style.fontSize = size + 'px';
         while ((t.scrollHeight > hgt * 0.94 || t.scrollWidth > t.clientWidth + 1) && size > 14 && guard++ < 24) { size *= 0.92; t.style.fontSize = size + 'px'; }
       });
       var b = c.querySelector('.cn b'); if (b) b.style.fontSize = Math.min(hgt * 0.62, 8.4 * vh) + 'px';
-      var m = c.querySelector('.mid.score'); if (m) m.style.fontSize = Math.min(hgt * 0.46, 6.4 * vh) + 'px';
+      var m = c.querySelector('.mid.score'); if (m) m.style.fontSize = Math.min(hgt * 0.5, 6.4 * vh) + 'px';
     });
   }
 
@@ -226,10 +330,10 @@
   document.addEventListener('fullscreenchange', fullChanged);
   document.addEventListener('webkitfullscreenchange', fullChanged);
   document.addEventListener('keydown', function (e) { if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) toggleFull(); });
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
   window.addEventListener('resize', fit);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
-  setInterval(function () { var c = document.getElementById('clock'); if (c) c.textContent = clockText(); status(); }, 5000);
+  setInterval(function () { var c = document.getElementById('clock'); if (c) c.textContent = clockText(); }, 5000);
   setInterval(showDate, 1000);
   showDate();
 

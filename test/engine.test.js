@@ -342,6 +342,38 @@ test('a whole night with court changes keeps sit-outs fair', () => {
   }
 });
 
+test('scores sent from phones: applied once, only for the round on court, and the last one starts the next round', () => {
+  const s = makeNight({ teams: 10, seed: 5 });                 // 5 courts, nobody sitting
+  E.startNight(s);
+  const r1 = s.rounds[0];
+  const entries = { c0: { sa: 4, sb: 2, by: r1.courts[0].a, at: 1001 }, c2: { sa: 1, sb: 4, by: r1.courts[2].b, at: 1002 } };
+  assert.equal(E.pendingPlayerScores(s, 1, entries).length, 2);
+  let out = E.applyPlayerScores(s, 1, entries);
+  assert.equal(out.applied.length, 2); assert.equal(out.advanced, false);
+  assert.equal(r1.courts[0].w, 'a'); assert.equal(r1.courts[2].w, 'b');
+  assert.equal(E.pendingPlayerScores(s, 1, entries).length, 0, 'the same entries are not applied twice');
+
+  E.setScore(s, 1, 0, 3, 4);                                   // organizer corrects court 0 by hand
+  E.applyPlayerScores(s, 1, entries);
+  assert.equal(r1.courts[0].sa, 3, 'an old phone entry does not undo the organizer\'s correction');
+
+  entries.c0 = { sa: 4, sb: 1, by: r1.courts[0].b, at: 2001 }; // the players send a new score for court 0
+  E.applyPlayerScores(s, 1, entries);
+  assert.equal(r1.courts[0].sa, 4, 'a newer phone entry does count while the round is on');
+
+  const bad = { c1: { sa: 9, sb: 2, at: 3001 }, c3: { sa: 3, sb: 3, at: 3002 }, c9: { sa: 4, sb: 0, at: 3003 }, c4: { sa: '4', sb: 0, at: 3004 } };
+  assert.equal(E.pendingPlayerScores(s, 1, bad).length, 0, 'out-of-range, level-without-winner, unknown court and non-number entries are ignored');
+
+  const rest = { c1: { sa: 4, sb: 0, at: 4001 }, c3: { sa: 3, sb: 3, w: 'b', at: 4002 }, c4: { sa: 2, sb: 4, at: 4003 } };
+  out = E.applyPlayerScores(s, 1, rest);
+  assert.equal(out.applied.length, 3); assert.ok(out.advanced, 'the last court coming in starts round 2');
+  assert.equal(s.rounds.length, 2);
+  assert.equal(r1.courts[3].w, 'b');
+  assert.equal(E.pendingPlayerScores(s, 1, { c0: { sa: 0, sb: 4, at: 5001 } }).length, 0, 'a finished round no longer takes phone scores');
+  const lb = E.leaderboard(s);
+  assert.equal(lb.reduce((a, r) => a + r.points, 0), 4 + 1 + 4 + 0 + 1 + 4 + 3 + 3 + 2 + 4);
+});
+
 test('ending the night drops an unplayed round; monthly table sums the nights of the month', () => {
   const nights = {};
   ['2026-11-06', '2026-11-13', '2026-11-20'].forEach((date, i) => {

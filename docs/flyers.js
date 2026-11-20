@@ -98,7 +98,12 @@
   function addFiles(files) {
     files = Array.prototype.slice.call(files || []);
     if (!files.length || state.busy) return;
-    if (!S.getKey()) { state.askKey = true; state.keyWrong = false; state.after = function () { addFiles(files); }; return render(); }
+    if (!S.getKey()) {                                   // the photos wait while the key is typed, then they are added
+      state.askKey = true; state.keyWrong = false; state.waiting = files.length; state.after = function () { state.waiting = 0; addFiles(files); };
+      render();
+      var box = document.getElementById('keyInput'); if (box) { box.focus(); box.scrollIntoView({ block: 'center' }); }
+      return;
+    }
     var done = 0, skipped = [];
     var order = list().reduce(function (m, f) { return Math.max(m, f.order); }, 0);
     var next = function (i) {
@@ -149,9 +154,11 @@
         if (then) then();
       }).catch(function (err) { state.busy = ''; toast('Could not check the key: ' + err.message); render(); });
     };
-    return h('div', { class: 'panel' }, [
-      h('h2', null, 'Admin key'),
-      h('p', { class: 'hint', style: 'margin:0 0 10px' }, state.keyWrong ? 'That key was not accepted. Check it and try again.' : 'Type the admin key once on this device. It is the same key as for the socials.'),
+    var club = S.club.name ? S.club.name + ' ' : '', n = state.waiting || 0;
+    return h('div', { class: 'panel' + (n ? ' keywait' : ''), id: 'keyPanel' }, [
+      h('h2', null, n ? 'One more step: the admin key' : 'Admin key'),
+      n ? h('div', { class: 'notice', style: 'margin:0 0 10px' }, (n === 1 ? 'Your photo is waiting.' : 'Your ' + n + ' photos are waiting.') + ' Type the ' + club + 'admin key below and press Save key: ' + (n === 1 ? 'it is' : 'they are') + ' added straight away.') : null,
+      h('p', { class: 'hint', style: 'margin:0 0 10px' }, state.keyWrong ? 'That key was not accepted. Check it and try again.' : 'Type the ' + club + 'admin key once on this device. It is the same key as for the ' + club + 'socials.'),
       h('div', { class: 'row' }, [
         h('input', { type: 'text', id: 'keyInput', placeholder: 'Admin key', value: state.keyInput, autocapitalize: 'none', autocomplete: 'off', autocorrect: 'off', spellcheck: 'false', style: 'flex:1',
           oninput: function (e) { state.keyInput = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') saveKey(); } }),

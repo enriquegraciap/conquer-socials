@@ -714,3 +714,5 @@ body.tv.themed .inter { background: var(--t-bg); }
   body.tv .wbox.l .wptr { right: auto; left: 50%; top: auto; bottom: -3.2vmin; transform: translateX(-50%) rotate(-90deg); }
   body.tv .wbox.r .wptr { left: 50%; top: -3.2vmin; transform: translateX(-50%) rotate(-90deg); }
 }
+
+.panel.keywait { border: 2px solid var(--gold); box-shadow: 0 6px 24px rgba(10, 47, 87, .18); }

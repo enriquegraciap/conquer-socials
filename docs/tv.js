@@ -715,6 +715,9 @@
     var list = st.promo && st.promo.items, now = new Date(), out = [], seen = {};
     if (!list) return out;
     if (!Array.isArray(list)) list = Object.keys(list).map(function (k) { return list[k]; });
+    // the daily job writes names URL-encoded (enc: 1) so that no character in a name can break what it sends
+    var plain = function (x) { if (!st.promo.enc) return x; try { return decodeURIComponent(String(x).replace(/\+/g, ' ')); } catch (e) { return x; } };
+    list = list.map(function (it) { return it && it.name ? { program: it.program, name: plain(it.name), date: it.date, start: it.start, end: it.end, count: it.count } : it; });
     var norm = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }, mine = norm(st.seriesName);
     list.filter(function (it) { return it && it.name && /^\d{4}-\d\d-\d\d$/.test(it.date || ''); }).map(function (it) {
       var m = /^(\d{1,2}):(\d{2})/.exec(it.start || '') || [0, 0, 0];

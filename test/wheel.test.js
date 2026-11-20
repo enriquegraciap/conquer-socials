@@ -164,9 +164,11 @@ test('wheel, 8 players: same partner all day; three pool rounds to 4, semifinals
     assert.deepEqual(semi.courts.map(c => [pairKey(E.sideIds(c, 'a')), pairKey(E.sideIds(c, 'b'))]), [[key(table[0]), key(table[3])], [key(table[1]), key(table[2])]], '1st v 4th and 2nd v 3rd');
     play(s, (c, i) => i === 0);                   // 1st beats 4th, 3rd beats 2nd
     const fin = E.currentRound(s);
-    assert.deepEqual([fin.stage, fin.setTo, fin.courts.length, fin.courts[0].label, fin.sitting.length], ['final', 6, 1, 'Final', 4]);
+    assert.deepEqual([fin.stage, fin.setTo, fin.title, fin.courts.map(c => c.label).join(), fin.sitting.length], ['final', 6, 'Final & bronze match', 'Final,Bronze match', 0]);
     assert.deepEqual([pairKey(E.sideIds(fin.courts[0], 'a')), pairKey(E.sideIds(fin.courts[0], 'b'))], [key(table[0]), key(table[2])]);
-    assert.ok(E.isKingsCourt(s, fin, fin.courts[0]), 'the final is the highlighted court');
+    assert.deepEqual([pairKey(E.sideIds(fin.courts[1], 'a')), pairKey(E.sideIds(fin.courts[1], 'b'))], [key(table[3]), key(table[1])], 'the two losing semifinalists play for bronze');
+    assert.deepEqual(fin.courts.map(c => c.court), [7, 6]);
+    assert.ok(E.isKingsCourt(s, fin, fin.courts[0]) && !E.isKingsCourt(s, fin, fin.courts[1]), 'the final is the highlighted court');
     assert.equal(E.wheelState(s), 'playing');
     play(s);
     assert.equal(E.wheelState(s), 'done');
@@ -245,6 +247,7 @@ test('wheel, 10 players: five pool rounds with one team resting, then 4th v 5th,
     play(s);
     const fin = E.currentRound(s);
     assert.deepEqual([fin.stage, fin.setTo, pairKey(E.sideIds(fin.courts[0], 'a')), pairKey(E.sideIds(fin.courts[0], 'b'))], ['final', 4, key(0), key(1)]);
+    assert.deepEqual([fin.courts[1].label, pairKey(E.sideIds(fin.courts[1], 'a')), pairKey(E.sideIds(fin.courts[1], 'b')), fin.sitting.length], ['Bronze match', key(4), key(2), 2], 'bronze: the semifinal losers; the play-in loser is out');
     play(s);
     assert.equal(E.wheelState(s), 'done');
     assert.equal(s.rounds.length, 8);
@@ -388,4 +391,23 @@ test('wheel: after a spin the TV holds the pairs until the organizer lets go, or
   assert.equal(t.wheel.hold, true, 'every spin holds again');
   const back = E.normalize(JSON.parse(JSON.stringify(s, (k, v) => v === false || v === null || (Array.isArray(v) && !v.length) ? undefined : v)));
   assert.equal(back.wheel.hold, false, 'the database drops a false: it reads back as not holding');
+});
+
+test('wheel: on one court the bronze match waits for the final; a pair that lost a player gets no bronze match', () => {
+  const s = day(8, [7], 3);
+  E.startNight(s);
+  for (let k = 0; k < 3; k++) play(s);
+  play(s);
+  const fin = E.currentRound(s);
+  assert.deepEqual(fin.courts.map(c => [c.label, c.court, !!c.wait]), [['Final', 7, false], ['Bronze match', 7, true]]);
+  assert.ok(E.isKingsCourt(s, fin, fin.courts[0]) && !E.isKingsCourt(s, fin, fin.courts[1]));
+  const t = day(8, [6, 7], 3);
+  E.startNight(t);
+  for (let k = 0; k < 3; k++) play(t);
+  const semi = E.currentRound(t);
+  E.removeTeam(t, E.sideIds(semi.courts[0], 'b')[0]);       // a semifinalist goes home: that semifinal is called off
+  play(t);
+  const last = E.currentRound(t);
+  assert.deepEqual(last.courts.map(c => c.label), ['Final']);
+  assert.equal(last.title, 'Final');
 });

@@ -49,7 +49,7 @@ const NAMES = ['Ana Lopez', 'Bea Ruiz', 'Carla Diaz', 'Dani Mora', 'Elena Gil', 
   await admin.waitForSelector('text=Add at least four players.');
   for (const n of NAMES.slice(3)) { await admin.fill('#p1', n); await admin.click('#addTeam'); }
   await admin.waitForSelector('text=8 players on 2 courts, 4 teams.');
-  assert.match(await admin.textContent('#wheelPlan'), /4 teams keep the same partner all day\. 3 pool rounds, sets to 4\. Then semifinals to 4 and a final to 6\./);
+  assert.match(await admin.textContent('#wheelPlan'), /4 teams keep the same partner all day\. 3 pool rounds, sets to 4\. Then semifinals to 4, and a final and a bronze medal match to 6\./);
   assert.equal(await admin.locator('.sitpick').count(), 0, 'nobody sits with eight');
   assert.equal(await admin.locator('[data-sets]').count(), 0, 'the set length is not a choice here');
   await admin.screenshot({ path: SHOTS + 'wheel-setup.png', fullPage: true });
@@ -141,22 +141,23 @@ const NAMES = ['Ana Lopez', 'Bea Ruiz', 'Carla Diaz', 'Dani Mora', 'Elena Gil', 
   step('pool played, semifinals drawn from the table');
 
   for (const c of [7, 6]) await score(c, 4, 3);
-  await admin.waitForSelector('.roundhead >> text=Final');
-  await admin.click('.courtcard.todo');
+  await admin.waitForSelector('.roundhead >> text=Final & bronze match');
+  await admin.click('.courtcard.todo[data-court="7"]');
   assert.equal(await admin.locator('.digits button[data-side="sa"]').count(), 7, 'the final is to 6');
-  assert.match(await admin.textContent('.sheet h3'), /Final · Court 7 · Final/);
+  assert.match(await admin.textContent('.sheet h3'), /Final & bronze match · Court 7 · Final/);
   await admin.click('.digits button[data-side="sa"][data-v="6"]'); await admin.click('.digits button[data-side="sb"][data-v="4"]');
-  await tv.waitForFunction(() => /^\s*Final\s*$/i.test((document.querySelector('.tvhead .round') || {}).textContent || ''), null, { timeout: 20000 });
+  await tv.waitForFunction(() => /^\s*Final & bronze match\s*$/i.test((document.querySelector('.tvhead .round') || {}).textContent || ''), null, { timeout: 20000 });
   await tv.waitForTimeout(700);
   assert.deepEqual([(await tv.textContent('#inter .word')).trim(), (await tv.textContent('#inter .num')).trim()], ['Here comes the', 'Final']);
   await introOver();
   await tv.waitForSelector('.tvcourt.king', { timeout: 8000 });
   courts = await tvCourts();
-  assert.deepEqual(courts.map(c => [c.label, c.court, c.king]), [['Final', '7', true]]);
+  assert.deepEqual(courts.map(c => [c.label, c.court, c.king]), [['Final', '7', true], ['Bronze match', '6', false]]);
   assert.equal((await tv.textContent('.tvhead .event')).trim(), 'Sets to 6');
-  assert.equal((await tv.getAttribute('.tvsit.sign', 'data-names')).split('·').length, 4, 'the four who are out watch');
+  assert.equal(await tv.getAttribute('.tvsit.sign', 'data-names'), '', 'everyone plays: the losing semifinalists play for bronze');
   await tv.screenshot({ path: SHOTS + 'wheel-tv-final.png' });
   await admin.click('#saveScore');
+  await score(6, 3, 6);
   await admin.waitForSelector('#wheelNext >> text=All matches played');
   await tv.waitForFunction(() => /All matches played/i.test((document.querySelector('.tvhead .round') || {}).textContent || ''), null, { timeout: 8000 });
   await phone.waitForSelector('text=Thanks for playing. The standings are on the screen.');

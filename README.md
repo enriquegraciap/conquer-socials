@@ -107,8 +107,8 @@ are partners. How the day runs is decided by how many players are on the list at
 | 4 | 2 | One set to 6, then the wheel spins again (three spins give everyone each partner once) |
 | 5 | 2, one player sits | Two sets to 6 with the same teams, then a new spin and someone else sits. The organizer can tap who sits first (an ambassador, say); otherwise whoever has sat least |
 | 6 / 7 | 3 (with 7, one sits) | Each team plays the other two, sets to 4, one team resting each round; then a new spin |
-| 8 / 9 | 4 | Same partner all day: 3 pool rounds to 4, semifinals (1st v 4th, 2nd v 3rd) to 4, final to 6 |
-| 10 / 11 | 5 | 5 pool rounds to 4 (one team rests each round), then 4th v 5th, semifinals (winner v 1st, 2nd v 3rd) and final, all to 4 |
+| 8 / 9 | 4 | Same partner all day: 3 pool rounds to 4, semifinals (1st v 4th, 2nd v 3rd) to 4, then the final and a bronze medal match (the losing semifinalists) to 6 |
+| 10 / 11 | 5 | 5 pool rounds to 4 (one team rests each round), then 4th v 5th, semifinals (winner v 1st, 2nd v 3rd), then the final and a bronze medal match, all to 4 |
 | 12 and more | 6+ | 5 pool rounds to 4, then medal matches to 6: 1st v 2nd, 3rd v 4th, 5th v 6th, and so on |
 
 - With an odd number from 9 up, one team has three players who take turns resting.

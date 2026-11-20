@@ -518,7 +518,7 @@
       if (T === 4) stages.push('semi', 'final'); else if (T === 5) stages.push('playin', 'semi', 'final'); else stages.push('place');
       p = { teams: T, sit: 0, respin: false, stages: stages,
         text: T + ' teams keep the same partner all day' + (n % 2 ? ' (one team of three takes turns resting)' : '') + '. ' + pools + ' pool rounds, sets to 4' + (T % 2 ? ', one team resting each round' : '') + '. ' +
-          (T === 4 ? 'Then semifinals to 4 and a final to 6.' : T === 5 ? 'Then play-offs to 4: 4th v 5th, semifinals, final.' : 'Then medal matches to 6: 1st v 2nd, 3rd v 4th, and so on.') };
+          (T === 4 ? 'Then semifinals to 4, and a final and a bronze medal match to 6.' : T === 5 ? 'Then play-offs to 4: 4th v 5th, semifinals, then the final and a bronze medal match.' : 'Then medal matches to 6: 1st v 2nd, 3rd v 4th, and so on.') };
     }
     p.players = n; p.trio = n >= 8 && n % 2 === 1;
     return p;
@@ -602,7 +602,11 @@
       else if (stage === 'semi') {
         matches = T === 5 ? [[rank[0], winnerOf(prev.courts[0])], [rank[1], rank[2]]] : [[rank[0], rank[3]], [rank[1], rank[2]]];
         labels = ['Semifinal', 'Semifinal']; title = 'Semifinals';
-      } else if (stage === 'final') { matches = [[winnerOf(prev.courts[0]), winnerOf(prev.courts[1])]]; labels = ['Final']; title = 'Final'; }
+      } else if (stage === 'final') {                   // the semifinal winners play the final, the losers the bronze medal match
+        var loserOf = function (c) { return of[sideIds(c, c.w === 'a' ? 'b' : 'a')[0]]; }, l0 = loserOf(prev.courts[0]), l1 = loserOf(prev.courts[1]);
+        matches = [[winnerOf(prev.courts[0]), winnerOf(prev.courts[1])]]; labels = ['Final']; title = 'Final';
+        if (l0 !== undefined && l1 !== undefined && playing(l0).length === 2 && playing(l1).length === 2) { matches.push([l0, l1]); labels.push('Bronze match'); title = 'Final & bronze match'; }
+      }
       else {
         var names = ['Gold match', 'Bronze match', '5th place', '7th place', '9th place', '11th place'];
         for (var i = 0; i + 1 < rank.length; i += 2) { matches.push([rank[i], rank[i + 1]]); labels.push(names[i / 2] || 'Placement'); }

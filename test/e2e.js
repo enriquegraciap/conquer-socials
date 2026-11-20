@@ -164,6 +164,15 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await tv.waitForFunction(() => Array.from(document.querySelectorAll('.tvcourt .cn b')).map(b => b.textContent).join() === '7,6,5,2,1', null, { timeout: 6000 });
   step('courts changed mid-round: TV now shows courts 7, 6, 5, 2, 1');
 
+  // 7c. fix a mistyped name mid-night: it changes on the courts, the leaderboard and the TV
+  await admin.click('[data-edit="Ana & Luis"]');
+  await admin.fill('#rn1', 'Anna');
+  await admin.click('#saveNames');
+  await admin.waitForSelector('text=Now Anna & Luis');
+  assert.equal(await admin.locator('text=Ana & Luis').count(), 0, 'the old name is gone from the admin page');
+  await tv.waitForFunction(() => document.body.textContent.includes('Anna & Luis') && !document.body.textContent.includes('Ana & Luis'), null, { timeout: 8000 });
+  step('renamed "Ana & Luis" to "Anna & Luis" mid-night: admin page and TV both follow');
+
   // 8. late arrival and a team leaving mid-round
   await admin.fill('#p1', 'Olga'); await admin.fill('#p2', 'Pete'); await admin.click('#addTeam');
   await admin.waitForSelector('text=Joining next round: Olga & Pete');

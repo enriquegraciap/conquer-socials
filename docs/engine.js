@@ -422,6 +422,21 @@
     return team;
   }
 
+  // Correct a team's names at any time. Rounds refer to teams by an internal id, so every round, tonight's
+  // leaderboard and the saved results pick up the new names. oldKey/newKey let the caller carry the change
+  // over to earlier nights, so the monthly table keeps one line for the team.
+  function renameTeam(session, id, players) {
+    var t = session.teams[id];
+    players = (Array.isArray(players) ? players : [players]).map(cleanName).filter(Boolean);
+    if (!t) return { ok: false, error: 'That team is no longer on the list.' };
+    if (!players.length) return { ok: false, error: 'Type at least one name.' };
+    var oldKey = entityKey(t.players), newKey = entityKey(players);
+    var clash = teamList(session).filter(function (x) { return x.id !== id && entityKey(x.players) === newKey; })[0];
+    if (clash) return { ok: false, error: 'Another team already has those names.' };
+    t.players = players; t.name = teamName(players);
+    return { ok: true, oldKey: oldKey, newKey: newKey, name: t.name, players: players };
+  }
+
   function removeTeam(session, id) {
     var t = session.teams[id];
     if (!t) return { removed: false };
@@ -646,7 +661,7 @@
     teamList: teamList, activeTeams: activeTeams, currentRound: currentRound,
     roundComplete: roundComplete, roundHasScores: roundHasScores, courtDone: courtDone,
     teamStats: teamStats, generateRound: generateRound,
-    addTeam: addTeam, removeTeam: removeTeam, startNight: startNight, endNight: endNight, reopenNight: reopenNight,
+    addTeam: addTeam, renameTeam: renameTeam, removeTeam: removeTeam, startNight: startNight, endNight: endNight, reopenNight: reopenNight,
     advance: advance, redrawRound: redrawRound, setScore: setScore, setCourts: setCourts, isKingsCourt: isKingsCourt,
     pendingPlayerScores: pendingPlayerScores, applyPlayerScores: applyPlayerScores,
     scoringEntities: scoringEntities, entityKey: entityKey, keyOf: keyOf, teamName: teamName,

@@ -118,7 +118,7 @@
 
   // ---------------------------------------------------------------- views
   function render() {
-    var kids = [h('header', { class: 'pl-top' }, [h('img', { src: '../logo-p.png?v=9', alt: '' }), h('div', null, [h('b', null, st.seriesName || 'Conquer Padel Club'), h('span', null, headline())])])];
+    var kids = [h('header', { class: 'pl-top' }, [h('img', { src: '../logo-p.png?v=10', alt: '' }), h('div', null, [h('b', null, st.seriesName || 'Conquer Padel Club'), h('span', null, headline())])])];
     kids.push(h('main', { class: 'pl-main' }, body()));
     root.replaceChildren.apply(root, kids);
   }

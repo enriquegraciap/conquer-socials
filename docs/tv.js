@@ -14,7 +14,6 @@
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var fixed = new URLSearchParams(location.search).get('s');
-  var SITE = new URL('../', location.href).href;          // the site's home address, where the admin and player pages live
 
   var st = { id: tvId(), mode: 'boot', series: {}, seriesId: null, seriesName: '', rev: null, ping: 0, session: null, pending: {},
     month: null, monthKey: null, busy: false, lastOk: 0, lastRound: 0, shown: false, ticks: 0, pendingSince: 0, pairShown: '' };
@@ -121,7 +120,7 @@
     var key = st.id + ':' + count;
     if (st.pairShown === key) return;            // already on screen: do not redraw every two seconds
     st.pairShown = key;
-    var qr = qrSvg(SITE + '?tv=' + st.id);
+    var qr = qrSvg(S.link('admin', { tv: st.id }));
     root.replaceChildren(h('div', 'tvpair', [
       qr ? h('div', 'qrbox', qr) : null,
       h('div', 'txt', [
@@ -152,7 +151,7 @@
         var cur = E.currentRound(s);
         var getScores = s.status === 'live' && cur ? S.get('pub/scores/' + id + '/' + s.id + '/r' + cur.n).catch(function () { return null; }) : Promise.resolve(null);
         return getScores.then(function (entries) {
-          return (needSession ? loadMonth(s.month) : Promise.resolve()).then(function () {
+          return loadMonth(s.month).then(function () {
             if (id !== st.seriesId) return;
             st.session = s; st.rev = live.rev; st.ping = ping; st.pending = entries || {}; st.shown = true;
             draw();
@@ -245,7 +244,7 @@
     var keep = function (txt) { return txt.replace(/ /g, ' '); };
     var names = r.sitting.map(function (id) { return keep(name(id)); }).concat(waiting.map(function (t) { return keep(t.name + ' (next round)'); })).join('  ·  ');
     // players scan this to enter their own court's score from their phone
-    var qr = qrSvg(SITE + 'p/?s=' + encodeURIComponent(st.seriesId));
+    var qr = qrSvg(S.link('player', { s: st.seriesId }));
     return h('div', 'tvleft', [head('Round ' + r.n, flash), h('div', 'tvcourts', courts),
       h('div', 'tvbottom', [
         names ? h('div', 'tvsit', [h('div', 'lab', 'Sitting out this round'), h('div', 'names', names)]) : h('div', 'tvsit', [h('div', 'lab', 'Everyone is playing'), h('div', 'names', '')]),

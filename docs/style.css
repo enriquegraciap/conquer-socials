@@ -97,6 +97,8 @@ input[type=text], input[type=password] { border: 1px solid var(--rule); border-r
 .teamlist li { display: flex; align-items: center; gap: 10px; border: 1px solid var(--rule); border-radius: 8px; padding: 6px 8px 6px 12px; min-height: 48px; }
 .teamlist .nm { flex: 1; min-width: 0; font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
 .teamlist .st { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.teamlist .nmbtn { background: none; border: 0; padding: 8px 0; text-align: left; color: inherit; cursor: pointer; }
+@media (max-width: 520px) { .teamlist li { flex-wrap: wrap; } .teamlist .nm { flex-basis: 100%; } .teamlist .st { flex: 1; } }
 .teamlist li.gone .nm { text-decoration: line-through; color: var(--muted); }
 .teamlist .seed { font-family: var(--display); color: var(--muted); width: 26px; text-align: right; font-size: 18px; }
 .regulars { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

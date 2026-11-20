@@ -435,8 +435,9 @@
       h('ul', { class: 'teamlist' }, teams.map(function (t, i) {
         return h('li', { class: t.left ? 'gone' : '' }, [
           setup && s.round1 === 'seeded' ? h('span', { class: 'seed' }, String(i + 1)) : null,
-          h('span', { class: 'nm' }, t.name),
+          h('button', { type: 'button', class: 'nm nmbtn', 'data-edit': t.name, 'aria-label': 'Edit the names of ' + t.name, onclick: function () { editTeam(t); } }, t.name),
           h('span', { class: 'st' }, status(t)),
+          btn('Edit', 'small', function () { editTeam(t); }, { 'aria-label': 'Edit ' + t.name }),
           setup && s.round1 === 'seeded' ? btn('▲', 'small', function () { move(t, -1); }, { 'aria-label': 'Move ' + t.name + ' up', disabled: i === 0 }) : null,
           setup && s.round1 === 'seeded' ? btn('▼', 'small', function () { move(t, 1); }, { 'aria-label': 'Move ' + t.name + ' down', disabled: i === teams.length - 1 }) : null,
           t.left ? btn('Bring back', 'small', function () { commit(function (x) { x.teams[t.id].left = null; }); toast(t.name + ' rejoins from the next round.'); render(); })
@@ -445,6 +446,36 @@
       })),
       !teams.length ? h('p', { class: 'hint' }, 'No teams yet. Type the two players and press Add team.') : null
     ]);
+  }
+  function editTeam(t) {
+    state.ui.modal = { type: 'rename', id: t.id, was: t.name, p1: t.players[0] || '', p2: t.players[1] || '' };
+    state.ui.focus = 'rn1';
+    render();
+  }
+  // Earlier nights are saved under the team's names. Move them to the new names so the monthly table and the
+  // "Played before" list keep one line for the team.
+  function carryRename(out) {
+    var id = state.seriesId, sid = state.session.id;
+    return S.get('pub/results/' + id).then(function (all) {
+      var up = {}, nights = 0;
+      Object.keys(all || {}).forEach(function (month) {
+        Object.keys(all[month] || {}).forEach(function (night) {
+          var en = (all[month][night] || {}).entries || {}, old = en[out.oldKey];
+          if (night === sid || !old) return;
+          var base = 'pub/results/' + id + '/' + month + '/' + night + '/entries/', into = out.newKey !== out.oldKey ? en[out.newKey] : null;
+          up[base + out.newKey] = { name: out.name, players: out.players, points: (old.points || 0) + (into ? into.points || 0 : 0),
+            wins: (old.wins || 0) + (into ? into.wins || 0 : 0), played: (old.played || 0) + (into ? into.played || 0 : 0) };
+          if (out.newKey !== out.oldKey) up[base + out.oldKey] = null;
+          nights++;
+        });
+      });
+      if (!nights) return 0;
+      up['pub/live/' + id + '/ping'] = Date.now();          // tells the TVs to re-read the monthly table
+      return S.write(up).then(function () { return nights; });
+    }).then(function (nights) {
+      if (nights) toast('Name changed for tonight and ' + nights + (nights === 1 ? ' earlier night.' : ' earlier nights.'));
+      return S.get('pub/results/' + id).then(function (all) { state.regulars = regularsFrom(all); render(); });
+    }).catch(function () { toast('Changed for tonight. Earlier nights could not be updated; edit the name again to retry.'); render(); });
   }
   function removeTeam(t) {
     var s = state.session;
@@ -581,11 +612,10 @@
       body = [h('h3', null, m.title), h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, m.text),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn(m.ok, m.danger ? 'danger' : 'primary', function () { state.ui.modal = null; m.onOk(); }, { id: 'modalOk' })])];
     } else if (m.type === 'tv') {
-      var site = location.origin + location.pathname.replace(/index\.html$/, '');
       body = [h('h3', null, 'TV screen'),
-        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Open this address in the browser on each club TV, then press Full screen:'), h('div', { class: 'tvlink' }, site + 'tv/'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Open this address in the browser on each club TV, then press Full screen:'), h('div', { class: 'tvlink' }, S.link('tv')),
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'With one social the TV shows it by itself. With several, each TV shows a QR code: scan it with this device, or add the TV by its code under Events \u2192 TVs.'),
-        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Players’ score page (the TV shows it as a QR code during a round):'), h('div', { class: 'tvlink' }, site + 'p/?s=' + encodeURIComponent(state.seriesId)),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Players’ score page (the TV shows it as a QR code during a round):'), h('div', { class: 'tvlink' }, S.link('player', { s: state.seriesId })),
         h('div', { class: 'row end' }, btn('Close', 'primary', closeModal))];
     } else if (m.type === 'courts') {
       var curR = E.currentRound(s), same = JSON.stringify(m.courts) === JSON.stringify(s.courts);
@@ -605,6 +635,25 @@
         courtPicker(m.courts, function (next) { m.courts = next; render(); }),
         h('div', { class: 'notice' }, [effect, m.courts.length ? h('div', { style: 'margin-top:6px' }, teamsN + ' teams on ' + kk + (kk === 1 ? ' court' : ' courts') + ': ' + (2 * kk) + ' play, ' + (teamsN - 2 * kk) + ' sit out each round.') : null]),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Use these courts', 'primary', applyCourts, { disabled: same || !m.courts.length, id: 'applyCourts' })])];
+    } else if (m.type === 'rename') {
+      var saveName = function () {
+        var out = commit(function (x) { return E.renameTeam(x, m.id, [m.p1, m.p2]); });
+        if (!out.ok) { toast(out.error); return render(); }
+        state.ui.modal = null;
+        toast('Now ' + out.name + ', in every round and on the leaderboard.');
+        render();
+        carryRename(out);
+      };
+      body = [h('h3', null, 'Edit names'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Was “' + m.was + '”. The change shows in every round tonight, on the leaderboards, and on this team’s earlier nights.'),
+        h('div', { class: 'addteam', style: 'grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)' }, [
+          h('input', { type: 'text', id: 'rn1', placeholder: 'Player 1', value: m.p1, maxlength: 30, autocapitalize: 'words', autocomplete: 'off',
+            oninput: function (e) { m.p1 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') saveName(); } }),
+          h('span', { class: 'amp' }, '&'),
+          h('input', { type: 'text', id: 'rn2', placeholder: 'Player 2', value: m.p2, maxlength: 30, autocapitalize: 'words', autocomplete: 'off',
+            oninput: function (e) { m.p2 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') saveName(); } })
+        ]),
+        h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Save names', 'primary', saveName, { id: 'saveNames' })])];
     } else if (m.type === 'pair') {
       var evIds = Object.keys(state.series).sort(function (a, b) { return state.series[a].name < state.series[b].name ? -1 : 1; });
       var pick = function (id) {

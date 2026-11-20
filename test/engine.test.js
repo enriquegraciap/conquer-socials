@@ -374,6 +374,25 @@ test('scores sent from phones: applied once, only for the round on court, and th
   assert.equal(lb.reduce((a, r) => a + r.points, 0), 4 + 1 + 4 + 0 + 1 + 4 + 3 + 3 + 2 + 4);
 });
 
+test('a team can be renamed at any time: every round and the leaderboard follow, and results move to the new names', () => {
+  const s = playNight(makeNight({ teams: 6, courts: [5, 6, 7], seed: 3 }), 3, 4);
+  const t = E.teamList(s)[0], before = E.leaderboard(s).filter(r => r.name === t.name)[0];
+  const out = E.renameTeam(s, t.id, [' xhail ', 'Enrique']);
+  assert.ok(out.ok); assert.equal(s.teams[t.id].name, 'xhail & Enrique');
+  assert.notEqual(out.oldKey, out.newKey);
+  const after = E.leaderboard(s).filter(r => r.name === 'xhail & Enrique')[0];
+  assert.equal(after.points, before.points, 'same points, new name');
+  assert.ok(!E.leaderboard(s).some(r => r.name === t.name + 'x'));
+  const doc = E.resultsDoc(s);
+  assert.ok(doc.entries[out.newKey] && !doc.entries[out.oldKey], 'tonight\'s saved results are under the new names');
+  assert.equal(doc.entries[out.newKey].points, before.points);
+  const other = E.teamList(s)[1];
+  assert.equal(E.renameTeam(s, other.id, ['Enrique', 'Xhail']).ok, false, 'two teams cannot share the same names');
+  assert.equal(E.renameTeam(s, other.id, ['', ' ']).ok, false);
+  const month = E.monthlyBoard({ a: { date: '2026-11-06', entries: { [out.newKey]: { name: 'xhail & Enrique', points: 9, wins: 2, played: 3 } } }, b: doc });
+  assert.equal(month.filter(r => r.key === out.newKey)[0].points, 9 + before.points, 'one line on the monthly table');
+});
+
 test('ending the night drops an unplayed round; monthly table sums the nights of the month', () => {
   const nights = {};
   ['2026-11-06', '2026-11-13', '2026-11-20'].forEach((date, i) => {

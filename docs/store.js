@@ -20,6 +20,10 @@
   var cfg = root.SOCIALS_CONFIG || {};
   var params = new URLSearchParams(root.location ? root.location.search : '');
   var base = String(params.get('db') || cfg.databaseURL || '').replace(/\/+$/, '');
+  // Where the site lives: the folder this file was loaded from, or the public address set in config.js.
+  var here = (root.document && root.document.currentScript && root.document.currentScript.src) || '';
+  var home = here ? here.replace(/[^\/]*(\?.*)?$/, '') : '';
+  var pub = String(cfg.publicURL || '').replace(/\/+$/, '');
 
   function request(method, path, body) {
     var url = base + '/' + path + '.json';
@@ -62,6 +66,16 @@
     // A player's phone: no admin key. The database only accepts this for a court's score and the "something
     // changed" counter; everything else is refused.
     writePublic: function (updates) { return request('PATCH', '', updates); },
+    // Address of one of the three pages, for links and QR codes. kind: 'admin', 'tv' or 'player'.
+    link: function (kind, query) {
+      var parts = [];
+      if (pub && kind === 'tv') parts.push('v=tv');
+      if (pub && kind === 'player') parts.push('v=p');
+      Object.keys(query || {}).forEach(function (k) { parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(query[k])); });
+      var qs = parts.length ? '?' + parts.join('&') : '';
+      if (pub) return pub + qs;
+      return home + (kind === 'tv' ? 'tv/' : kind === 'player' ? 'p/' : '') + qs;
+    },
     getKey: getKey,
     setKey: setKey,
     pref: function (name, value) {

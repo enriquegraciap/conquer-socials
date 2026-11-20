@@ -46,7 +46,7 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   const sides = async () => tv.evaluate(() => [...document.querySelectorAll('.tvcourt')].map(c => [c.querySelector('.tm.a').textContent.trim(), c.querySelector('.tm.b').textContent.trim()]));
   const r1 = await sides();
   r1.flat().forEach(t => assert.match(t, /^\w+ & \w+$/, 'each side of a court is two players: ' + t));
-  const sitting = (await tv.getAttribute('.tvsit', 'data-names')).trim();
+  let sitting = (await tv.getAttribute('.tvsit', 'data-names')).trim();
   assert.ok(NAMES.includes(sitting), 'one player sits out: ' + sitting);
   assert.equal((await tv.textContent('.tvboard >> nth=0 >> h2 small')).trim(), '9 players');
   await tv.screenshot({ path: SHOTS + 'solo-tv-round1.png' });
@@ -153,6 +153,31 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
     assert.notEqual((await phone.textContent('.pl-vs .us')).trim(), 'You & ' + mate, 'the phone shows the new partner');
   }
   step('round 2: every pair split, winners moved up and face each other, leaderboard is per player');
+
+  // 4b. delete rounds: back to round 1 restarts the night; the score a phone sent for the old round 1 must not come back
+  await admin.click('details.prev summary');
+  assert.equal(await admin.locator('[data-delete-from]').count(), 1, 'round 1 is the only earlier round');
+  await admin.click('[data-delete-from="1"]');
+  await admin.waitForSelector('text=Restart the night?');
+  await admin.screenshot({ path: SHOTS + 'solo-restart.png' });
+  await admin.click('#modalOk');
+  await admin.waitForSelector('text=The night starts again');
+  await admin.waitForSelector('.roundhead .big:text("Round 1")');
+  await tv.waitForFunction(() => /Round 1/.test(document.querySelector('.tvhead .round').textContent), null, { timeout: 10000 });
+  await tv.waitForTimeout(5000);                                     // long enough for a stale phone score to have been applied, if one were left
+  assert.equal(await admin.locator('.panel >> nth=0 >> .courtcard.todo').count(), 2, 'both courts of the new round 1 are still to play');
+  assert.equal(await tv.locator('.tvcourt.done').count(), 0);
+  assert.ok(!(await tv.evaluate(() => !document.getElementById('inter').hidden)), 'going back does not set off the round announcement');
+  const zero = await tv.evaluate(() => [...document.querySelectorAll('.tvboard')[0].querySelectorAll('.tvrow .pt')].map(p => p.textContent));
+  assert.ok(zero.length === 9 && zero.every(p => p === '0'), 'everyone is back on zero points');
+  assert.equal(((await db()).scores || {})[id], undefined, 'the phone scores of the deleted rounds are gone from the database');
+  assert.equal(await admin.locator('details.prev').count(), 0, 'no earlier rounds are left');
+  sitting = (await tv.getAttribute('.tvsit', 'data-names')).trim();
+  for (const c of [7, 6]) { await admin.click(`.panel >> nth=0 >> .courtcard[data-court="${c}"]`); await admin.click('.digits button[data-side="sa"][data-v="4"]'); await admin.click('.digits button[data-side="sb"][data-v="2"]'); await admin.click('#saveScore'); }
+  await admin.waitForSelector('.roundhead .big:text("Round 2")');
+  await tv.waitForFunction(() => /Round 2/.test(document.querySelector('.tvhead .round').textContent), null, { timeout: 15000 });
+  await tv.waitForFunction(() => document.getElementById('inter').hidden, null, { timeout: 10000 });
+  step('deleted every round: the night restarted on a fresh round 1 with everyone on zero; then played on to round 2');
 
   // 5. rename a player, then end the night: results are saved per player
   await admin.click(`.teamlist [data-edit="${sitting}"]`);

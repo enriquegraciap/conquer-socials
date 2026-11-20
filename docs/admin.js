@@ -608,6 +608,32 @@
     render();
   }
 
+  // Delete round n and every round after it (n = 1 restarts the night). Scores players sent from their phones
+  // for those rounds are cleared first, so none of them can land on the rounds that are drawn afresh.
+  function deleteFrom(n) {
+    var s = state.session, id = state.seriesId, last = s.rounds.length, up = {};
+    for (var k = n; k <= last; k++) up['pub/scores/' + id + '/' + s.id + '/r' + k] = null;
+    var go = function () {
+      S.write(up).then(function () {
+        var out = commit(function (x) { return E.rewindTo(x, n); });
+        state.ui.modal = null;
+        toast(!out.ok ? 'Nothing was deleted.' : n === 1 ? 'The night starts again: round 1 has been drawn afresh.' : 'Back to round ' + n + ': ' + out.removed + (out.removed === 1 ? ' round' : ' rounds') + ' deleted, round ' + n + ' drawn afresh.');
+        render();
+      }).catch(function (err) {
+        if (err.status === 401 || err.status === 403) { state.ui.modal = { type: 'key', wrong: !!S.getKey(), then: go }; render(); }
+        else { toast('Could not delete: ' + err.message); render(); }
+      });
+    };
+    var scored = s.rounds.slice(n - 1).filter(function (r) { return E.roundHasScores(r); }).length;
+    state.ui.modal = { type: 'confirm', danger: true,
+      title: n === 1 ? 'Restart the night?' : 'Delete round ' + n + (last > n ? ' to ' + last : '') + '?',
+      text: (n === 1 ? 'Every round played tonight is deleted, with its scores and points, and round 1 is drawn again with the ' + words(s).many + ' that are still here. Anyone who has left is taken off the list. Courts and set length stay as they are.'
+        : 'Round ' + n + (last > n ? ' and every round after it are' : ' is') + ' deleted, with scores and points, and round ' + n + ' is drawn again from how things stood after round ' + (n - 1) + '.') +
+        (scored ? ' ' + scored + (scored === 1 ? ' round with scores is' : ' rounds with scores are') + ' affected. This cannot be undone.' : ''),
+      ok: n === 1 ? 'Restart night' : 'Delete from round ' + n, onOk: go };
+    render();
+  }
+
   // ---- Live
   function courtCard(s, r, c, i, small) {
     var king = E.isKingsCourt(s, r, c);
@@ -646,6 +672,7 @@
                 state.ui.modal = { type: 'confirm', title: 'Re-draw round ' + cur.n + '?', text: cur.n === 1 ? 'Makes a new draw for round 1.' : 'Chooses again who sits out and where everyone plays, following the same rules. Use it after adding or removing a ' + words(s).one + '.', ok: 'Re-draw', onOk: function () { commit(function (x) { E.redrawRound(x); }); render(); } };
                 render();
               }) : null,
+              cur ? btn('Restart night', 'small danger', function () { deleteFrom(1); }, { id: 'restartNight' }) : null,
               btn('End night', 'small danger', function () {
                 state.ui.modal = { type: 'confirm', title: 'End the night?', text: 'Tonight’s results are saved to the monthly leaderboard and the TV shows the final standings. You can reopen the night if you end it by mistake.', ok: 'End night', danger: true,
                   onOk: function () { commit(function (x) { E.endNight(x); }); render(); } };
@@ -654,9 +681,12 @@
             ])
           ]),
           prev.length ? h('div', { class: 'panel' }, h('details', { class: 'prev', open: state.ui.prevOpen, ontoggle: function (e) { state.ui.prevOpen = e.target.open; } }, [
-            h('summary', null, 'Earlier rounds (tap a score to correct it)'),
+            h('summary', null, 'Earlier rounds (tap a score to correct it, or delete rounds)'),
+            h('p', { class: 'hint' }, 'Deleting a round also deletes every round after it, and that round is drawn again. Deleting from round 1 restarts the night.'),
             prev.map(function (r) {
-              return h('div', null, [h('h2', { style: 'margin-top:12px' }, 'Round ' + r.n), h('div', { class: 'courtcards' }, r.courts.map(function (c, i) { return courtCard(s, r, c, i, true); })),
+              return h('div', null, [h('div', { class: 'prevhead' }, [h('h2', null, 'Round ' + r.n),
+                btn(r.n === 1 ? 'Delete all rounds' : 'Delete from round ' + r.n, 'small danger', function () { deleteFrom(r.n); }, { 'data-delete-from': r.n })]),
+                h('div', { class: 'courtcards' }, r.courts.map(function (c, i) { return courtCard(s, r, c, i, true); })),
                 r.sitting.length ? h('p', { class: 'hint' }, 'Sat out: ' + r.sitting.map(teamNameOf).join(', ')) : null]);
             })
           ])) : null

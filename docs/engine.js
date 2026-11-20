@@ -593,6 +593,26 @@
     return out;
   }
 
+  // Take the night back to the start of round n: round n and everything after it is deleted (scores included)
+  // and round n is drawn again from how things stood after round n - 1. Teams that arrived during the deleted
+  // rounds stay; teams that have left stay out. n = 1 restarts the night: round 1 is drawn with the teams that
+  // are still here, and those that have left are taken off the list altogether.
+  function rewindTo(session, n) {
+    n = Math.floor(Number(n));
+    if (session.status !== 'live' || !(n >= 1) || n > session.rounds.length) return { ok: false, removed: 0 };
+    var removed = session.rounds.length - (n - 1);
+    session.rounds = session.rounds.slice(0, n - 1);
+    Object.keys(session.teams).forEach(function (id) {
+      var t = session.teams[id];
+      if (n === 1 && t.left) { delete session.teams[id]; return; }
+      if (t.left && t.left > n) t.left = n;
+      if (t.joined > n - 1) t.joined = n - 1;
+      if (n === 1) t.sitCredit = 0;
+    });
+    advance(session);
+    return { ok: true, removed: removed, round: n };
+  }
+
   function redrawRound(session) {
     var cur = currentRound(session);
     if (!cur || roundHasScores(cur)) return false;
@@ -744,7 +764,7 @@
     roundComplete: roundComplete, roundHasScores: roundHasScores, courtDone: courtDone,
     teamStats: teamStats, generateRound: generateRound,
     addTeam: addTeam, renameTeam: renameTeam, removeTeam: removeTeam, startNight: startNight, endNight: endNight, reopenNight: reopenNight,
-    advance: advance, redrawRound: redrawRound, setScore: setScore, setCourts: setCourts, isKingsCourt: isKingsCourt,
+    advance: advance, redrawRound: redrawRound, rewindTo: rewindTo, setScore: setScore, setCourts: setCourts, isKingsCourt: isKingsCourt,
     pendingPlayerScores: pendingPlayerScores, applyPlayerScores: applyPlayerScores,
     scoringEntities: scoringEntities, entityKey: entityKey, keyOf: keyOf, teamName: teamName,
     leaderboard: leaderboard, resultsDoc: resultsDoc, monthlyBoard: monthlyBoard,

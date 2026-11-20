@@ -445,3 +445,60 @@ test('database round trip: empty lists and blanks are restored, and edits become
   assert.deepEqual(E.diffPaths(s, null), { '': null }, 'and removed whole');
   assert.deepEqual(E.diffPaths(s, E.clone(s)), {}, 'no change, no write');
 });
+
+test('rewind: deleting from a round removes it and everything after, and draws that round again', () => {
+  const s = playNight(makeNight({ teams: 14, seed: 5 }), 6, 77);
+  assert.equal(s.rounds.length, 7);
+  const afterThree = JSON.stringify(s.rounds.slice(0, 3)), pointsAfterThree = E.teamStats(s, 3);
+  const out = E.rewindTo(s, 4);
+  assert.deepEqual([out.ok, out.removed, out.round], [true, 4, 4]);
+  assert.equal(s.rounds.length, 4, 'rounds 1 to 3 kept, round 4 drawn again');
+  assert.equal(JSON.stringify(s.rounds.slice(0, 3)), afterThree, 'earlier rounds are untouched');
+  assert.ok(!E.roundHasScores(E.currentRound(s)), 'the new round 4 has no scores');
+  checkRoundShape(s, E.currentRound(s), 10, 4);
+  const st = E.teamStats(s);
+  Object.keys(st).forEach(id => assert.equal(st[id].points, pointsAfterThree[id].points, 'points are those of the first three rounds'));
+});
+
+test('rewind to round 1 restarts the night with the teams that are still here', () => {
+  const s = makeNight({ teams: 10, seed: 9 });
+  const rand = rng(3);
+  E.startNight(s); playRound(s, rand); playRound(s, rand);
+  const gone = E.teamList(s)[0].id;
+  E.removeTeam(s, gone);                      // leaves during round 3
+  E.addTeam(s, ['Late', 'Comers']);
+  playRound(s, rand);
+  const out = E.rewindTo(s, 1);
+  assert.ok(out.ok);
+  assert.equal(s.status, 'live');
+  assert.equal(s.rounds.length, 1, 'only a fresh round 1');
+  assert.equal(E.teamList(s).length, 10, 'the team that left is off the list altogether; the late team stays');
+  assert.ok(!s.teams[gone]);
+  assert.equal(E.activeTeams(s).length, 10);
+  assert.ok(E.leaderboard(s).every(r => r.points === 0 && r.played === 0), 'nobody has points');
+  assert.ok(E.teamList(s).every(t => t.sitCredit === 0 && t.joined === 0));
+  checkRoundShape(s, E.currentRound(s), 10, 0);
+});
+
+test('rewind to a later round keeps a team that left out of the redrawn round', () => {
+  const s = makeNight({ teams: 10, seed: 4 });
+  const rand = rng(8);
+  E.startNight(s); playRound(s, rand); playRound(s, rand);
+  const gone = E.teamList(s)[3].id;
+  E.removeTeam(s, gone);                      // leaves during round 3
+  playRound(s, rand); playRound(s, rand);
+  E.rewindTo(s, 2);
+  assert.equal(s.rounds.length, 2);
+  assert.ok(s.teams[gone] && s.teams[gone].left, 'still on the list, marked as left, with the points of round 1');
+  const r = E.currentRound(s);
+  assert.ok(!r.sitting.includes(gone) && !r.courts.some(c => E.courtIds(c).includes(gone)), 'and not in the new round 2');
+});
+
+test('rewind refuses rounds that do not exist and nights that are not live', () => {
+  const s = playNight(makeNight({ teams: 8, seed: 2 }), 2, 5);
+  assert.equal(E.rewindTo(s, 9).ok, false);
+  assert.equal(E.rewindTo(s, 0).ok, false);
+  assert.equal(s.rounds.length, 3);
+  E.endNight(s);
+  assert.equal(E.rewindTo(s, 1).ok, false);
+});

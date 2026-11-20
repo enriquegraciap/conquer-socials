@@ -415,9 +415,9 @@
   function rated(row) {
     var players = row.players && row.players.length ? row.players : [row.name], out = [];
     players.forEach(function (p, i) {
-      var r = (st.ratings || {})[E.keyOf(p)], v = r && typeof r.s === 'number' ? r.s.toFixed(2) : 'NR';
+      var r = (st.ratings || {})[E.keyOf(p)], has = !!r && typeof r.s === 'number';
       if (i) out.push(' & ');
-      out.push(p, h('span', 'rt', '(' + v + ')'));
+      out.push(p, h('span', 'rt' + (has ? '' : ' nr'), '(' + (has ? r.s.toFixed(2) : 'NR') + ')'));
     });
     return out;
   }

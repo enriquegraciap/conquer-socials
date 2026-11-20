@@ -319,7 +319,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   const code = (await tv2.textContent('.tvmenu .code')).trim();
   assert.match(code, /^[A-Z2-9]{4}$/);
   assert.match(await tv2.getAttribute('.tvmenu .side svg', 'data-qr'), new RegExp('/\\?(db=[^&]+&)?tv=' + code + '$'), 'the menu\'s QR opens the admin page for this TV');
-  assert.deepEqual(await tv2.locator('.tvmenu .pickbtn b').allTextContents(), ['Lehi Date Night', 'Tempe Mixer', 'Club flyers'], 'the menu lists every social and the club flyers');
+  assert.deepEqual(await tv2.locator('.tvmenu .pickbtn b').allTextContents(), ['Lehi Date Night', 'Tempe Mixer', 'Club flyers', 'Special event flyers'], 'the menu lists every social and the two flyer slideshows');
   assert.equal(await tv2.textContent('#bartitle'), 'Main menu');
   await tv2.screenshot({ path: SHOTS + 'tv-pairing.png' });
   await admin2.goto(BASE + '/?db=' + DB + '&tv=' + code);          // what scanning the QR does
@@ -411,6 +411,29 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   assert.deepEqual(await fly.locator('.flycard .nm').allTextContents(), ['Kids Camp'], 'reordered, then one removed');
   const left = (await (await fetch(BASE + '/__dump')).json()).db.pub.flyers.club;
   assert.equal(Object.keys(left.data).length, 1, 'the removed flyer\'s picture is gone from the database too');
+
+  // 13e2. the second slideshow: flyers for a special event, kept apart from the club's
+  await fly.click('#setSpecial');
+  await fly.waitForSelector('h1:text("Special event flyers")');
+  await fly.waitForSelector('text=No flyers yet');
+  await fly.setInputFiles('#pick', { name: 'Grand Opening.png', mimeType: 'image/png', buffer: Buffer.from(await picture(1920, 1080, '#7a3fc0', 'GRAND OPENING'), 'base64') });
+  await fly.waitForSelector('text=1 flyer added');
+  const sets = (await (await fetch(BASE + '/__dump')).json()).db.pub.flyers;
+  assert.deepEqual([Object.keys(sets.club.index).length, Object.keys(sets.special.index).length], [1, 1], 'each slideshow keeps its own flyers');
+  await tv3.keyboard.press('m');
+  await tv3.waitForSelector('.tvmenu .pickbtn');
+  await tv3.click('[data-pick="@special"]');
+  await tv3.waitForSelector('.flyer.on', { timeout: 10000 });
+  assert.equal(await tv3.evaluate(() => document.querySelector('.flyer.on').getAttribute('data-id')), Object.keys(sets.special.index)[0], 'the special slideshow shows the special flyer');
+  await tv3.waitForTimeout(2500);
+  assert.equal(await tv3.locator('.lb.on').count(), 0, 'and no leaderboards slide: only the event\'s flyers');
+  await tv3.reload();
+  await tv3.waitForSelector('.flyer.on', { timeout: 10000 });
+  assert.equal(await tv3.evaluate(() => document.querySelector('.flyer.on').getAttribute('data-id')), Object.keys(sets.special.index)[0], 'the TV remembers it is on the special slideshow');
+  await fly.click('#setClub');
+  await fly.waitForSelector('h1:text("Club flyers")');
+  assert.deepEqual(await fly.locator('.flycard .nm').allTextContents(), ['Kids Camp'], 'the club set is untouched');
+  step('special event flyers: their own page tab, their own slideshow on the TV, no leaderboards mixed in');
 
   // 13f. the iPad can send a TV to the flyers or back to a social; a rename reaches the TVs
   await admin2.selectOption(`#tvevent-${code}`, '@flyers');

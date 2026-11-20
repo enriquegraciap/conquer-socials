@@ -10,8 +10,9 @@ On a TV open the address in the TV's browser and press **Full screen**.
 
 Players' phones: `https://enriquegraciap.github.io/conquer-socials/p/` (the TV shows it as a QR code during a round).
 
-**Club flyers:** `https://enriquegraciap.github.io/conquer-socials/flyers/` is where staff add photos. A TV shows
-them as a slideshow, a new flyer every 15 seconds.
+**Flyers:** `https://enriquegraciap.github.io/conquer-socials/flyers/` is where staff add photos. There are two
+slideshows, each a new flyer every 15 seconds: **Club flyers** (the everyday set, which also shows the monthly
+leaderboards) and **Special event flyers** (`flyers/?set=special`, only that event's flyers).
 
 **Each social's flyer:** on the iPad, Events → **Flyer** next to the social. Upload the wide (landscape) flyer and,
 if you have one, the tall (portrait) one. Then:

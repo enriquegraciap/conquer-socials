@@ -1,6 +1,7 @@
 /* Padel Socials — TV display. Read-only: checks the database every 2 seconds and redraws when something changed.
  *
- * What a TV shows: one of the socials, the club flyers (a slideshow), or the main menu where you choose.
+ * What a TV shows: one of the socials, one of the two flyer slideshows (the club's everyday flyers, or the
+ * flyers for a special event), or the main menu where you choose.
  *   1. something named in the address (tv/?s=event-id, tv/?flyers=1) wins until a choice is made on the TV;
  *   2. otherwise what was last chosen for this TV: on its own main menu with the remote, or from the admin
  *      page (scan the QR on the menu, or add the TV by its code). The most recent of the two counts;
@@ -17,11 +18,12 @@
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var CROWN = '\uD83D\uDC51';   // beside the winning team: after the name on the left side, before it on the right side
   var MEDALS = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];   // gold, silver, bronze
-  var FLYERS = '@flyers', MENU = '@menu';      // the two things a TV can show that are not a social
+  var FLYERS = '@flyers', SPECIAL = '@special', MENU = '@menu';      // what a TV can show that is not a social
+  function isFly(x) { return x === FLYERS || x === SPECIAL; }
   var FORMATS = {};
   Object.keys(E.FORMATS).forEach(function (f) { FORMATS[f] = E.FORMATS[f].name; });
   var q0 = new URLSearchParams(location.search);
-  var fixed = q0.get('flyers') ? FLYERS : q0.get('s');
+  var fixed = q0.get('flyers') === 'special' ? SPECIAL : q0.get('flyers') ? FLYERS : q0.get('s');
 
   var st = { id: tvId(), mode: 'boot', series: {}, seriesId: null, seriesName: '', rev: null, ping: 0, session: null, pending: {},
     month: null, monthKey: null, busy: false, lastOk: 0, lastRound: 0, shown: false, ticks: 0, pendingSince: 0, menuShown: '',
@@ -96,11 +98,11 @@
       st.busy = false;
       takePairing(scr);
       var ids = Object.keys(st.series), choice = S.pref('tvShow') || '';
-      var want = fixed && (fixed === FLYERS || st.series[fixed]) ? fixed
-        : choice === FLYERS ? FLYERS
+      var want = fixed && (isFly(fixed) || st.series[fixed]) ? fixed
+        : isFly(choice) ? choice
         : choice && choice !== MENU && st.series[choice] ? choice
         : choice !== MENU && ids.length === 1 ? ids[0] : null;
-      if (want === FLYERS) { if (st.mode !== 'flyers') showFlyers(); }
+      if (isFly(want)) { if (st.mode !== 'flyers' || fl.which !== want) showFlyers(want); }
       else if (want) { if (want !== st.seriesId || st.mode !== 'show') show(want); }
       else menu();
     }).catch(function () {
@@ -179,7 +181,7 @@
       try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '')); } catch (e) { /* fine */ }
     }
     if (what === MENU) { menu(); decide(); }
-    else if (what === FLYERS) showFlyers();
+    else if (isFly(what)) showFlyers(what);
     else show(what);
   }
   // The main menu: every social, and the club flyers. Big buttons, so a TV remote can move through them.
@@ -198,7 +200,8 @@
       return b;
     };
     var items = ids.map(function (id) { return item(id, st.series[id].name, FORMATS[st.series[id].format] || 'Social'); });
-    items.push(item(FLYERS, 'Club flyers', 'Slideshow, a new flyer every 15 seconds'));
+    items.push(item(FLYERS, 'Club flyers', 'Slideshow of the club\u2019s flyers and the monthly leaderboards'));
+    items.push(item(SPECIAL, 'Special event flyers', 'Slideshow of the flyers for a special event'));
     var qr = qrSvg(S.link('admin', { tv: st.id }));
     root.replaceChildren(h('div', 'tvmenu', [
       h('div', 'list', [h('h1', null, 'What should this screen show?'), h('div', 'items' + (items.length > 5 ? ' two' : ''), items)]),
@@ -218,11 +221,16 @@
 
   // ---------------------------------------------------------------- club flyers
   // A slideshow of the photos uploaded on the flyers page: each fills the screen, a new one every 15 seconds.
-  var FLY_PATH = 'pub/flyers/club', SLIDE_MS = 15000;
+  // Two sets: the club's everyday flyers (pub/flyers/club, which also shows the monthly leaderboards) and the
+  // flyers for a special event (pub/flyers/special).
+  var SLIDE_MS = 15000;
   var BOARDS = '@boards';                       // the slide that is made here: this month's top three of every social
   var fl = { rev: undefined, list: [], data: {}, cur: null, top: 0, timer: null, loading: false, layers: [], msg: null, board: null, boards: [], month: '' };
-  function showFlyers() {
+  function showFlyers(which) {
     setMode('flyers');
+    fl.which = which === SPECIAL ? SPECIAL : FLYERS;
+    fl.path = 'pub/flyers/' + (fl.which === SPECIAL ? 'special' : 'club');
+    fl.list = []; fl.data = {}; fl.boardSig = '';
     barTitle();
     fl.layers = [h('img', 'flyer'), h('img', 'flyer')];
     fl.layers.forEach(function (l) { l.alt = ''; });
@@ -246,13 +254,13 @@
   // This month's top three of every social, from the nights that have ended. Read again every minute, so the
   // slide is up to date shortly after a social finishes.
   function loadBoards() {
-    if (st.mode !== 'flyers') return;
+    if (st.mode !== 'flyers' || fl.which !== FLYERS) return;       // the leaderboards belong to the club's slideshow
     var month = E.localDate(new Date()).slice(0, 7);
     S.get('pub/series').then(function (series) {
       series = series || {};
       var ids = Object.keys(series).sort(function (a, b) { return (series[a].name || '') < (series[b].name || '') ? -1 : 1; });
       return Promise.all(ids.map(function (id) { return S.get('pub/results/' + id + '/' + month).catch(function () { return null; }); })).then(function (all) {
-        if (st.mode !== 'flyers') return;
+        if (st.mode !== 'flyers' || fl.which !== FLYERS) return;
         st.series = series;
         var list = [];
         ids.forEach(function (id, i) {
@@ -300,11 +308,14 @@
   function loadFlyers() {
     if (fl.loading || st.mode !== 'flyers') return;
     fl.loading = true;
-    S.get(FLY_PATH + '/rev').then(function (rev) {
+    var path = fl.path;
+    S.get(path + '/rev').then(function (rev) {
+      if (path !== fl.path) return null;
       st.lastOk = Date.now();
       rev = rev || 0;
       if (rev === fl.rev) return null;
-      return S.get(FLY_PATH + '/index').then(function (idx) {
+      return S.get(path + '/index').then(function (idx) {
+        if (path !== fl.path) return null;
         idx = idx || {};
         fl.list = Object.keys(idx).map(function (id) { return { id: id, order: Number(idx[id].order) || 0 }; })
           .sort(function (a, b) { return a.order - b.order || (a.id < b.id ? -1 : 1); });
@@ -319,7 +330,9 @@
   function fetchFlyers() {
     var next = fl.list.filter(function (f) { return fl.data[f.id] === undefined; })[0];
     if (!next || st.mode !== 'flyers') return null;
-    return S.get(FLY_PATH + '/data/' + next.id).then(function (d) {
+    var path = fl.path;
+    return S.get(path + '/data/' + next.id).then(function (d) {
+      if (path !== fl.path) return null;
       fl.data[next.id] = typeof d === 'string' ? d : '';
       // the first flyer goes up as soon as it arrives, also when only the leaderboards were showing until now
       if (fl.cur === null || (fl.cur === BOARDS && readyFlyers().length === 1)) nextFlyer();
@@ -355,9 +368,9 @@
     var key = wait ? 'wait' : 'none';
     if (fl.msg.getAttribute('data-k') === key) return;
     fl.msg.setAttribute('data-k', key);
-    var qr = wait ? null : qrSvg(S.link('flyers'));
-    fl.msg.replaceChildren(h('h1', null, wait ? 'Loading the flyers…' : 'No flyers yet'),
-      wait ? null : h('p', null, 'Add photos from the club iPad, a phone or a computer: open Events, then Club flyers. Or scan this code.'),
+    var special = fl.which === SPECIAL, qr = wait ? null : qrSvg(S.link('flyers', special ? { set: 'special' } : {}));
+    fl.msg.replaceChildren(h('h1', null, wait ? 'Loading the flyers…' : special ? 'No special event flyers yet' : 'No flyers yet'),
+      wait ? null : h('p', null, 'Add photos from the club iPad, a phone or a computer: open Events, then ' + (special ? 'Special event flyers' : 'Club flyers') + '. Or scan this code.'),
       qr ? h('div', 'qrbox', qr) : null);
   }
   function poll() {

@@ -8,7 +8,10 @@
 (function () {
   'use strict';
   var S = window.Store, root = document.getElementById('app');
-  var PATH = 'pub/flyers/club', MAX_W = 1920, MAX_H = 1080, THUMB_W = 360, SLIDE_SECONDS = 15;
+  // Two sets of flyers, each its own slideshow on the TVs: the club's everyday flyers, and those for a special event.
+  var SPECIAL = new URLSearchParams(location.search).get('set') === 'special';
+  var SET = SPECIAL ? { id: 'special', title: 'Special event flyers', menu: 'Special event flyers' } : { id: 'club', title: 'Club flyers', menu: 'Club flyers' };
+  var PATH = 'pub/flyers/' + SET.id, MAX_W = 1920, MAX_H = 1080, THUMB_W = 360, SLIDE_SECONDS = 15;
   var state = { phase: 'boot', index: {}, error: '', busy: '', askKey: false, keyWrong: false, keyInput: '', after: null, toast: '', confirm: null };
   var toastTimer = null;
 
@@ -158,7 +161,7 @@
   }
   function render() {
     var active = document.activeElement, focusId = active && active.id;
-    var kids = [h('div', { class: 'topbar' }, [h('h1', null, 'Club flyers'), h('span', { class: 'spacer' }), h('span', { class: 'sync' }, state.busy),
+    var kids = [h('div', { class: 'topbar' }, [h('h1', null, SET.title), h('span', { class: 'spacer' }), h('span', { class: 'sync' }, state.busy),
       h('a', { class: 'linkbtn', href: S.link('admin') }, 'Socials')])];
     var body = [];
     if (state.phase === 'boot') body.push(h('p', { class: 'hint' }, 'Loading…'));
@@ -166,6 +169,10 @@
     else if (state.phase === 'error') body.push(h('div', { class: 'notice err' }, 'Could not reach the database: ' + state.error), btn('Try again', 'primary', function () { state.phase = 'boot'; render(); load(); }));
     else {
       var all = list();
+      body.push(h('div', { class: 'settabs', role: 'navigation', 'aria-label': 'Which slideshow' }, [
+        h('a', { href: S.link('flyers'), class: SPECIAL ? '' : 'on', id: 'setClub' }, 'Club flyers'),
+        h('a', { href: S.link('flyers', { set: 'special' }), class: SPECIAL ? 'on' : '', id: 'setSpecial' }, 'Special event flyers')
+      ]));
       if (state.askKey) body.push(keyPanel());
       body.push(h('div', { class: 'panel' }, [
         h('h2', null, ['Add flyers', h('small', null, 'photos from this device')]),
@@ -175,7 +182,8 @@
           h('input', { type: 'file', id: 'pick', accept: 'image/*', multiple: true, hidden: true, disabled: !!state.busy,
             onchange: function (e) { var f = Array.prototype.slice.call(e.target.files || []); e.target.value = ''; addFiles(f); } })
         ]),
-        h('p', { class: 'hint' }, 'To show them: on the TV press Main menu, then Club flyers. New flyers appear on the TVs within half a minute.')
+        h('p', { class: 'hint' }, 'To show them: on the TV press Main menu, then ' + SET.menu + '. New flyers appear on the TVs within half a minute.' +
+          (SPECIAL ? ' This slideshow shows only these flyers; the everyday club flyers and leaderboards are in the other one.' : ''))
       ]));
       body.push(h('div', { class: 'panel' }, [
         h('h2', null, ['On the TVs now', h('small', null, all.length ? all.length + (all.length === 1 ? ' flyer' : ' flyers') + ', in this order' : '')]),

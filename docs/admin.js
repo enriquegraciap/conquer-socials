@@ -49,8 +49,8 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { state.ui.toast = ''; render(); }, 4500);
   }
-  var FLYERS = '@flyers';     // a TV can show the club flyers instead of a social
-  function showName(id) { return id === FLYERS ? 'the club flyers' : (state.series[id] || {}).name || 'that social'; }
+  var FLYERS = '@flyers', SPECIAL = '@special';     // a TV can show one of the two flyer slideshows instead of a social
+  function showName(id) { return id === FLYERS ? 'the club flyers' : id === SPECIAL ? 'the special event flyers' : (state.series[id] || {}).name || 'that social'; }
   function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'event'; }
   function teamNameOf(id) { var t = state.session.teams[id]; return t ? t.name : '(removed)'; }
   function sideNameOf(c, side) { return E.sideName(state.session, c, side); }      // a team, or the two players paired for that round
@@ -350,9 +350,12 @@
         h('p', { class: 'hint' }, 'Both formats share the courts, sit-out and scoring rules. The format is chosen once, when the event is created.')
       ]),
       h('div', { class: 'panel' }, [
-        h('h2', null, ['Club flyers', h('small', null, 'a slideshow for the TVs')]),
-        h('p', { class: 'hint', style: 'margin:0 0 10px' }, 'Upload the club’s flyers and any TV can show them, a new one every 15 seconds. On the TV, choose Club flyers from its main menu.'),
-        h('a', { class: 'btn', href: S.link('flyers'), id: 'openFlyers', style: 'display:inline-flex;align-items:center;text-decoration:none;color:inherit' }, 'Open club flyers')
+        h('h2', null, ['Flyers', h('small', null, 'two slideshows for the TVs')]),
+        h('p', { class: 'hint', style: 'margin:0 0 10px' }, 'Any TV can show either one, a new flyer every 15 seconds: the club’s everyday flyers (with the monthly leaderboards), or the flyers for a special event. On the TV, choose one from its main menu.'),
+        h('div', { class: 'row' }, [
+          h('a', { class: 'btn', href: S.link('flyers'), id: 'openFlyers', style: 'display:inline-flex;align-items:center;text-decoration:none;color:inherit' }, 'Open club flyers'),
+          h('a', { class: 'btn', href: S.link('flyers', { set: 'special' }), id: 'openSpecial', style: 'display:inline-flex;align-items:center;text-decoration:none;color:inherit' }, 'Open special event flyers')
+        ])
       ]),
       ids.length ? tvsPanel(ids) : null
     ]);
@@ -363,7 +366,7 @@
     var options = function (selected) {
       return [h('option', { value: '' }, 'Choose…')].concat(ids.map(function (id) {
         return h('option', { value: id, selected: id === selected }, state.series[id].name);
-      })).concat([h('option', { value: FLYERS, selected: selected === FLYERS }, 'Club flyers')]);
+      })).concat([h('option', { value: FLYERS, selected: selected === FLYERS }, 'Club flyers'), h('option', { value: SPECIAL, selected: selected === SPECIAL }, 'Special event flyers')]);
     };
     var add = function () {
       var code = state.ui.tvCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -806,7 +809,7 @@
       body = [h('h3', null, 'TV ' + m.code),
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'What should this screen show?'),
         h('div', { class: 'serieslist' }, evIds.map(function (id) { return btn(state.series[id].name, '', function () { pick(id); }, { 'data-pick': id }); })
-          .concat([btn('Club flyers', '', function () { pick(FLYERS); }, { 'data-pick': FLYERS })])),
+          .concat([btn('Club flyers', '', function () { pick(FLYERS); }, { 'data-pick': FLYERS }), btn('Special event flyers', '', function () { pick(SPECIAL); }, { 'data-pick': SPECIAL })])),
         h('p', { class: 'hint' }, 'To put a new social on this screen: close this, create it below, then come back to Events and add TV ' + m.code + ' under TVs.'),
         h('div', { class: 'row end' }, btn('Close', '', function () { state.pairTv = null; closeModal(); }))];
     } else if (m.type === 'key') {

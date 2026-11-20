@@ -344,7 +344,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   step('two socials: one TV paired by QR, re-pointed from the TVs list, another added by typing its code');
 
   // 13d. the format under the title, and the TV's own main menu, worked with the remote's arrow keys
-  assert.equal(await tv3.textContent('#barsub'), 'Fixed partner, King\u2019s Court', 'the format shows under the social\'s name');
+  assert.equal(await tv3.textContent('#barsub'), 'Fixed partner, king\u2019s court', 'the format shows under the social\'s name');
   assert.ok(await tv3.isVisible('#menu'), 'Main menu button is beside Full screen');
   assert.ok((await tv3.locator('#menu').boundingBox()).x < (await tv3.locator('#fs').boundingBox()).x, 'Main menu sits to the left of Full screen');
   await tv3.screenshot({ path: SHOTS + 'tv-buttons.png' });

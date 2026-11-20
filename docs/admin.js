@@ -764,7 +764,7 @@
         ]);
       };
       var bar = h('div', { class: 'lookbar', id: 'lookbar' }, [h('img', { src: 'logo-p.png', alt: '' }),
-        h('div', { class: 'c' }, [h('b', null, state.series[m.id].name), h('span', null, E.formatOf(state.series[m.id].format).name)]),
+        h('div', { class: 'c' }, [h('b', null, state.series[m.id].name), h('span', null, (function (f) { return f.charAt(0).toUpperCase() + f.slice(1).toLowerCase(); })(E.formatOf(state.series[m.id].format).name))]),
         h('img', { class: 'w', src: 'conquer-wordmark-white.png', alt: '' })]);
       L.paint(bar, has || lk.pattern ? lk : null);
       body = [h('h3', null, 'Flyer and look'),

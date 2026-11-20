@@ -370,12 +370,15 @@ body.tv.mode-flyers .tvbar, body.tv.mode-flyers .tvdate, body.tv.mode-flyers .tv
 @media (prefers-reduced-motion: reduce) { .tvhead .round.flash { animation: none; } }
 
 /* The name of a social is set in a lively brush script (in the spirit of the lettering on the club's flyers);
-   everything else keeps the condensed display face. Script names are written as typed, not in capitals. */
-body.tv #bartitle.social { font-family: var(--script); font-weight: 400; font-size: 5.4vh; line-height: 1.22; letter-spacing: .01em; text-transform: none; padding: 0 .35em; }
+   everything else keeps the condensed display face. The names are in capitals; the format under the banner's
+   title is in sentence case ("Fixed partner, king's court"). */
+body.tv #bartitle.social { font-family: var(--script); font-weight: 400; font-size: 5.2vh; line-height: 1.22; letter-spacing: .03em; text-transform: uppercase; padding: 0 .35em; }
+body.tv #bartitle.social + #barsub { text-transform: none; letter-spacing: .16em; font-size: 2.3vh; }
 body.tv .tvbar .tvbar-c:has(#bartitle.social) #barsub { margin-top: 0; }
-.pickbtn:not([data-pick="@flyers"]) b { font-family: var(--script); font-weight: 400; letter-spacing: .01em; text-transform: none; line-height: 1.25; padding: 0 .1em; }
-.lbname b { font-family: var(--script); font-weight: 400; letter-spacing: .01em; text-transform: none; line-height: 1.3; }
-.lookbar .c b { font-family: var(--script); font-weight: 400; letter-spacing: .01em; text-transform: none; line-height: 1.25; }
+.pickbtn:not([data-pick="@flyers"]) b { font-family: var(--script); font-weight: 400; letter-spacing: .03em; text-transform: uppercase; line-height: 1.25; padding: 0 .1em; }
+.lbname b { font-family: var(--script); font-weight: 400; letter-spacing: .03em; text-transform: uppercase; line-height: 1.3; }
+.lookbar .c b { font-family: var(--script); font-weight: 400; letter-spacing: .03em; text-transform: uppercase; line-height: 1.25; }
+.lookbar .c span { text-transform: none; letter-spacing: .14em; }
 
 /* Between rounds: the whole screen turns to the social's wide flyer for about six seconds. The new round's
    number makes an entrance (slam, spin or smash take turns), padel balls rain down, then a ball with a face rolls
@@ -465,7 +468,7 @@ body.pl { background: #0a2f41; color: var(--ink); min-height: 100vh; }
 .pl-splash.ready .wait { display: none; }
 .pl-top { display: flex; align-items: center; gap: 12px; padding: calc(12px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px)); color: #fff; }
 .pl-top img { height: 34px; width: auto; }
-.pl-top b { display: block; font-family: var(--script); font-weight: 400; font-size: 23px; letter-spacing: .01em; line-height: 1.2; }
+.pl-top b { display: block; font-family: var(--script); font-weight: 400; font-size: 21px; letter-spacing: .03em; line-height: 1.2; text-transform: uppercase; }
 .pl-top span { display: block; font-size: 15px; color: #a9c3e0; }
 .pl-main { display: grid; gap: 12px; padding: 4px max(16px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); max-width: 560px; margin: 0 auto; }
 .pl-card { background: #fff; border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
@@ -495,11 +498,21 @@ body.pl { background: #0a2f41; color: var(--ink); min-height: 100vh; }
 .pl-link { background: none; border: 0; padding: 10px 4px; font-size: 16px; text-decoration: underline; color: var(--court); justify-self: start; }
 .pl-list { display: grid; gap: 8px; }
 .pl-pick { text-align: left; border: 0; background: #fff; border-radius: 12px; min-height: 58px; padding: 12px 16px; font-size: 20px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
-.pl-roles { display: grid; gap: 10px; }
-.pl-role { border: 0; border-radius: 14px; min-height: 84px; padding: 14px 18px; text-align: left; background: #fff; color: var(--ink); display: grid; gap: 2px; }
-.pl-role b { font-family: var(--display); font-size: 30px; line-height: 1; text-transform: uppercase; letter-spacing: .03em; color: var(--court-deep); }
-.pl-role span { font-size: 16px; color: #33475c; }
-.pl-role.admin { background: #12384b; color: #fff; border: 2px solid rgba(255,255,255,.6); } .pl-role.admin b { color: #fff; } .pl-role.admin span { color: #cfe0f3; }
+.pl-roles { display: grid; gap: 16px; }
+/* the greeting: no card, just lively lettering in the middle of the screen */
+.pl-hello { text-align: center; color: #fff; padding: 26px 6px 14px; }
+.pl-hello h2 { margin: 0 0 10px; font-family: var(--script); font-weight: 400; font-size: 46px; line-height: 1.15; text-wrap: balance; }
+.pl-hello p { margin: 0; font-size: 19px; line-height: 1.4; color: #cfe0f3; text-wrap: balance; }
+/* Player and Admin: two buttons that look like buttons. Dark, outlined, with an arrow; white for a moment when pressed. */
+.pl-role { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 92px; padding: 16px 18px; text-align: left; border-radius: 16px;
+  background: #12384b; color: #fff; border: 2px solid rgba(255,255,255,.7); box-shadow: 0 6px 0 rgba(0,0,0,.28); cursor: pointer;
+  transition: background-color .12s ease, color .12s ease, transform .12s ease, box-shadow .12s ease; }
+.pl-role .txt { display: grid; gap: 4px; min-width: 0; }
+.pl-role b { font-family: var(--display); font-size: 32px; line-height: 1; text-transform: uppercase; letter-spacing: .04em; color: #fff; }
+.pl-role .txt span { font-size: 16px; line-height: 1.3; color: #cfe0f3; }
+.pl-role .go { font-family: var(--display); font-size: 44px; line-height: 1; color: var(--gold); padding-bottom: 6px; }
+.pl-role.pressed { background: #fff; border-color: #fff; transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,.28); }
+.pl-role.pressed b { color: var(--court-deep); } .pl-role.pressed .txt span { color: #33475c; } .pl-role.pressed .go { color: var(--court); }
 .pl-key { border: 1px solid var(--rule); border-radius: 10px; min-height: 56px; padding: 12px; font-size: 22px; letter-spacing: .08em; width: 100%; }
 .pl-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #fff; padding: 4px 2px; }
 .pl-foot b { display: block; font-size: 17px; overflow-wrap: anywhere; } .pl-foot span { display: block; font-size: 15px; color: #a9c3e0; }

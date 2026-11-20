@@ -468,7 +468,8 @@
       b.classList.toggle('social', st.mode === 'show' && !!st.seriesName);     // a social's name gets the brush script
       fitTitle();
     }
-    if (sub) sub.textContent = st.mode === 'show' ? (FORMATS[meta.format] || '') : '';
+    var fmt = st.mode === 'show' ? (FORMATS[meta.format] || '') : '';
+    if (sub) sub.textContent = fmt ? fmt.charAt(0).toUpperCase() + fmt.slice(1).toLowerCase() : '';     // "Fixed partner, king's court"
     // a social with a flyer gets a banner in the flyer's colours; everything else keeps the club's own
     var look = st.mode === 'show' && meta.look && (meta.look.wide || meta.look.tall) ? meta.look : null;
     var sig = look ? JSON.stringify([look.cands, look.variant, look.pattern]) : '';

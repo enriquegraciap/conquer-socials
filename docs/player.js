@@ -190,12 +190,25 @@
   }
 
   // First screen after scanning the TV: are you playing, or running the night?
+  // The first screen after the flyer: a greeting, and two buttons. A pressed button turns white for half a
+  // second, so it is plain that it was pressed, before the page moves on.
   function roleChoice() {
+    var press = function (which, go) {
+      return function () {
+        if (st.pressed) return;
+        st.pressed = which; render();
+        setTimeout(function () { st.pressed = null; go(); }, 500);
+      };
+    };
+    var role = function (which, id, title, text, go) {
+      return h('button', { type: 'button', class: 'pl-role' + (st.pressed === which ? ' pressed' : ''), id: id, onclick: press(which, go) },
+        [h('span', { class: 'txt' }, [h('b', null, title), h('span', null, text)]), h('span', { class: 'go', 'aria-hidden': 'true' }, '\u203a')]);
+    };
     return [
-      h('div', { class: 'pl-card' }, [h('h2', null, 'Welcome'), h('p', null, 'Are you playing tonight, or running the social?')]),
+      h('div', { class: 'pl-hello' }, [h('h2', null, 'Hi, welcome!'), h('p', null, 'Are you playing tonight or running the social?')]),
       h('div', { class: 'pl-roles' }, [
-        h('button', { type: 'button', class: 'pl-role', id: 'rolePlayer', onclick: function () { st.role = 'player'; render(); } }, [h('b', null, 'Player'), h('span', null, 'Find your court and send in your scores')]),
-        h('button', { type: 'button', class: 'pl-role admin', id: 'roleAdmin', onclick: openAdmin }, [h('b', null, 'Admin'), h('span', null, 'Run the night: scores, teams, courts, rounds')])
+        role('player', 'rolePlayer', 'Player', 'Find your court and send in your scores', function () { st.role = 'player'; render(); }),
+        role('admin', 'roleAdmin', 'Admin', 'Run the night: scores, teams, courts, rounds', openAdmin)
       ])
     ];
   }

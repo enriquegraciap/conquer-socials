@@ -109,7 +109,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await tv.waitForSelector('.tvcourt.done', { timeout: 6000 });
   assert.equal(await tv.locator('.tvcourt.done').count(), 1, 'that court turns green on the TV');
   assert.match(await tv.textContent('.tvcourt.done .mid'), /6 . 2/);
-  assert.equal((await tv.textContent('.tvcourt.done .tm.a')).trim(), bottomTeam + ' \uD83D\uDC51', 'a crown follows the winning team\'s name');
+  assert.equal((await tv.textContent('.tvcourt.done .tm.a')).trim(), bottomTeam + ' \uD83D\uDC51', 'left side wins: the crown follows the name');
   assert.ok(!(await tv.textContent('.tvcourt.done .tm.b')).includes('\uD83D\uDC51'), 'and not the losing team\'s');
   const medals = await tv.locator('.tvboard >> nth=0 >> .tvrow .md').allTextContents();
   assert.deepEqual(medals.filter(Boolean), ['\uD83E\uDD47', '\uD83E\uDD48'], 'gold for the leader, silver for second; no medal for teams on zero');
@@ -139,6 +139,8 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
     }
   }
   await scoreRound(1, true);
+  // the admin scored court 7 as 3-4, so the right-hand team won there: crown first, then the name
+  const kingsRight = (await admin.locator('details.prev .courtcard[data-court="7"] .tm div').nth(1).textContent().catch(() => '')).trim();
   await admin.waitForSelector('.roundhead .big:text("Round 2")');
   await player.waitForFunction(() => /Round 2/.test(document.querySelector('.pl-top span').textContent), null, { timeout: 8000 });
   assert.ok(await player.locator('#send, .pl-card h2').count(), 'the phone moved on to round 2 by itself');

@@ -13,7 +13,7 @@
   var POLL_MS = 2000, MONTH_ROWS = 10;
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  var WIN = ' \uD83D\uDC51';                                       // a crown after the winning team's name
+  var CROWN = '\uD83D\uDC51';   // beside the winning team: after the name on the left side, before it on the right side
   var MEDALS = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];   // gold, silver, bronze
   var fixed = new URLSearchParams(location.search).get('s');
 
@@ -230,9 +230,9 @@
       // green behind the names once the score is in, so it is easy to see which courts are still missing
       return h('div', 'tvcourt' + (c.level === top ? ' king' : '') + (has ? ' done' : ''), [
         h('div', 'cn', [h('span', null, c.level === top ? 'King’s Court' : 'Court'), h('b', null, String(c.court))]),
-        h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), name(c.a) + (has && w === 'a' ? WIN : '')),
+        h('div', 'tm a' + (has && w === 'b' ? ' lost' : ''), name(c.a) + (has && w === 'a' ? ' ' + CROWN : '')),
         c.void ? h('div', 'mid', 'no match') : has ? h('div', 'mid score', sa + ' – ' + sb) : h('div', 'mid', 'vs'),
-        h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), name(c.b) + (has && w === 'b' ? WIN : ''))
+        h('div', 'tm b' + (has && w === 'a' ? ' lost' : ''), (has && w === 'b' ? CROWN + ' ' : '') + name(c.b))
       ]);
     });
     st.pendingSince = anySent ? (st.pendingSince || Date.now()) : 0;

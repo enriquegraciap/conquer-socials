@@ -324,7 +324,26 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   const code = (await tv2.textContent('.tvmenu .code')).trim();
   assert.match(code, /^[A-Z2-9]{4}$/);
   assert.match(await tv2.getAttribute('.tvmenu .side svg', 'data-qr'), new RegExp('/\\?(db=[^&]+&)?tv=' + code + '$'), 'the menu\'s QR opens the admin page for this TV');
-  assert.deepEqual(await tv2.locator('.tvmenu .pickbtn b').allTextContents(), ['Lehi Date Night', 'Tempe Mixer', 'Club flyers', 'Special event flyers'], 'the menu lists every social and the two flyer slideshows');
+  assert.deepEqual(await tv2.locator('.tvmenu .pickbtn b').allTextContents(), ['Lehi Date Night', 'Tempe Mixer', 'Club flyers', 'Special event flyers', 'Intro to padel'], 'the menu lists every social, the two flyer slideshows and the intro slides');
+  // the intro slides: the remote's arrows change the slide; Main menu comes back
+  await tv2.click('.tvmenu [data-pick="@intro"]');
+  await tv2.waitForSelector('.in-slide[data-slide="welcome"]');
+  const slides = await tv2.evaluate(() => window.Intro.count);
+  await tv2.keyboard.press('ArrowRight');
+  await tv2.waitForSelector('.in-slide[data-slide="world"]');
+  assert.match(await tv2.textContent('.in-slide'), /190\+[\s\S]*40M\+[\s\S]*fastest-growing sport in the US/i);
+  await tv2.keyboard.press('ArrowLeft');
+  await tv2.waitForSelector('.in-slide[data-slide="welcome"]');
+  await tv2.keyboard.press('ArrowLeft');                               // nothing before the first slide
+  assert.equal(await tv2.getAttribute('.in-stage', 'data-at'), '1');
+  for (let i = 1; i < slides; i++) await tv2.keyboard.press(i % 2 ? 'ArrowRight' : 'Enter');
+  await tv2.waitForSelector('.in-slide[data-slide="go"]');
+  assert.match(await tv2.getAttribute('.in-qr svg', 'data-qr'), /\/learn\/(\?|$)/, 'the last slide’s QR code opens the intro page for phones');
+  assert.equal((await tv2.textContent('.in-count')).trim(), slides + ' / ' + slides);
+  await tv2.keyboard.press('ArrowRight');                              // nothing after the last one
+  assert.equal(await tv2.getAttribute('.in-stage', 'data-at'), String(slides));
+  await tv2.click('#menu');
+  await tv2.waitForSelector('.tvmenu .code');
   assert.equal(await tv2.textContent('#bartitle'), 'Main menu');
   await tv2.screenshot({ path: SHOTS + 'tv-pairing.png' });
   await admin2.goto(BASE + '/?db=' + DB + '&tv=' + code);          // what scanning the QR does

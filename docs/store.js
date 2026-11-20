@@ -47,10 +47,11 @@
     if (viaPublic && kind === 'tv') parts.push('v=tv');
     if (viaPublic && kind === 'player') parts.push('v=p');
     if (viaPublic && kind === 'flyers') parts.push('v=flyers');
+    if (viaPublic && kind === 'learn') parts.push('v=learn');
     Object.keys(query || {}).forEach(function (k) { parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(query[k])); });
     var qs = parts.length ? '?' + parts.join('&') : '';
     if (viaPublic) return pub + qs;
-    return home + clubDir + (kind === 'tv' ? 'tv/' : kind === 'player' ? 'p/' : kind === 'flyers' ? 'flyers/' : '') + qs;
+    return home + clubDir + (kind === 'tv' ? 'tv/' : kind === 'player' ? 'p/' : kind === 'flyers' ? 'flyers/' : kind === 'learn' ? 'learn/' : '') + qs;
   }
 
   function request(method, path, body) {
@@ -82,7 +83,8 @@
   root.Store = {
     configured: !!base,
     base: base,
-    club: { id: clubId || 'lehi', name: club ? String(club.name || clubId) : '', formats: club && Array.isArray(club.formats) ? club.formats.slice() : null, courts: club && club.courts > 0 ? Math.floor(club.courts) : 0, root: dataRoot },
+    club: { id: clubId || 'lehi', name: club ? String(club.name || clubId) : '', formats: club && Array.isArray(club.formats) ? club.formats.slice() : null, courts: club && club.courts > 0 ? Math.floor(club.courts) : 0, root: dataRoot,
+      intro: club ? !!club.intro : cfg.intro !== false },      // the "Intro to padel" slides and phone page
     get: function (path) { return request('GET', place(path)); },
     // updates: { "pub/some/path": value-or-null, ... } applied together
     write: function (updates) {

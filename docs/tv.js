@@ -18,7 +18,9 @@
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var CROWN = '\uD83D\uDC51';   // beside the winning team: after the name on the left side, before it on the right side
   var MEDALS = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];   // gold, silver, bronze
-  var FLYERS = '@flyers', SPECIAL = '@special', MENU = '@menu';      // what a TV can show that is not a social
+  var FLYERS = '@flyers', SPECIAL = '@special', MENU = '@menu', INTRO = '@intro';      // what a TV can show that is not a social
+  var I = window.Intro;                                    // the "Intro to padel" slides (intro.js)
+  var hasIntro = !!I && S.club.intro;
   function isFly(x) { return x === FLYERS || x === SPECIAL; }
   var FORMATS = {};
   Object.keys(E.FORMATS).forEach(function (f) { FORMATS[f] = E.FORMATS[f].name; });
@@ -60,7 +62,7 @@
     return;
   }
 
-  var fixed = q0.get('flyers') === 'special' ? SPECIAL : q0.get('flyers') ? FLYERS : q0.get('s');
+  var fixed = q0.get('intro') && hasIntro ? INTRO : q0.get('flyers') === 'special' ? SPECIAL : q0.get('flyers') ? FLYERS : q0.get('s');
 
   var st = { id: tvId(), mode: 'boot', series: {}, seriesId: null, seriesName: '', rev: null, ping: 0, session: null, pending: {},
     month: null, monthKey: null, busy: false, lastOk: 0, lastRound: 0, shown: false, ticks: 0, pendingSince: 0, menuShown: '',
@@ -156,11 +158,12 @@
       st.busy = false;
       takePairing(scr);
       var ids = Object.keys(st.series), choice = S.pref('tvShow') || '';
-      var want = fixed && (isFly(fixed) || st.series[fixed]) ? fixed
-        : isFly(choice) ? choice
+      var want = fixed && (isFly(fixed) || fixed === INTRO || st.series[fixed]) ? fixed
+        : isFly(choice) || (choice === INTRO && hasIntro) ? choice
         : choice && choice !== MENU && st.series[choice] ? choice
         : choice !== MENU && ids.length === 1 ? ids[0] : null;
-      if (isFly(want)) { if (st.mode !== 'flyers' || fl.which !== want) showFlyers(want); }
+      if (want === INTRO) { if (st.mode !== 'intro') showIntro(); }
+      else if (isFly(want)) { if (st.mode !== 'flyers' || fl.which !== want) showFlyers(want); }
       else if (want) { if (want !== st.seriesId || st.mode !== 'show') show(want); }
       else menu();
     }).catch(function () {
@@ -181,6 +184,7 @@
     st.ticks++;
     if (st.mode === 'show') { poll(); if (st.ticks % 15 === 0) refreshEvent(); if (st.ticks % 150 === 0) loadPromo(); }
     else if (st.mode === 'flyers') { if (st.ticks % 15 === 0) loadFlyers(); if (st.ticks % 30 === 0) loadBoards(); }
+    else if (st.mode === 'intro') { /* nothing to fetch: the slides are part of the page */ }
     else decide();
     if (st.mode !== 'menu' && st.mode !== 'boot' && !fixed && st.ticks % 3 === 0) checkPairing();
     status();
@@ -216,6 +220,7 @@
     if (mode !== 'menu') st.menuShown = '';
     if (mode !== 'show') { st.seriesId = null; st.seriesName = ''; st.session = null; st.pendingSince = 0; st.flyer = ''; st.flyerKey = ''; endIntro(); wheelEnd(); applyTheme(null); }
     document.body.classList.toggle('mode-flyers', mode === 'flyers');
+    document.body.classList.toggle('mode-intro', mode === 'intro');
     document.body.classList.toggle('mode-menu', mode === 'menu');
     buttons();
   }
@@ -235,11 +240,12 @@
     S.pref('tvShow', what);
     if (fixed) {                                  // the address no longer decides
       fixed = null;
-      var q = new URLSearchParams(location.search); q.delete('s'); q.delete('flyers');
+      var q = new URLSearchParams(location.search); q.delete('s'); q.delete('flyers'); q.delete('intro');
       var qs = q.toString();
       try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '')); } catch (e) { /* fine */ }
     }
     if (what === MENU) { menu(); decide(); }
+    else if (what === INTRO) showIntro();
     else if (isFly(what)) showFlyers(what);
     else show(what);
   }
@@ -261,6 +267,7 @@
     var items = ids.map(function (id) { return item(id, st.series[id].name, FORMATS[st.series[id].format] || 'Social'); });
     items.push(item(FLYERS, 'Club flyers', 'Slideshow of the club\u2019s flyers and the monthly leaderboards'));
     items.push(item(SPECIAL, 'Special event flyers', 'Slideshow of the flyers for a special event'));
+    if (hasIntro) items.push(item(INTRO, 'Intro to padel', 'Slides for explaining the game to new players: the remote\u2019s arrows change the slide'));
     var qr = qrSvg(S.here('admin', { tv: st.id }));
     root.replaceChildren(h('div', 'tvmenu', [
       h('div', 'list', [h('h1', null, 'What should this screen show?'), h('div', 'items' + (items.length > 5 ? ' two' : ''), items)]),
@@ -276,6 +283,46 @@
     });
     var again = had && root.querySelector('[data-pick="' + had + '"]');
     (again || items[0]).focus();
+  }
+
+  // ---------------------------------------------------------------- intro to padel
+  // A slide deck for explaining the game to people who have never played (the slides are in intro.js). It does not
+  // move by itself: the remote's right and left arrows (or OK, or a click on the slide) change the slide, so the
+  // person explaining sets the pace. The last slide has a QR code to the phone page with rules, tips and questions.
+  var intro = { at: 0, box: null, nav: null };
+  function showIntro() {
+    setMode('intro');
+    barTitle();
+    intro.at = 0;
+    intro.box = h('div', 'in-stage');
+    intro.nav = h('div', 'in-nav');
+    var wrap = h('div', 'tvintro', [intro.box, intro.nav]);
+    wrap.tabIndex = 0;
+    intro.box.addEventListener('click', function () { introGo(1); });
+    root.replaceChildren(wrap);
+    introDraw();
+    wrap.focus();
+  }
+  function introDraw() {
+    if (st.mode !== 'intro' || !intro.box) return;
+    var n = I.count, at = intro.at, qr = I.ids[at] === 'go' ? qrSvg(S.link('learn')) : null;
+    intro.box.replaceChildren(I.build(at, { asset: S.asset, qr: qr }));
+    intro.box.setAttribute('data-at', String(at + 1));
+    var btn = function (cls, label, text, step, off) {
+      var b = h('button', 'in-btn ' + cls, text);
+      b.type = 'button'; b.setAttribute('aria-label', label); b.disabled = off; b.tabIndex = -1;
+      b.addEventListener('click', function (e) { e.stopPropagation(); introGo(step); });
+      return b;
+    };
+    var dots = [];
+    for (var i = 0; i < n; i++) dots.push(h('i', i === at ? 'on' : i < at ? 'done' : null));
+    intro.nav.replaceChildren(btn('prev', 'Previous slide', '\u2039', -1, at === 0), h('div', 'in-dots', dots), h('span', 'in-count', (at + 1) + ' / ' + n), btn('next', 'Next slide', '\u203a', 1, at === n - 1));
+  }
+  function introGo(step) {
+    var to = Math.max(0, Math.min(I.count - 1, intro.at + step));
+    if (to === intro.at) return;
+    intro.at = to;
+    introDraw();
   }
 
   // ---------------------------------------------------------------- club flyers
@@ -1175,7 +1222,7 @@
   // never cover the leaderboard. Leaving full screen (the remote's Back button) brings them back.
   function buttons() {
     fsBtn.hidden = isFull() || !canFull;
-    menuBtn.hidden = isFull() || st.mode === 'menu' || st.mode === 'boot';
+    menuBtn.hidden = (isFull() && st.mode !== 'intro') || st.mode === 'menu' || st.mode === 'boot';      // (the slides keep a way back in full screen)
     turnBtn.hidden = isFull();
     document.body.classList.toggle('hasbtn', !fsBtn.hidden || !menuBtn.hidden || !turnBtn.hidden);
   }
@@ -1189,6 +1236,14 @@
   menuBtn.addEventListener('click', function () { choose(MENU); });
   // A remote's arrow keys step through the buttons on screen; OK presses the one in focus.
   document.addEventListener('keydown', function (e) {
+    // the intro slides: right / left (and OK, space, page keys) change the slide; down reaches the buttons below
+    if (st.mode === 'intro' && !e.metaKey && !e.ctrlKey) {
+      var onBtn = document.activeElement && document.activeElement.closest && document.activeElement.closest('.tvbtns');
+      var next = e.key === 'ArrowRight' || e.key === 'PageDown' || ((e.key === 'Enter' || e.key === ' ') && !onBtn);
+      var prev = e.key === 'ArrowLeft' || e.key === 'PageUp' || e.key === 'Backspace';
+      if ((next || prev) && !(onBtn && /^Arrow/.test(e.key))) { introGo(next ? 1 : -1); e.preventDefault(); e.stopImmediatePropagation(); return; }
+      if (e.key === 'ArrowUp' && onBtn) { var w = root.querySelector('.tvintro'); if (w) w.focus(); e.preventDefault(); return; }
+    }
     if (!/^Arrow/.test(e.key || '')) return;
     var list = Array.prototype.filter.call(document.querySelectorAll('.tvmenu button, .tvbtns button'), function (b) { return !b.hidden; });
     if (!list.length) return;

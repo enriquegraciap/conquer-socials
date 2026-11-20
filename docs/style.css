@@ -661,20 +661,21 @@ body.tv.themed .wbox.r .wptr { border-left-color: var(--t-pale); }
 body.tv.themed .inter { background: var(--t-bg); }
 
 /* ---- TV on a portrait screen ------------------------------------------------------------------
-   The same things as on a landscape TV, stacked: banner, the round and its courts, the sign with who is sitting
-   out or what is coming up beside the QR code, then tonight's and the month's leaderboards side by side.
+   The same things as on a landscape TV, stacked: banner, the round and its courts, tonight's and the month's
+   leaderboards side by side, and at the foot the sign (who is sitting out, what is coming up) beside the QR code.
    Sizes above are in vmin (the screen's shorter side), so the lettering is as big as on a landscape TV of the
    same panel; only what depends on the width is set again here. */
 @media (orientation: portrait) {
   body.tv .tvbar { padding: 0 3vw; gap: 2vw; }
   body.tv .tvbar-c { max-width: 50vw; }
   body.tv .tvbar-r img { height: 5.4vmin; }
-  body.tv .tvroot { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.5fr) minmax(0, 1fr); gap: 2vmin; padding: 2.2vmin 2.6vw 6.2vmin; }
+  body.tv .tvroot { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr) auto; gap: 2vmin; padding: 2.2vmin 2.6vw 6.2vmin; }
+  body.tv .tvleft.nofoot { grid-template-rows: auto minmax(0, 1fr); }      /* tv.js moves the sign and QR code to the foot of the screen */
   body.tv .tvrow .nm { white-space: normal; line-height: 1.06; }
   body.tv .tvsit.sign .line .who { max-height: 3.75em; overflow-wrap: normal; }      /* a name is never cut in two: the text gets smaller instead */
   body.tv .tvbig .teams { font-size: 3.3vmin; }
   body.tv .podium div { font-size: 4.2vmin; }
-  body.tv .podium div:first-child { font-size: 5.2vmin; }
+  body.tv .podium div:first-child { font-size: 4.5vmin; }
   body.tv.hasbtn .tvroot { padding-bottom: 9.4vmin; }
   body.tv .tvleft, body.tv.hasbtn .tvleft { padding-bottom: 0; }
   body.tv .tvright { flex-direction: row; gap: 2.2vw; }

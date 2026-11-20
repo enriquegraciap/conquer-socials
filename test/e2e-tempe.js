@@ -95,15 +95,17 @@ const TEAMS = [['Carter Maclean', 'Kasey Maclean'], ['Lexi Mecham', 'Spencer Mec
   await tall.waitForTimeout(9000);                                                // (fireworks over)
   const boxes = p => p.evaluate(() => { const r = s => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
     const boards = [...document.querySelectorAll('.tvboard')].map(e => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width }; });
-    return { left: r('.tvleft'), right: r('.tvright'), boards, sign: r('.tvsit.sign'), qr: r('.tvqr'), date: r('#date'), W: innerWidth, H: innerHeight,
+    return { left: r('.tvleft'), courts: r('.tvcourts'), right: r('.tvright'), boards, sign: r('.tvsit.sign'), qr: r('.tvqr'), date: r('#date'), W: innerWidth, H: innerHeight,
       over: document.documentElement.scrollWidth > innerWidth || document.documentElement.scrollHeight > innerHeight,
       cut: [...document.querySelectorAll('.tvrow .nm, .tvcourt .tm')].filter(e => e.scrollWidth > e.clientWidth + 1).length }; });
   const L = await boxes(wide), P = await boxes(tall);
   assert.ok(L.right.l >= L.left.r && Math.abs(L.right.t - L.left.t) < 4, 'landscape: the leaderboards are beside the courts');
   assert.ok(L.boards[1].t >= L.boards[0].b, 'landscape: one leaderboard above the other');
-  assert.ok(P.right.t >= P.left.b && P.right.w > P.W * 0.9, 'portrait: the leaderboards are under the courts, full width');
+  assert.ok(L.sign.t >= L.courts.b && L.sign.r <= L.right.l, 'landscape: the sign and QR code stay under the courts, on the left');
+  assert.ok(P.right.t >= P.courts.b && P.right.w > P.W * 0.9, 'portrait: the leaderboards are under the courts, full width');
   assert.ok(Math.abs(P.boards[0].t - P.boards[1].t) < 4 && P.boards[1].l >= P.boards[0].r, 'portrait: tonight and the month side by side');
-  assert.ok(P.sign.b <= P.right.t + 1 && P.qr.b <= P.right.t + 1 && P.date.t >= P.right.b - 1, 'portrait: sign and QR code above the boards, date and clock at the foot');
+  assert.ok(P.sign.t >= P.right.b - 1 && P.qr.t >= P.right.b - 1 && P.qr.l >= P.sign.r, 'portrait: last, the sign with the QR code to its right');
+  assert.ok(P.date.t >= P.sign.b - 1 && P.date.t >= P.qr.b - 1, 'portrait: date and clock at the very foot');
   assert.ok(!L.over && !P.over, 'nothing runs off either screen');
   assert.deepEqual([L.cut, P.cut], [0, 0], 'no name is cut off on either screen');
   assert.equal((await tall.textContent('.tvboard >> nth=0 >> h2')).trim().slice(0, 7), 'Tonight');

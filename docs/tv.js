@@ -456,7 +456,16 @@
     else if (s.status === 'ended') left = endedLeft(s);
     else left = liveLeft(s);
     if (!s || s.status !== 'live') st.pendingSince = 0;
-    root.replaceChildren(h('div', 'tvroot', [left, rightSide(s)]));
+    var parts = [left, rightSide(s)];
+    // On a portrait screen the order is: the round and its courts, the leaderboards, and last, at the foot, the sign
+    // (who sits out, what is coming up) with the QR code. The foot is the last part of the left-hand block.
+    if (window.innerHeight > window.innerWidth && left.children.length === 3) {
+      var foot = left.lastChild;
+      left.removeChild(foot);
+      left.classList.add('nofoot');
+      if (foot.className || foot.childNodes.length) { foot.classList.add('tvfoot'); parts.push(foot); }
+    }
+    root.replaceChildren(h('div', 'tvroot', parts));
     fit();
     st.lastSession = s && !s.discarded ? s.id : ''; st.lastStatus = s && !s.discarded ? s.status : '';
     if (!s || s.discarded || s.status !== 'live' || !s.wheel) wheelEnd();

@@ -157,8 +157,8 @@ For players to see a club address instead of this site's: make a page on the clu
 ## TV on a portrait screen
 
 The TV page adapts by itself to the shape of the screen. On a portrait screen the same things are stacked: banner,
-the round and its courts, the sign (who sits out, what is coming up) beside the QR code, then tonight's and the
-month's leaderboards side by side, with the date and clock at the foot. Sizes are in `vmin` (the screen's shorter
+the round and its courts, then tonight's and the month's leaderboards side by side, then the sign (who sits out,
+what is coming up) with the QR code to its right, and the date and clock at the foot. Sizes are in `vmin` (the screen's shorter
 side), so lettering is as large as on a landscape TV of the same panel; the portrait arrangement is one block at the
 end of `docs/style.css`.
 

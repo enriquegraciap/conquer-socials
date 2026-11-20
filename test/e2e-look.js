@@ -84,6 +84,18 @@ const BASE = 'http://localhost:8787', DB = BASE + '/db', SHOTS = __dirname + '/s
   const shownFor = Date.now() - t0;
   assert.ok(shownFor > 3000 && shownFor < 6000, 'the flyer stays for 3 to 4 seconds (' + shownFor + ' ms from opening the page)');
   await phone.waitForSelector('#rolePlayer');
+  // the welcome screen: title and round centred, a plain "Hi, welcome!", the P symbol at the bottom, and the flyer
+  // blurred behind it all
+  await phone.waitForSelector('#plbg.has');
+  const hello = await phone.evaluate(() => { const c = q => { const b = document.querySelector(q).getBoundingClientRect(); return Math.round(b.left + b.width / 2); }, bg = getComputedStyle(document.getElementById('plbg'));
+    return { title: c('.pl-top.center b'), greet: c('.pl-hello h2'), logo: c('.pl-logo img'), logoBottom: innerHeight - document.querySelector('.pl-logo img').getBoundingClientRect().bottom,
+      order: document.querySelector('.pl-top.center').getBoundingClientRect().top < document.querySelector('.pl-hello').getBoundingClientRect().top,
+      font: getComputedStyle(document.querySelector('.pl-hello h2')).fontFamily === getComputedStyle(document.querySelector('.pl-role b')).fontFamily,
+      picture: /^url\("data:image/.test(bg.backgroundImage), blurred: /blur/.test(bg.filter) }; });
+  assert.ok(Math.abs(hello.title - 195) < 4 && Math.abs(hello.greet - 195) < 4 && Math.abs(hello.logo - 195) < 4, 'title, greeting and logo are centred ' + JSON.stringify(hello));
+  assert.ok(hello.logoBottom < 70 && hello.order && hello.font && hello.picture && hello.blurred, 'logo at the bottom, greeting in the buttons\' font, blurred flyer behind ' + JSON.stringify(hello));
+  await phone.waitForTimeout(700);
+  await phone.screenshot({ path: SHOTS + 'phone-welcome-flyer.png' });
   await phone.reload();
   await phone.waitForSelector('#rolePlayer');
   assert.equal(await phone.locator('#splash').count(), 0, 'no flyer again on a reload');

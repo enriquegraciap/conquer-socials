@@ -71,8 +71,8 @@
     el.addEventListener('click', close);
     document.body.appendChild(el);
     timer = setTimeout(close, 4500);                                    // a slow connection never holds anyone up
-    S.get('pub/eventflyers/' + id + '/phone').then(function (data) {
-      if (gone || typeof data !== 'string' || !/^data:image\//.test(data)) return close();
+    flyerPic().then(function (data) {
+      if (gone || !data) return close();
       img.onload = function () {
         if (gone) return;
         el.classList.add('ready');
@@ -152,10 +152,48 @@
   }
 
   // ---------------------------------------------------------------- views
+  // The welcome screen (Player or Admin?) is laid out differently from the rest: the social's name and round in
+  // the middle at the top, the P symbol at the bottom, and behind it all the social's flyer, blurred until its
+  // lettering is gone, so only its colours and shapes remain.
+  function isHello() {
+    var s = st.session;
+    return !!(st.loaded && st.seriesId && !st.askKey && s && !s.discarded && !st.me && st.role !== 'player');
+  }
   function render() {
-    var kids = [h('header', { class: 'pl-top' }, [h('img', { src: '../logo-p.png?v=10', alt: '' }), h('div', null, [h('b', null, st.seriesName || 'Conquer Padel Club'), h('span', null, headline())])])];
-    kids.push(h('main', { class: 'pl-main' }, body()));
+    var hello = isHello(), kids;
+    if (hello) {
+      kids = [h('header', { class: 'pl-top center' }, h('div', null, [h('b', null, st.seriesName || 'Conquer Padel Club'), h('span', null, headline())])),
+        h('main', { class: 'pl-main' }, body()),
+        h('footer', { class: 'pl-logo' }, h('img', { src: '../logo-p.png?v=10', alt: 'Conquer Padel Club' }))];
+    } else {
+      kids = [h('header', { class: 'pl-top' }, [h('img', { src: '../logo-p.png?v=10', alt: '' }), h('div', null, [h('b', null, st.seriesName || 'Conquer Padel Club'), h('span', null, headline())])]),
+        h('main', { class: 'pl-main' }, body())];
+    }
+    document.body.classList.toggle('hello', hello);
+    if (hello) backdrop();
     root.replaceChildren.apply(root, kids);
+  }
+  // The social's flyer for phones, fetched once and shared by the opening splash and the welcome screen's background.
+  function flyerPic() {
+    var id = st.seriesId, look = (st.series[id] || {}).look;
+    if (!id || !look || !look.rev || !(look.wide || look.tall)) return Promise.resolve(null);
+    var key = id + ':' + look.rev;
+    if (st.picKey !== key) {
+      st.picKey = key;
+      st.pic = S.get('pub/eventflyers/' + id + '/phone').then(function (d) { return typeof d === 'string' && /^data:image\//.test(d) ? d : null; }).catch(function () { st.picKey = ''; return null; });
+    }
+    return st.pic;
+  }
+  function backdrop() {
+    var bg = document.getElementById('plbg');
+    if (!bg) { bg = h('div', { id: 'plbg', 'aria-hidden': 'true' }); document.body.insertBefore(bg, document.body.firstChild); }
+    var key = st.picKey;
+    flyerPic().then(function (data) {
+      if (!data) { bg.classList.remove('has'); return; }
+      if (bg.getAttribute('data-for') !== st.picKey) { bg.style.backgroundImage = 'url("' + data + '")'; bg.setAttribute('data-for', st.picKey); }
+      bg.classList.add('has');
+    });
+    return key;
   }
   function headline() {
     var s = st.session, cur = s ? E.currentRound(s) : null;

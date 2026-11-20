@@ -585,7 +585,7 @@
       if (!data.ok) {
         if (data.status === 'key') throw new Error('The voice service did not accept this device’s admin key.');
         if (data.status === 400 || data.status === 401 || data.status === 403) throw new Error('The voice service is not set up yet: the Gemini key is missing or was not accepted.');
-        if (data.status === 429) throw new Error('The voice service is busy. Wait a few seconds and try again.');
+        if (data.status === 429 || data.status === 503) throw new Error('The voice service is busy right now. Wait a few seconds and try again.');
         throw new Error('The voice service could not read the recording (code ' + data.status + '). Try again.');
       }
       var r = data.result || {}, clean = function (x) { return String(x === null || x === undefined ? '' : x).replace(/\s+/g, ' ').trim().slice(0, 30); };

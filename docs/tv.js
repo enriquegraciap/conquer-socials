@@ -694,12 +694,12 @@
   fxSize();
 
   // ---------------------------------------------------------------- the sign under the courts
-  // Large letters running right to left. With nobody sitting out it announces what is coming up at the club.
-  // With players sitting out: their names for the first 30 seconds of a round, then 30 seconds of announcements
-  // and 10 seconds of names, over and over. What is coming up is read from pub/promo/{club}: the club's next
-  // sessions from PlayByPoint (name, date, times, how many have signed up).
-  var SIGN_FIRST = 30000, SIGN_ADS = 30000, SIGN_NAMES = 10000, SIGN_SPEED = 0.042;       // speed in screen widths per second (a full screen width takes about 24 seconds)
-  var sign = { el: null, lab: null, win: null, track: null, round: '', since: 0, names: '', shown: '', x: 0, half: 0, scroll: false, last: 0, on: false };
+  // A still line that changes every 10 seconds. With nobody sitting out it goes through the club's next three
+  // events: name, day and time, spots left. With players sitting out: their names for the first 30 seconds of
+  // a round, then the three events (10 seconds each) and the names again for 10 seconds, over and over.
+  // The events are read from pub/promo/{club}: the club's coming sessions from PlayByPoint.
+  var SIGN_FIRST = 30000, SIGN_SWAP = 10000, SIGN_NAMES = 10000, SIGN_EVENTS = 3;
+  var sign = { el: null, lab: null, line: null, round: '', since: 0, names: '', shown: '' };
   function loadPromo() {
     var id = st.seriesId, club = ((st.series[id] || {}).club || 'lehi');
     S.get('pub/promo/' + club).then(function (p) { if (id === st.seriesId) { st.promo = p || null; signUpdate(); } }).catch(function () { /* next time */ });
@@ -718,7 +718,7 @@
     if (diff > 1 && diff < 7) return DAYS[d.getDay()];
     return DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + ordinal(d.getDate());
   }
-  // The next two things to announce: sessions that have not started yet, one per program, and not the social
+  // The next three things to announce: sessions that have not started yet, one per program, and not the social
   // that is on this screen right now.
   function adItems() {
     var list = st.promo && st.promo.items, now = new Date(), out = [], seen = {};
@@ -726,25 +726,27 @@
     if (!Array.isArray(list)) list = Object.keys(list).map(function (k) { return list[k]; });
     // the daily job writes names URL-encoded (enc: 1) so that no character in a name can break what it sends
     var plain = function (x) { if (!st.promo.enc) return x; try { return decodeURIComponent(String(x).replace(/\+/g, ' ')); } catch (e) { return x; } };
-    list = list.map(function (it) { return it && it.name ? { program: it.program, name: plain(it.name), date: it.date, start: it.start, end: it.end, count: it.count } : it; });
+    list = list.map(function (it) { return it && it.name ? { program: it.program, name: plain(it.name), date: it.date, start: it.start, end: it.end, count: it.count, cap: it.cap } : it; });
     var norm = function (x) { return String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }, mine = norm(st.seriesName);
     list.filter(function (it) { return it && it.name && /^\d{4}-\d\d-\d\d$/.test(it.date || ''); }).map(function (it) {
       var m = /^(\d{1,2}):(\d{2})/.exec(it.start || '') || [0, 0, 0];
       return { it: it, at: new Date(Number(it.date.slice(0, 4)), Number(it.date.slice(5, 7)) - 1, Number(it.date.slice(8, 10)), Number(m[1]), Number(m[2])).getTime() };
     }).sort(function (a, b) { return a.at - b.at; }).forEach(function (x) {
       var it = x.it, key = it.program || norm(it.name), n = norm(it.name);
-      if (out.length >= 2 || x.at <= now.getTime() || seen[key]) return;
+      if (out.length >= SIGN_EVENTS || x.at <= now.getTime() || seen[key]) return;
       if (mine && n && (n === mine || (mine.length >= 10 && n.indexOf(mine.slice(0, 10)) === 0) || (n.length >= 10 && mine.indexOf(n.slice(0, 10)) === 0))) return;
       seen[key] = true;
-      out.push({ name: it.name, when: dayWord(it.date, now) + ' \u00b7 ' + clock12(it.start) + (it.end ? ' to ' + clock12(it.end) : ''), count: Number(it.count) || 0 });
+      var cap = Number(it.cap) || 0, left = cap - (Number(it.count) || 0);
+      out.push({ name: it.name, when: dayWord(it.date, now) + ' · ' + clock12(it.start) + (it.end ? ' to ' + clock12(it.end) : ''),
+        spots: !cap ? '' : left <= 0 ? 'Full' : left + (left === 1 ? ' spot left' : ' spots left') });
     });
     return out;
   }
-  // The box itself is made once and kept, so a redraw of the screen does not restart the letters.
+  // The box itself is made once and kept, so a redraw of the screen does not disturb it.
   function signBox(roundKey, names) {
     if (!sign.el) {
-      sign.lab = h('div', 'lab'); sign.track = h('div', 'track'); sign.win = h('div', 'win', sign.track);
-      sign.el = h('div', 'tvsit sign', [sign.lab, sign.win]);
+      sign.lab = h('div', 'lab'); sign.line = h('div', 'line');
+      sign.el = h('div', 'tvsit sign', [sign.lab, sign.line]);
     }
     if (sign.round !== roundKey) { sign.round = roundKey; sign.since = Date.now(); }
     sign.names = names || '';
@@ -752,50 +754,37 @@
     setTimeout(signUpdate, 0);                                          // once it is on the page and has a width
     return sign.el;
   }
-  function signPhase(ads) {
-    if (!sign.names) return ads.length ? 'ads' : 'none';
-    if (!ads.length) return 'wait';
+  // What the sign shows right now: { phase: 'wait' | 'ads' | 'none', idx: which event }
+  function signState(ads) {
+    var n = ads.length;
+    if (!sign.names) return n ? { phase: 'ads', idx: Math.floor(Date.now() / SIGN_SWAP) % n } : { phase: 'none', idx: 0 };
+    if (!n) return { phase: 'wait', idx: 0 };
     var t = Date.now() - sign.since;
-    if (t < SIGN_FIRST) return 'wait';
-    return (t - SIGN_FIRST) % (SIGN_ADS + SIGN_NAMES) < SIGN_ADS ? 'ads' : 'wait';
+    if (t < SIGN_FIRST) return { phase: 'wait', idx: 0 };
+    var c = (t - SIGN_FIRST) % (n * SIGN_SWAP + SIGN_NAMES);
+    return c < n * SIGN_SWAP ? { phase: 'ads', idx: Math.floor(c / SIGN_SWAP) } : { phase: 'wait', idx: 0 };
   }
   function signUpdate() {
-    if (!sign.el || !sign.el.isConnected || st.mode !== 'show') { sign.on = false; return; }
-    var ads = adItems(), phase = signPhase(ads);
-    var key = phase + '|' + (phase === 'wait' ? sign.names : phase === 'ads' ? JSON.stringify(ads) : '') + '|' + sign.win.clientWidth;
-    sign.el.setAttribute('data-phase', phase);
-    if (key !== sign.shown) {
-      sign.shown = key;
-      sign.el.className = 'tvsit sign ' + phase;
-      sign.lab.textContent = phase === 'wait' ? 'Sitting out this round' : phase === 'ads' ? 'Coming up at Conquer' : 'Everyone plays';
-      var once = function () {
-        if (phase === 'wait') return [h('span', null, sign.names)];
-        return ads.map(function (a, i) {
-          return [i ? h('span', 'sep', '\u25cf') : null, h('span', 'ad', [h('b', null, a.name), h('span', 'when', a.when), a.count >= 3 ? h('small', null, a.count + ' players signed up') : null])];
-        });
-      };
-      sign.track.style.transform = '';
-      sign.track.replaceChildren.apply(sign.track, phase === 'none' ? [] : [h('span', 'run', once())]);
-      var W = sign.win.clientWidth, w = sign.track.scrollWidth;
-      // names that fit simply stand still; anything else runs, and is written twice so the loop has no gap
-      sign.scroll = phase === 'ads' || (phase === 'wait' && w > W);
-      if (sign.scroll) {
-        sign.track.replaceChildren(h('span', 'run', [once(), h('span', 'sep', '\u25cf')]), h('span', 'run', [once(), h('span', 'sep', '\u25cf')]));
-        sign.half = sign.track.scrollWidth / 2;
-        sign.x = W * 0.45;                                               // the letters come in from the right, already part way in
-        sign.last = 0;
-      }
-    }
-    if (sign.scroll && !sign.on) { sign.on = true; requestAnimationFrame(signFrame); }
-  }
-  function signFrame(now) {
-    if (!sign.scroll || !sign.el || !sign.el.isConnected || st.mode !== 'show') { sign.on = false; return; }
-    var dt = sign.last ? Math.min(0.1, (now - sign.last) / 1000) : 0;
-    sign.last = now;
-    sign.x -= SIGN_SPEED * window.innerWidth * dt;
-    if (sign.half && sign.x <= -sign.half) sign.x += sign.half;
-    sign.track.style.transform = 'translate3d(' + sign.x.toFixed(1) + 'px,0,0)';
-    requestAnimationFrame(signFrame);
+    if (!sign.el || !sign.el.isConnected || st.mode !== 'show') return;
+    var ads = adItems(), now = signState(ads), a = ads[now.idx];
+    var key = now.phase + '|' + (now.phase === 'wait' ? sign.names : now.phase === 'ads' ? JSON.stringify(a) : '') + '|' + sign.line.clientWidth;
+    sign.el.setAttribute('data-phase', now.phase);
+    sign.el.setAttribute('data-idx', String(now.idx));
+    sign.el.setAttribute('data-ads', JSON.stringify(ads.map(function (x) { return [x.name, x.when, x.spots]; })));
+    if (key === sign.shown) return;
+    sign.shown = key;
+    sign.el.className = 'tvsit sign ' + now.phase;
+    sign.lab.textContent = now.phase === 'wait' ? 'Sitting out this round' : now.phase === 'ads' ? 'Coming up at Conquer' : 'Everyone plays';
+    var parts = now.phase === 'wait' ? [h('div', 'who', sign.names)]
+      : now.phase === 'ads' ? [h('div', 'ev', a.name), h('div', 'det', [h('span', 'when', a.when), a.spots ? h('span', 'spots' + (a.spots === 'Full' ? ' full' : ''), a.spots) : null])] : [];
+    sign.line.replaceChildren.apply(sign.line, parts);
+    sign.line.classList.remove('swap'); void sign.line.offsetWidth; sign.line.classList.add('swap');      // a soft fade on every change
+    // long text is made smaller until it fits on its line(s), never cut off
+    Array.prototype.forEach.call(sign.line.children, function (el) {
+      el.style.fontSize = '';
+      var size = parseFloat(getComputedStyle(el).fontSize), min = size * 0.55, guard = 0;
+      while ((el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 2) && size > min && guard++ < 24) { size *= 0.95; el.style.fontSize = size + 'px'; }
+    });
   }
   setInterval(signUpdate, 1000);
 

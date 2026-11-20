@@ -52,18 +52,20 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   await tv.screenshot({ path: SHOTS + 'solo-tv-round1.png' });
   step('round 1 on the TV: two pairs per court, ' + sitting + ' sits out');
 
-  // 2b. the sign under the courts: the sitter's name first, then what is coming up at the club, then the name again
+  // 2b. the sign under the courts: a still line. The sitter's name first, then the next three events (10 s each), then the name again
   const day = n => { const d = new Date(Date.now() + n * 86400000); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const weekday = n => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(Date.now() + n * 86400000).getDay()];
   assert.equal(await tv.getAttribute('.tvsit.sign', 'data-phase'), 'wait', 'a new round starts with who is sitting out');
   assert.equal((await tv.textContent('.tvsit.sign .lab')).trim(), 'Sitting out this round');
-  assert.equal((await tv.textContent('.tvsit.sign .track')).trim(), sitting, 'one name fits, so it stands still and is written once');
-  await fetch(DB + '/.json', { method: 'PATCH', body: JSON.stringify({ 'gate/test-key': Date.now(), 'pub/promo/lehi': { at: Date.now(), items: [
-    { program: 'old', name: 'Yesterday\u2019s Clinic', date: day(-1), start: '18:00', end: '19:00', count: 9 },
-    { program: 'tapas', name: 'TAPAS FRIDAYS - WPR 4.5-9 Round Robin Series', date: day(1), start: '09:00', end: '10:00', count: 12 },
-    { program: 'wheel', name: 'Wheel of Fortune - Ladies Round Robin', date: day(1), start: '10:00', end: '12:00', count: 2 },
-    { program: 'kings', name: 'King\u2019s Court Monday Open Play', date: day(3), start: '06:30', end: '08:30', count: 5 },
-    { program: 'wheel', name: 'Wheel of Fortune - Ladies Round Robin', date: day(8), start: '10:00', end: '12:00', count: 0 },
-    { program: 'taco', name: 'Taco Tuesday', date: day(4), start: '19:00', end: '21:00', count: 7 }] } }) });
+  assert.equal((await tv.textContent('.tvsit.sign .line')).trim(), sitting);
+  await fetch(DB + '/.json', { method: 'PATCH', body: JSON.stringify({ 'gate/test-key': Date.now(), 'pub/promo/lehi': { at: Date.now(), enc: 1, items: [
+    { program: 'old', name: 'Yesterday%E2%80%99s%20Clinic', date: day(-1), start: '18:00', end: '19:00', count: 9, cap: 12 },
+    { program: 'tapas', name: 'TAPAS%20FRIDAYS%20-%20WPR%204.5-9%20Round%20Robin%20Series', date: day(1), start: '09:00', end: '10:00', count: 12, cap: 14 },
+    { program: 'wheel', name: 'Wheel%20of%20Fortune%20-%20Ladies%20Round%20Robin', date: day(1), start: '10:00', end: '12:00', count: 2, cap: 16 },
+    { program: 'kings', name: 'King%E2%80%99s%20Court%20Monday%20Open%20Play', date: day(3), start: '06:30', end: '08:30', count: 18, cap: 18 },
+    { program: 'wheel', name: 'Wheel%20of%20Fortune%20-%20Ladies%20Round%20Robin', date: day(8), start: '10:00', end: '12:00', count: 0, cap: 16 },
+    { program: 'taco', name: 'Taco%20Tuesday', date: day(4), start: '19:00', end: '21:00', count: 7, cap: 0 },
+    { program: 'late', name: 'A%20Fourth%20Event', date: day(5), start: '19:00', end: '21:00', count: 1, cap: 8 }] } }) });
   await tv.reload();                                                  // (a TV reads what is coming up when it starts, then every five minutes)
   await tv.waitForSelector('.tvsit.sign[data-phase="wait"]', { timeout: 8000 });
   const tSign = Date.now();
@@ -71,23 +73,31 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   const waited = Date.now() - tSign;
   assert.ok(waited > 20000, 'the name stays for the first 30 seconds of the round (' + waited + ' ms seen)');
   assert.equal((await tv.textContent('.tvsit.sign .lab')).trim(), 'Coming up at Conquer');
-  const ads = await tv.evaluate(() => [...document.querySelector('.tvsit.sign .track .run').querySelectorAll('.ad')].map(a => [a.querySelector('b').textContent, a.querySelector('.when').textContent, a.querySelector('small') ? a.querySelector('small').textContent : '']));
-  assert.deepEqual(ads, [['Wheel of Fortune - Ladies Round Robin', 'Tomorrow \u00b7 10 AM to 12 PM', ''], ['King\u2019s Court Monday Open Play', (await tv.evaluate(n => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(Date.now() + n * 86400000).getDay()], 3)) + ' \u00b7 6:30 AM to 8:30 AM', '5 players signed up']],
-    'the next two events, not the past one, not this social itself, one per program; sign-ups shown only from three');
-  const x1 = await tv.evaluate(() => document.querySelector('.tvsit.sign .track').getBoundingClientRect().x);
-  await tv.waitForTimeout(1000);
-  const x2 = await tv.evaluate(() => document.querySelector('.tvsit.sign .track').getBoundingClientRect().x);
-  assert.ok(x2 < x1 - 30 && x2 > x1 - 160, 'the letters run from right to left, unhurried (' + Math.round(x1) + ' -> ' + Math.round(x2) + ' px in a second)');
-  assert.ok(await tv.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.tvsit.sign .track')).fontSize) > innerHeight * 0.035), 'in clear letters');
+  assert.deepEqual(JSON.parse(await tv.getAttribute('.tvsit.sign', 'data-ads')), [
+    ['Wheel of Fortune - Ladies Round Robin', 'Tomorrow \u00b7 10 AM to 12 PM', '14 spots left'],
+    ['King\u2019s Court Monday Open Play', weekday(3) + ' \u00b7 6:30 AM to 8:30 AM', 'Full'],
+    ['Taco Tuesday', weekday(4) + ' \u00b7 7 PM to 9 PM', '']],
+    'the next three events: not the past one, not this social itself, one per program; spots left from capacity');
+  const shownNow = () => tv.evaluate(() => { const l = document.querySelector('.tvsit.sign .line'); return [l.querySelector('.ev').textContent, l.querySelector('.when').textContent, l.querySelector('.spots') ? l.querySelector('.spots').textContent : '']; });
+  assert.deepEqual(await shownNow(), ['Wheel of Fortune - Ladies Round Robin', 'Tomorrow \u00b7 10 AM to 12 PM', '14 spots left'], 'one event at a time, the next one first');
+  const still1 = await tv.evaluate(() => document.querySelector('.tvsit.sign .ev').getBoundingClientRect().x);
+  await tv.waitForTimeout(1500);
+  assert.equal(await tv.evaluate(() => document.querySelector('.tvsit.sign .ev').getBoundingClientRect().x), still1, 'the line stands still');
+  assert.ok(await tv.evaluate(() => { const e = document.querySelector('.tvsit.sign .ev'); return e.scrollWidth <= e.clientWidth + 1; }), 'and fits its box');
   await tv.screenshot({ path: SHOTS + 'tv-sign-ads.png' });
-  const tAds = Date.now();
-  await tv.waitForSelector('.tvsit.sign[data-phase="wait"]', { timeout: 40000 });
-  assert.ok(Date.now() - tAds > 15000, 'announcements run for about 30 seconds');
+  const tSwap = Date.now();
+  await tv.waitForSelector('.tvsit.sign[data-idx="1"]', { timeout: 15000 });
+  const swapAfter = Date.now() - tSwap;
+  assert.ok(swapAfter > 5000 && swapAfter < 11000, 'it changes to the next event after about 10 seconds (' + swapAfter + ' ms after the first look)');
+  assert.deepEqual(await shownNow(), ['King\u2019s Court Monday Open Play', weekday(3) + ' \u00b7 6:30 AM to 8:30 AM', 'Full']);
+  await tv.waitForSelector('.tvsit.sign[data-idx="2"]', { timeout: 15000 });
+  assert.deepEqual(await shownNow(), ['Taco Tuesday', weekday(4) + ' \u00b7 7 PM to 9 PM', ''], 'no spots shown when the capacity is not known');
+  await tv.waitForSelector('.tvsit.sign[data-phase="wait"]', { timeout: 15000 });
   const tNames = Date.now();
   await tv.waitForSelector('.tvsit.sign[data-phase="ads"]', { timeout: 20000 });
   const namesFor = Date.now() - tNames;
   assert.ok(namesFor > 7000 && namesFor < 14000, 'then the names for about 10 seconds (' + namesFor + ' ms)');
-  step('sign: sitter\'s name for the first 30 s, then announcements 30 s / names 10 s; next two events with sign-ups from 3');
+  step('sign: sitter\'s name for the first 30 s, then three events 10 s each with spots left, then names 10 s; nothing scrolls');
 
   // 3. a player's phone: pick your name, see your partner and opponents, send the score
   const [kingA, kingB] = r1[0], me = kingA.split(' & ')[0], mate = kingA.split(' & ')[1];

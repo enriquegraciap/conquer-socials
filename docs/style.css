@@ -284,17 +284,20 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .tvsit { background: rgba(255,255,255,.07); border-radius: 1vh; padding: 1.2vh 1.2vw; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1.2vw; align-items: baseline; }
 .tvsit .lab { font-family: var(--display); font-size: 2.8vh; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); white-space: nowrap; }
 .tvsit .names { font-family: var(--display); font-size: 3.8vh; font-weight: 500; line-height: 1.15; min-width: 0; overflow: hidden; overflow-wrap: break-word; }
-/* The sign under the courts: who is sitting out, taking turns with what is coming up at the club, in large
-   letters that run from right to left like a stadium ticker. */
-.tvsit.sign { padding: 1vh 0 1.2vh; gap: .2vh; overflow: hidden; }
-.tvsit.sign .lab { padding: 0 1.2vw; font-size: 2.4vh; }
-.tvsit.sign .win { overflow: hidden; white-space: nowrap; min-width: 0; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 3%, #000 97%, transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 3%, #000 97%, transparent 100%); }
-.tvsit.sign .track { display: inline-block; white-space: nowrap; font-family: var(--display); font-size: 3.85vh; font-weight: 600; line-height: 1.3; will-change: transform; padding-left: 1.2vw; }
-.tvsit.sign .track .ad b { font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
-.tvsit.sign .track .ad .when { color: var(--gold); margin-left: .5em; }
-.tvsit.sign .track .ad small { font-size: .62em; font-weight: 500; letter-spacing: .06em; color: #cfe0f3; margin-left: 1em; text-transform: uppercase; }
-.tvsit.sign .track .sep { display: inline-block; margin: 0 1.1em; color: var(--gold); font-size: .6em; vertical-align: middle; }
-.tvsit.sign.wait .track { font-weight: 500; }
+/* The sign under the courts: a still line that changes every 10 seconds. Who is sitting out, taking turns with
+   the club's next events (name on one line; day, time and spots left under it). */
+.tvsit.sign { padding: 1vh 1.2vw 1.1vh; gap: .3vh; overflow: hidden; align-content: center; }
+.tvsit.sign .lab { font-size: 2.3vh; }
+.tvsit.sign .line { min-width: 0; font-family: var(--display); }
+.tvsit.sign .line.swap { animation: signswap .6s ease-out; }
+@keyframes signswap { from { opacity: 0; transform: translateY(.8vh); } to { opacity: 1; transform: none; } }
+.tvsit.sign .line .ev { font-size: 4.6vh; font-weight: 700; line-height: 1.2; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+.tvsit.sign .line .det { font-size: 3.4vh; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; }
+.tvsit.sign .line .det .when { color: var(--gold); }
+.tvsit.sign .line .det .spots { margin-left: 1.2em; padding: 0 .5em; border-radius: .3em; background: rgba(255,255,255,.14); color: #fff; font-size: .82em; letter-spacing: .05em; text-transform: uppercase; }
+.tvsit.sign .line .det .spots.full { background: rgba(244,182,63,.25); color: var(--gold); }
+.tvsit.sign .line .who { font-size: 4.2vh; font-weight: 500; line-height: 1.22; max-height: 2.5em; overflow: hidden; overflow-wrap: break-word; }
+@media (prefers-reduced-motion: reduce) { .tvsit.sign .line.swap { animation: none; } }
 /* WPR Social rating after a name on the leaderboards: plain green figures, the green of a court whose score is
    in, a little brighter so it reads on the dark board. No rating: (NR) in a darker blue. */
 .tvrow .nm .rt { font-size: .68em; font-weight: inherit; color: #35b877; margin-left: .3em; letter-spacing: .02em; }

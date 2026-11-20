@@ -17,7 +17,8 @@ them as a slideshow, a new flyer every 15 seconds.
 if you have one, the tall (portrait) one. Then:
 - phones show the flyer for a few seconds when a player scans the TV's QR code;
 - the TV's top banner takes its colours from the flyer, with a pattern you pick (hearts, confetti, stripes, ...);
-- between rounds the TV turns to the wide flyer for about three seconds while the new round's number makes an entrance.
+- between rounds the TV turns to the wide flyer for about six seconds: the new round's number makes an entrance,
+  a padel ball with a face rolls in with a pun, and a racket bats it away (the puns are the `PUNS` list in `docs/tv.js`).
 
 **TV main menu:** whenever the TV page is not in full screen, a **Main menu** button sits beside **Full screen**
 (on a TV remote: Back leaves full screen, then choose Main menu). The menu lists every social and the club flyers.

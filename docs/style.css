@@ -377,8 +377,9 @@ body.tv .tvbar .tvbar-c:has(#bartitle.social) #barsub { margin-top: 0; }
 .lbname b { font-family: var(--script); font-weight: 400; letter-spacing: .01em; text-transform: none; line-height: 1.3; }
 .lookbar .c b { font-family: var(--script); font-weight: 400; letter-spacing: .01em; text-transform: none; line-height: 1.25; }
 
-/* Between rounds: the whole screen turns to the social's wide flyer for about three seconds while the new
-   round's number makes an entrance. Three entrances take turns: slam, spin and smash (a padel ball knocks it in). */
+/* Between rounds: the whole screen turns to the social's wide flyer for about six seconds. The new round's
+   number makes an entrance (slam, spin or smash take turns), padel balls rain down, then a ball with a face rolls
+   in, says a padel pun and gets smacked off the screen by a racket. */
 .inter { position: fixed; inset: 0; z-index: 10; background: var(--night); overflow: hidden; }
 .inter[hidden] { display: none; }
 .inter.on { animation: interin .3s ease-out both; }
@@ -388,10 +389,10 @@ body.tv .tvbar .tvbar-c:has(#bartitle.social) #barsub { margin-top: 0; }
 .inter img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none; }
 .inter.pic img { display: block; }
 .inter .shade { position: absolute; inset: 0; background: radial-gradient(ellipse 70% 75% at 50% 52%, rgba(3,12,24,.72) 0%, rgba(3,12,24,.45) 55%, rgba(3,12,24,.12) 100%); }
-.inter .say { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--display); font-weight: 700;
+.inter .say { position: absolute; top: 0; left: 0; right: 0; bottom: 24vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--display); font-weight: 700;
   text-transform: uppercase; line-height: .86; }
-.inter .word { font-size: 15vh; letter-spacing: .16em; margin-right: -.16em; color: #fff; text-shadow: .5vh .6vh 0 rgba(3,12,24,.9), 0 0 3vh rgba(0,0,0,.6); }
-.inter .num { font-size: 50vh; color: var(--gold); text-shadow: .9vh 1vh 0 #071a30, -.3vh -.3vh 0 #fff, 0 0 5vh rgba(0,0,0,.55); display: inline-block; }
+.inter .word { font-size: 13vh; letter-spacing: .16em; margin-right: -.16em; color: #fff; text-shadow: .5vh .6vh 0 rgba(3,12,24,.9), 0 0 3vh rgba(0,0,0,.6); }
+.inter .num { font-size: 44vh; color: var(--gold); text-shadow: .9vh 1vh 0 #071a30, -.3vh -.3vh 0 #fff, 0 0 5vh rgba(0,0,0,.55); display: inline-block; }
 .inter .ball { position: absolute; left: 0; top: 0; width: 13vh; height: 13vh; border-radius: 50%; display: none;
   background: radial-gradient(circle at 34% 30%, #f6ff9a 0%, #d6ef1f 55%, #9db800 100%); box-shadow: inset -1vh -1.2vh 2vh rgba(0,0,0,.25), 0 1vh 2.4vh rgba(0,0,0,.45); }
 .inter .ball::before, .inter .ball::after { content: ""; position: absolute; left: 6%; right: 6%; height: 70%; border: .6vh solid rgba(255,255,255,.85); border-radius: 50%; }
@@ -410,12 +411,45 @@ body.tv .tvbar .tvbar-c:has(#bartitle.social) #barsub { margin-top: 0; }
 .inter.smash .ball { display: block; animation: i-ball 1.5s linear both; }
 .inter.smash .word { animation: i-pop .5s cubic-bezier(.2,1.6,.4,1) both; }
 .inter.smash .num { animation: i-pop .45s .1s cubic-bezier(.2,1.6,.4,1) both, i-jelly .9s .62s ease-out both, i-groove 1.2s 1.6s ease-in-out infinite alternate; }
-@keyframes i-ball { 0% { transform: translate(-16vw, 82vh) rotate(0); } 22% { transform: translate(14vw, 26vh) rotate(200deg); } 42% { transform: translate(40vw, 48vh) rotate(420deg); }
-  43% { transform: translate(40vw, 48vh) rotate(430deg) scale(1.25, .8); } 70% { transform: translate(72vw, 4vh) rotate(700deg); } 100% { transform: translate(112vw, -24vh) rotate(1000deg); } }
+@keyframes i-ball { 0% { transform: translate(-16vw, 82vh) rotate(0); } 22% { transform: translate(14vw, 20vh) rotate(200deg); } 42% { transform: translate(40vw, 38vh) rotate(420deg); }
+  43% { transform: translate(40vw, 38vh) rotate(430deg) scale(1.25, .8); } 70% { transform: translate(72vw, 2vh) rotate(700deg); } 100% { transform: translate(112vw, -24vh) rotate(1000deg); } }
 @keyframes i-pop { 0% { transform: scale(0); } 100% { transform: none; } }
 @keyframes i-jelly { 0% { transform: none; } 14% { transform: translateX(5vw) scale(.78, 1.22) rotate(9deg); } 34% { transform: translateX(-2vw) scale(1.18, .86) rotate(-6deg); } 56% { transform: scale(.94, 1.07) rotate(3deg); } 78% { transform: scale(1.04, .97) rotate(-1deg); } 100% { transform: none; } }
 @keyframes i-groove { from { transform: rotate(-2.5deg) scale(1); } to { transform: rotate(2.5deg) scale(1.04); } }
-@media (prefers-reduced-motion: reduce) { .inter, .inter * { animation: none !important; } }
+/* padel balls raining down behind the number */
+.inter .rain { position: absolute; inset: 0; overflow: hidden; }
+.inter .rain i { position: absolute; top: -8vh; border-radius: 50%; background: radial-gradient(circle at 34% 30%, #f6ff9a 0%, #d6ef1f 55%, #9db800 100%); box-shadow: 0 .5vh 1.2vh rgba(0,0,0,.35); opacity: .92; }
+.inter.on .rain i { animation: i-rain 1.7s cubic-bezier(.45,0,.9,.55) both; }
+@keyframes i-rain { 0% { transform: translateY(0) rotate(0); } 100% { transform: translateY(118vh) rotate(540deg); } }
+/* the ball with a face: rolls in, hops while it talks, and is batted away */
+.inter .buddy { position: absolute; left: 14vw; bottom: 4vh; width: 19vh; height: 19vh; filter: drop-shadow(0 1vh 1.6vh rgba(0,0,0,.5)); }
+.inter .buddy .hop, .inter .buddy svg { display: block; width: 100%; height: 100%; }
+.inter .buddy .gasp { opacity: 0; }
+.inter.uhoh .buddy .gasp { opacity: 1; } .inter.uhoh .buddy .smile { opacity: 0; }
+.inter.on .buddy { animation: i-roll 1s 1.4s cubic-bezier(.2,.9,.3,1) both, i-fly .8s 4.72s cubic-bezier(.2,.6,.6,1) forwards; }
+.inter.on .buddy .hop { animation: i-hop .42s 2.45s 5 alternate ease-out; }
+.inter.on .buddy .pupils { animation: i-look 2.1s 2.4s both; }
+.inter.uhoh .buddy .pupils { animation: i-eek .12s 6 alternate; }
+@keyframes i-roll { 0% { transform: translateX(-40vw) rotate(-700deg); } 100% { transform: none; } }
+@keyframes i-hop { from { transform: translateY(0) scale(1, 1); } to { transform: translateY(-5vh) scale(.96, 1.05); } }
+@keyframes i-look { 0%, 100% { transform: none; } 20%, 55% { transform: translate(4px, -5px); } 70%, 90% { transform: translate(-3px, 2px); } }
+@keyframes i-eek { from { transform: translate(5px, -2px); } to { transform: translate(5px, 2px); } }
+@keyframes i-fly { 0% { transform: scale(1.25, .75); } 12% { transform: translate(-6vw, -10vh) rotate(-80deg) scale(.9, 1.15); } 100% { transform: translate(-60vw, -120vh) rotate(-1100deg) scale(.5); } }
+/* what the ball has to say */
+.inter .pun { position: absolute; left: calc(14vw + 17vh); bottom: 15vh; max-width: 58vw; padding: 1.8vh 2.4vw 2.1vh; background: #fff; color: #0c1f33; border-radius: 3vh 3vh 3vh .6vh;
+  font-family: var(--script); font-size: 6.2vh; line-height: 1.15; box-shadow: 0 1.2vh 3vh rgba(0,0,0,.45); transform-origin: 0 100%; }
+.inter .pun::after { content: ""; position: absolute; left: -2.2vh; bottom: 0; border: 1.3vh solid transparent; border-right-color: #fff; border-bottom-color: #fff; }
+.inter.on .pun { animation: i-say .5s 2.4s cubic-bezier(.2,1.7,.4,1) both, i-shush .25s 4.4s ease-in forwards; }
+@keyframes i-say { 0% { transform: scale(0) rotate(-12deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes i-shush { to { transform: scale(0) rotate(8deg); opacity: 0; } }
+/* the racket that ends the conversation */
+.inter .racket { position: absolute; left: calc(14vw + 15vh); bottom: 1vh; width: 20vh; height: 36vh; transform-origin: 50% 96%; opacity: 0; filter: drop-shadow(0 1vh 1.6vh rgba(0,0,0,.5)); }
+.inter .racket svg { display: block; width: 100%; height: 100%; }
+.inter.on .racket { animation: i-swing .62s 4.25s cubic-bezier(.5,0,.3,1) both, i-leave .5s 5s ease-in forwards; }
+@keyframes i-swing { 0% { transform: translate(60vw, -34vh) rotate(110deg); opacity: 0; } 25% { opacity: 1; } 62% { transform: translate(5vw, -3vh) rotate(62deg); opacity: 1; }
+  80% { transform: rotate(-48deg); opacity: 1; } 100% { transform: rotate(-72deg); opacity: 1; } }
+@keyframes i-leave { from { transform: rotate(-72deg); opacity: 1; } to { transform: translate(-10vw, 60vh) rotate(-140deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .inter, .inter * { animation: none !important; } .inter .racket, .inter .rain { display: none; } }
 
 /* ------------------------------------------------------------------ players' phone page */
 body.pl { background: #0a2f41; color: var(--ink); min-height: 100vh; }

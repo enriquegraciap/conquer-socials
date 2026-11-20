@@ -657,30 +657,84 @@
   fxSize();
 
   // ---------------------------------------------------------------- between rounds
-  // The whole screen turns to the social's wide flyer for about three seconds and the new round's number makes an
-  // entrance on top of it, a different one each round. With no flyer uploaded the background is the banner's colour.
-  var inter = document.getElementById('inter'), interTimer = null, INTRO_KINDS = ['slam', 'spin', 'smash'];
+  // The whole screen turns to the social's wide flyer for about six seconds. The new round's number makes an
+  // entrance (three take turns), padel balls rain down, a ball with a face rolls in and delivers a padel pun,
+  // and a racket smacks it off the screen. With no flyer uploaded the background is the banner's colour.
+  var inter = document.getElementById('inter'), interTimers = [], INTRO_KINDS = ['slam', 'spin', 'smash'], INTRO_MS = 5500;
+  var PUNS = [
+    'Lob and behold!', 'No padel, no party.', 'Time to raise a racket.', 'Keep calm and bandeja on.', 'Wall you be my partner?',
+    'New round, new excuses.', 'Net gains ahead.', 'Don’t hate the player, hate the glass.', 'Chiquita now, smash later.',
+    'The glass is your friend. Mostly.', 'Golden point energy!', 'You got served. Underarm.', 'Blame the racket. Everyone does.',
+    'Padel now, tapas later.', 'Winners go up. So do egos.', 'Mind the glass!', 'Love means nothing here.', 'It was in. Probably.',
+    'Por tres or it didn’t happen.', 'Hit the ball, not your partner.', 'Less talking, more lobbing.', 'Bandeja? Band-YEAH-ja!',
+    'Your partner believes in you. Sort of.', 'That wasn’t luck. That was the wall.', 'Vamos, vamos, VAMOS!', 'Smash first, apologise later.'
+  ];
+  var BUDDY = '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="bud" cx="35%" cy="30%"><stop offset="0" stop-color="#f8ffa6"/><stop offset=".6" stop-color="#d6ef1f"/><stop offset="1" stop-color="#9db800"/></radialGradient></defs>' +
+    '<circle cx="50" cy="50" r="47" fill="url(#bud)" stroke="#5c6f00" stroke-width="2.5"/>' +
+    '<path d="M20 12Q36 50 20 88M80 12Q64 50 80 88" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"/>' +
+    '<ellipse cx="38" cy="43" rx="9.5" ry="12" fill="#fff" stroke="#1a1a1a" stroke-width="2"/><ellipse cx="62" cy="43" rx="9.5" ry="12" fill="#fff" stroke="#1a1a1a" stroke-width="2"/>' +
+    '<g class="pupils"><circle cx="39" cy="45" r="5" fill="#1a1a1a"/><circle cx="63" cy="45" r="5" fill="#1a1a1a"/><circle cx="40.6" cy="43.2" r="1.6" fill="#fff"/><circle cx="64.6" cy="43.2" r="1.6" fill="#fff"/></g>' +
+    '<path class="smile" d="M35 64Q50 78 65 64" fill="none" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round"/><ellipse class="gasp" cx="50" cy="69" rx="7" ry="9" fill="#1a1a1a"/></svg>';
+  function racketSvg(colour) {
+    var holes = '';
+    [[32, 30], [50, 26], [68, 30], [26, 46], [42, 44], [58, 44], [74, 46], [30, 62], [50, 60], [70, 62], [38, 78], [62, 78], [50, 90]].forEach(function (p) { holes += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="3.6"/>'; });
+    return '<svg viewBox="0 0 100 180" aria-hidden="true"><path d="M30 96L44 128H56L70 96Z" fill="#14202e"/><ellipse cx="50" cy="56" rx="42" ry="52" fill="' + colour + '" stroke="#14202e" stroke-width="6"/>' +
+      '<g fill="#14202e" opacity=".55">' + holes + '</g><rect x="42" y="124" width="16" height="52" rx="6" fill="#14202e"/>' +
+      '<path d="M42 136l16 6M42 148l16 6M42 160l16 6" stroke="#fff" stroke-width="2.5" opacity=".8"/></svg>';
+  }
+  function buildIntro() {
+    if (!inter || inter.getAttribute('data-built')) return;
+    inter.setAttribute('data-built', '1');
+    var rain = h('div', 'rain'), spots = [6, 17, 29, 41, 52, 63, 74, 85, 94, 12, 58, 80];
+    spots.forEach(function (left, i) {
+      var b = h('i');
+      b.style.left = left + 'vw'; b.style.width = b.style.height = (3 + (i * 7) % 4) + 'vh';
+      b.style.animationDelay = (0.5 + ((i * 5) % 12) * 0.27).toFixed(2) + 's'; b.style.animationDuration = (1.5 + (i % 4) * 0.25).toFixed(2) + 's';
+      rain.appendChild(b);
+    });
+    var buddy = h('div', 'buddy', h('div', 'hop')), racket = h('div', 'racket');
+    buddy.firstChild.innerHTML = BUDDY;
+    inter.insertBefore(rain, inter.querySelector('.ball'));
+    inter.appendChild(h('div', 'pun'));
+    inter.appendChild(buddy);
+    inter.appendChild(racket);
+  }
   function endIntro() {
-    clearTimeout(interTimer);
+    interTimers.forEach(clearTimeout); interTimers = [];
     if (inter) { inter.hidden = true; inter.className = 'inter'; }
+  }
+  // The same pun on every TV for a given round, a different run of them every night.
+  function punFor(n) {
+    if (n === 1) return 'Let’s get this padel started!';
+    var id = (st.session && st.session.id) || '', seed = 0;
+    for (var i = 0; i < id.length; i++) seed = (seed * 31 + id.charCodeAt(i)) % 9973;
+    return PUNS[(seed + n * 7) % PUNS.length];
   }
   function roundIntro(n) {
     if (!inter) return;
-    clearTimeout(interTimer);
-    var look = (st.series[st.seriesId] || {}).look, kind = INTRO_KINDS[n % INTRO_KINDS.length];
-    inter.className = 'inter';
-    inter.style.backgroundColor = look && (look.wide || look.tall) ? L.banner(look).color : '';
+    endIntro();
+    buildIntro();
+    var look = (st.series[st.seriesId] || {}).look, kind = INTRO_KINDS[n % INTRO_KINDS.length], has = look && (look.wide || look.tall);
+    inter.style.backgroundColor = has ? L.banner(look).color : '';
     inter.querySelector('.num').textContent = String(n);
+    inter.querySelector('.pun').textContent = punFor(n);
+    inter.querySelector('.racket').innerHTML = racketSvg(has ? L.banner(look).colours.a1 : '#f4b63f');
     inter.hidden = false;
-    void inter.offsetWidth;                                             // so the entrance plays again every time
+    void inter.offsetWidth;                                             // so the whole show plays again every time
     inter.className = 'inter on ' + kind + (st.flyer ? ' pic' : '');
     inter.setAttribute('data-round', String(n));
     var W = window.innerWidth, H = window.innerHeight, vh = H / 100;
-    setTimeout(function () { if (!inter.hidden) { boom(W * 0.5, H * 0.56, 60, 50 * vh, 0); boom(W * 0.34, H * 0.4, 30, 34 * vh, 180); boom(W * 0.66, H * 0.42, 30, 34 * vh, 320); } }, kind === 'spin' ? 850 : 650);
-    interTimer = setTimeout(function () {
+    var later = function (ms, fn) { interTimers.push(setTimeout(function () { if (!inter.hidden) fn(); }, ms)); };
+    later(kind === 'spin' ? 850 : 650, function () { boom(W * 0.5, H * 0.4, 60, 50 * vh, 0); boom(W * 0.34, H * 0.3, 30, 34 * vh, 180); boom(W * 0.66, H * 0.3, 30, 34 * vh, 320); });
+    later(4250, function () { inter.classList.add('uhoh'); });                                    // the ball sees the racket coming
+    later(4740, function () {                                                                      // ...and gets smacked
+      var b = inter.querySelector('.buddy').getBoundingClientRect();
+      boom(b.left + b.width / 2, b.top + b.height / 2, 46, 42 * vh, 0);
+    });
+    interTimers.push(setTimeout(function () {
       inter.classList.add('out');
-      interTimer = setTimeout(endIntro, 460);
-    }, 2700);
+      interTimers.push(setTimeout(endIntro, 460));
+    }, INTRO_MS));
   }
 
   // ---------------------------------------------------------------- the dancing crown

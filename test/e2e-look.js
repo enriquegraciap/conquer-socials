@@ -119,7 +119,8 @@ const BASE = 'http://localhost:8787', DB = BASE + '/db', SHOTS = __dirname + '/s
   assert.equal(await tv.textContent('#inter .num'), '1');
   await tv.waitForTimeout(1300);
   await tv.screenshot({ path: SHOTS + 'tv-round-1.png' });
-  await tv.waitForFunction(() => document.getElementById('inter').hidden, null, { timeout: 5000 });
+  assert.equal((await tv.textContent('#inter .pun')).trim(), 'Let\u2019s get this padel started!');
+  await tv.waitForFunction(() => document.getElementById('inter').hidden, null, { timeout: 9000 });
   assert.equal((await tv.textContent('.tvhead .round')).trim(), 'Round 1');
   const score = async (court, sa, sb) => { await admin.click(`.panel >> nth=0 >> .courtcard[data-court="${court}"]`); await admin.click(`.digits button[data-side="sa"][data-v="${sa}"]`); await admin.click(`.digits button[data-side="sb"][data-v="${sb}"]`); await admin.click('#saveScore'); };
   await score(7, 4, 2);
@@ -132,13 +133,17 @@ const BASE = 'http://localhost:8787', DB = BASE + '/db', SHOTS = __dirname + '/s
   const kinds = ['slam', 'spin', 'smash'];
   assert.ok(await tv.evaluate(k => document.getElementById('inter').classList.contains(k), kinds[2 % 3]), 'round 2 uses its own entrance');
   const tUp = Date.now();
+  const pun = (await tv.textContent('#inter .pun')).trim();
+  assert.ok(pun.length > 8, 'a padel pun comes with the round');
   await tv.waitForTimeout(1300);
   await tv.screenshot({ path: SHOTS + 'tv-round-2.png' });
-  await tv.waitForFunction(() => document.getElementById('inter').hidden, null, { timeout: 5000 });
+  for (const [ms, name] of [[1500, 'b'], [900, 'c'], [800, 'd'], [450, 'e']]) { await tv.waitForTimeout(ms); await tv.screenshot({ path: SHOTS + 'tv-round-2' + name + '.png' }); }
+  assert.ok(await tv.isVisible('#inter .buddy'), 'the ball with a face is on stage');
+  await tv.waitForFunction(() => document.getElementById('inter').hidden, null, { timeout: 8000 });
   const upFor = Date.now() - tUp;
-  assert.ok(upFor > 2200 && upFor < 4200, 'the announcement stays about three seconds (' + upFor + ' ms)');
+  assert.ok(upFor > 5000 && upFor < 7500, 'the announcement stays about six seconds (' + upFor + ' ms)');
   assert.equal((await tv.textContent('.tvhead .round')).trim(), 'Round 2');
-  step('TV announced round 1 at the start and round 2 ' + ((tUp - t1) / 1000).toFixed(1) + ' s after the last score, for ' + (upFor / 1000).toFixed(1) + ' s, over the flyer');
+  step('TV announced round 1 at the start and round 2 ' + ((tUp - t1) / 1000).toFixed(1) + ' s after the last score, for ' + (upFor / 1000).toFixed(1) + ' s, over the flyer, with: ' + pun);
 
   // 5. opening the TV page mid-round announces nothing
   const tvLate = watch(await (await browser.newContext({ viewport: { width: 1920, height: 1080 } })).newPage(), 'tvLate');

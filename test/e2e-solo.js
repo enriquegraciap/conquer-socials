@@ -4,6 +4,7 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const BASE = 'http://localhost:8787', DB = BASE + '/db', SHOTS = __dirname + '/shots/';
 const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo', 'Ines'];
+const innerWidthOf = p => p.viewportSize().width;
 
 (async () => {
   await fetch(BASE + '/__reset');
@@ -49,6 +50,23 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   let sitting = (await tv.getAttribute('.tvsit', 'data-names')).trim();
   assert.ok(NAMES.includes(sitting), 'one player sits out: ' + sitting);
   assert.equal((await tv.textContent('.tvboard >> nth=0 >> h2 small')).trim(), '9 players');
+  // "New to padel?": a QR code to the intro page, always there beside "Enter your score", as big as the space under the courts allows
+  assert.match(await tv.getAttribute('.tvlearn svg', 'data-qr'), /\/learn\/(\?|$)/);
+  assert.match(await tv.getAttribute('.tvqr svg', 'data-qr'), /\/p\/\?/, 'the score code is a different one');
+  for (const shown of ['with the buttons', 'in full screen']) {
+    if (shown === 'in full screen') await tv.evaluate(() => { document.querySelector('.tvbtns').style.display = 'none'; document.body.classList.remove('hasbtn'); window.dispatchEvent(new Event('resize')); });
+    await tv.waitForTimeout(400);
+    const g = await tv.evaluate(() => { const r = s => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
+      const courts = [...document.querySelectorAll('.tvcourt')].map(e => e.getBoundingClientRect().bottom);
+      return { box: r('.tvlearn'), code: r('.tvlearn svg'), score: r('.tvqr svg'), scoreBox: r('.tvqr'), sign: r('.tvsit.sign'), date: r('#date'), right: r('.tvright'), courtBottom: Math.max(...courts), H: innerHeight }; });
+    assert.ok(g.box.t >= g.courtBottom + 6, shown + ': it does not touch the court box above it');
+    assert.ok(g.box.b <= g.H - 8 && g.box.b >= g.H - 0.035 * g.H - 8, shown + ': it reaches down to just above the edge of the screen (' + Math.round(g.H - g.box.b) + ' px left)');
+    assert.ok(g.code.w >= 0.16 * g.H && g.code.w > g.score.w, shown + ': the code is large (' + Math.round(g.code.w) + ' px), larger than the score code');
+    assert.ok(g.box.l >= g.scoreBox.r && g.scoreBox.l >= g.sign.r && g.box.r <= g.right.l && g.date.r <= g.box.l, shown + ': sign, score code, intro code side by side; clear of the date and of the leaderboards');
+    assert.ok(g.sign.w > 0.25 * innerWidthOf(tv), shown + ': the sign keeps room for names');
+    if (shown === 'with the buttons') await tv.screenshot({ path: SHOTS + 'tv-learn-qr.png' }); else await tv.screenshot({ path: SHOTS + 'tv-learn-qr-full.png' });
+  }
+  await tv.evaluate(() => { document.querySelector('.tvbtns').style.display = ''; document.body.classList.add('hasbtn'); window.dispatchEvent(new Event('resize')); });
   await tv.screenshot({ path: SHOTS + 'solo-tv-round1.png' });
   step('round 1 on the TV: two pairs per court, ' + sitting + ' sits out');
 
@@ -92,18 +110,12 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   assert.deepEqual(await shownNow(), ['King\u2019s Court Monday Open Play', weekday(3) + ' \u00b7 6:30 AM to 8:30 AM', 'Full']);
   await tv.waitForSelector('.tvsit.sign[data-idx="2"]', { timeout: 15000 });
   assert.deepEqual(await shownNow(), ['Taco Tuesday', weekday(4) + ' \u00b7 7 PM to 9 PM', ''], 'no spots shown when the capacity is not known');
-  await tv.waitForSelector('.tvsit.sign[data-phase="learn"]', { timeout: 15000 });      // after the events: where new players can read about the game
-  assert.equal((await tv.textContent('.tvsit.sign .lab')).trim(), 'New to padel?');
-  assert.match(await tv.getAttribute('.tvsit.sign .lq svg', 'data-qr'), /\/learn\/(\?|$)/, 'a QR code to the intro page');
-  assert.ok(await tv.evaluate(() => { const q = document.querySelector('.tvsit.sign .lq').getBoundingClientRect(), b = document.querySelector('.tvsit.sign').getBoundingClientRect(), t = document.querySelector('.tvsit.sign .ev').getBoundingClientRect();
-    return q.width > 80 && q.top >= b.top && q.bottom <= b.bottom && q.right <= b.right && t.right <= q.left; }), 'the code sits inside the sign, beside the words');
-  await tv.screenshot({ path: SHOTS + 'tv-sign-learn.png' });
   await tv.waitForSelector('.tvsit.sign[data-phase="wait"]', { timeout: 15000 });
   const tNames = Date.now();
   await tv.waitForSelector('.tvsit.sign[data-phase="ads"]', { timeout: 20000 });
   const namesFor = Date.now() - tNames;
   assert.ok(namesFor > 7000 && namesFor < 14000, 'then the names for about 10 seconds (' + namesFor + ' ms)');
-  step('sign: sitter\'s name for the first 30 s, then three events 10 s each with spots left, the intro QR code 10 s, then names 10 s; nothing scrolls');
+  step('sign: sitter\'s name for the first 30 s, then three events 10 s each with spots left, then names 10 s; nothing scrolls');
 
   // 3. a player's phone: pick your name, see your partner and opponents, send the score
   const [kingA, kingB] = r1[0], me = kingA.split(' & ')[0], mate = kingA.split(' & ')[1];

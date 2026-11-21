@@ -709,13 +709,15 @@
     var keep = function (txt) { return txt.replace(/ /g, ' '); };
     var names = r.sitting.map(function (id) { return keep(name(id)); }).concat(waiting.map(function (t) { return keep(t.name + ' (next round)'); })).join('  ·  ');
     // players scan this to enter their own court's score from their phone
-    var qr = qrSvg(S.link('player', { s: st.seriesId }));
+    var qr = qrSvg(S.link('player', { s: st.seriesId })), learn = hasIntro ? qrSvg(S.link('learn')) : null;
     var title = !wheel ? 'Round ' + r.n : wst === 'spin' ? 'Wheel time!' : wst === 'done' ? 'All matches played' : r.title || 'Round ' + r.n;
     var note = !wheel ? undefined : wst === 'spin' ? 'New partners next' : wst === 'done' ? '' : 'Sets to ' + E.roundSetTo(s, r);
     return h('div', 'tvleft', [head(title, flash, note), h('div', 'tvcourts', courts),
-      h('div', 'tvbottom', [
+      h('div', 'tvbottom' + (learn ? ' three' : ''), [
         signBox(roundKey, names),
-        qr ? h('div', 'tvqr', [h('div', 'cap', ['Enter your score', h('small', null, 'Scan with your phone')]), qr]) : null
+        qr ? h('div', 'tvqr', [h('div', 'cap', ['Enter your score', h('small', null, 'Scan with your phone')]), qr]) : null,
+        // for people new to the game: the intro page for phones. As big as the space under the courts allows.
+        learn ? h('div', 'tvlearn', [h('div', 'cap', ['New to padel?', h('small', null, 'Scan to learn the rules')]), learn]) : null
       ])]);
   }
   function endedLeft(s) {
@@ -906,9 +908,8 @@
   // The box itself is made once and kept, so a redraw of the screen does not disturb it.
   function signBox(roundKey, names) {
     if (!sign.el) {
-      sign.lab = h('div', 'lab'); sign.line = h('div', 'line'); sign.code = h('div', 'lq');
-      sign.code.hidden = true;                                           // the QR code of the "New to padel?" turn
-      sign.el = h('div', 'tvsit sign', [sign.lab, sign.line, sign.code]);
+      sign.lab = h('div', 'lab'); sign.line = h('div', 'line');
+      sign.el = h('div', 'tvsit sign', [sign.lab, sign.line]);
     }
     if (sign.round !== roundKey) { sign.round = roundKey; sign.since = Date.now(); }
     sign.names = names || '';
@@ -916,20 +917,15 @@
     setTimeout(signUpdate, 0);                                          // once it is on the page and has a width
     return sign.el;
   }
-  // What the sign shows right now: { phase: 'wait' | 'ads' | 'learn' | 'none', idx: which event }
-  // 'learn' is one more 10-second turn after the events: "New to padel?" with a QR code to the intro page for phones.
+  // What the sign shows right now: { phase: 'wait' | 'ads' | 'none', idx: which event }
   function signState(ads) {
-    var n = ads.length, slots = n + (hasIntro ? 1 : 0);
-    var slot = function (i) { return i < n ? { phase: 'ads', idx: i } : { phase: 'learn', idx: 0 }; };
-    if (!sign.names) {
-      if (!n) return hasIntro && Math.floor(Date.now() / SIGN_SWAP) % 2 ? { phase: 'learn', idx: 0 } : { phase: 'none', idx: 0 };
-      return slot(Math.floor(Date.now() / SIGN_SWAP) % slots);
-    }
-    if (!slots) return { phase: 'wait', idx: 0 };
+    var n = ads.length;
+    if (!sign.names) return n ? { phase: 'ads', idx: Math.floor(Date.now() / SIGN_SWAP) % n } : { phase: 'none', idx: 0 };
+    if (!n) return { phase: 'wait', idx: 0 };
     var t = Date.now() - sign.since;
     if (t < SIGN_FIRST) return { phase: 'wait', idx: 0 };
-    var c = (t - SIGN_FIRST) % (slots * SIGN_SWAP + SIGN_NAMES);
-    return c < slots * SIGN_SWAP ? slot(Math.floor(c / SIGN_SWAP)) : { phase: 'wait', idx: 0 };
+    var c = (t - SIGN_FIRST) % (n * SIGN_SWAP + SIGN_NAMES);
+    return c < n * SIGN_SWAP ? { phase: 'ads', idx: Math.floor(c / SIGN_SWAP) } : { phase: 'wait', idx: 0 };
   }
   function signUpdate() {
     if (!sign.el || !sign.el.isConnected || st.mode !== 'show') return;
@@ -941,11 +937,8 @@
     if (key === sign.shown) return;
     sign.shown = key;
     sign.el.className = 'tvsit sign ' + now.phase;
-    sign.lab.textContent = now.phase === 'wait' ? 'Sitting out this round' : now.phase === 'ads' ? 'Coming up at Conquer' : now.phase === 'learn' ? 'New to padel?' : 'Everyone plays';
-    if (now.phase === 'learn' && !sign.code.firstChild) { var lq = qrSvg(S.link('learn')); if (lq) sign.code.appendChild(lq); }
-    sign.code.hidden = now.phase !== 'learn';
+    sign.lab.textContent = now.phase === 'wait' ? 'Sitting out this round' : now.phase === 'ads' ? 'Coming up at Conquer' : 'Everyone plays';
     var parts = now.phase === 'wait' ? [h('div', 'who', sign.names)]
-      : now.phase === 'learn' ? [h('div', 'ev', 'Scan to learn the game'), h('div', 'det', h('span', 'when', 'Rules, tips and common questions'))]
       : now.phase === 'ads' ? [h('div', 'ev', a.name), h('div', 'det', [h('span', 'when', a.when), a.spots ? h('span', 'spots' + (a.spots === 'Full' ? ' full' : ''), a.spots) : null])] : [];
     sign.line.replaceChildren.apply(sign.line, parts);
     sign.line.classList.remove('swap'); void sign.line.offsetWidth; sign.line.classList.add('swap');      // a soft fade on every change

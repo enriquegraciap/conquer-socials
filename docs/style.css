@@ -886,24 +886,5 @@ ol.le-list li::before { content: counter(n); left: 0; top: 0; width: 28px; heigh
 .le-foot { padding: 30px 18px 0; text-align: center; }
 .le-foot small { display: block; margin-top: 14px; font-size: 12px; line-height: 1.4; color: #7f9bb8; }
 
-/* "New to padel?": a QR code to the intro page for phones, at the end of the row under the courts. The row is a
-   little taller when it is there, and the box reaches down beside the date line, so the code is as big as the space
-   between the courts and the bottom of the screen allows without touching either. */
-.tvbottom.three { grid-template-columns: minmax(0, 1fr) auto auto; min-height: 19vmin; }
-.tvbottom.three .tvqr svg { height: 15.5vmin; width: 15.5vmin; }
-.tvlearn { --drop: 4.4vmin; --code: 16.6vmin; margin-bottom: calc(-1 * var(--drop)); background: #fff; color: var(--ink); border-radius: 1vmin; padding: .9vmin 1vmin 1vmin;
-  display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: .6vmin; box-shadow: 0 0 0 .4vmin var(--gold); position: relative; z-index: 9; }
-body.tv.hasbtn .tvlearn { --drop: 7vmin; --code: 19.2vmin; }      /* more room under the courts while the buttons show */
-.tvlearn .cap { font-family: var(--display); font-weight: 700; font-size: 2.4vmin; line-height: 1; letter-spacing: .05em; text-transform: uppercase; text-align: center; white-space: nowrap; }
-.tvlearn .cap small { display: block; margin-top: .4vmin; font-weight: 500; font-size: 1.8vmin; letter-spacing: .02em; text-transform: none; color: var(--muted); }
-.tvlearn svg { display: block; width: var(--code); height: var(--code); }
-body.tv.themed .tvlearn { color: var(--t-ink); box-shadow: 0 0 0 .4vmin var(--t-main); }
-body.tv.themed .tvlearn .cap small { color: var(--t-main); }
-@media (orientation: portrait) {
-  body.tv .tvbottom.three { min-height: 0; }
-  body.tv .tvlearn, body.tv.hasbtn .tvlearn { --drop: 0vmin; --code: 13.5vmin; }
-  body.tv .tvbottom.three .tvqr svg { height: 13.5vmin; width: 13.5vmin; }
-  body.tv .tvbottom.three .tvqr .cap { max-width: 14vw; }
-}
 /* Some TV browsers "darken" pages by themselves, turning the white court boxes black. This page has its own colours. */
 :root { color-scheme: only light; }

@@ -180,8 +180,8 @@ every figure at the top of the file):
   numbers, where it comes from, six basics (court, racket and ball, serve, walls, winning the point, scoring),
   first-game tips, and a QR code.
 - **A page for phones:** `…/conquer-socials/learn/` (through the club address: `go.playcnqr.com/socials?v=learn`).
-  The same basics plus the questions new players ask. Its QR code is on the last slide, and during a social the
-  sign under the courts shows it for ten seconds in its rotation ("New to padel? Scan to learn the game").
+  The same basics plus the questions new players ask. Its QR code is on the last slide of the deck (the social
+  screen itself only carries the "Enter your score" code).
 
 Another club gets it by setting `intro: true` in its entry in `docs/config.js`.
 

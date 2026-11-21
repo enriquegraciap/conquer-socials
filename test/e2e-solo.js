@@ -4,7 +4,6 @@ const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const BASE = 'http://localhost:8787', DB = BASE + '/db', SHOTS = __dirname + '/shots/';
 const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo', 'Ines'];
-const innerWidthOf = p => p.viewportSize().width;
 
 (async () => {
   await fetch(BASE + '/__reset');
@@ -50,23 +49,8 @@ const innerWidthOf = p => p.viewportSize().width;
   let sitting = (await tv.getAttribute('.tvsit', 'data-names')).trim();
   assert.ok(NAMES.includes(sitting), 'one player sits out: ' + sitting);
   assert.equal((await tv.textContent('.tvboard >> nth=0 >> h2 small')).trim(), '9 players');
-  // "New to padel?": a QR code to the intro page, always there beside "Enter your score", as big as the space under the courts allows
-  assert.match(await tv.getAttribute('.tvlearn svg', 'data-qr'), /\/learn\/(\?|$)/);
-  assert.match(await tv.getAttribute('.tvqr svg', 'data-qr'), /\/p\/\?/, 'the score code is a different one');
-  for (const shown of ['with the buttons', 'in full screen']) {
-    if (shown === 'in full screen') await tv.evaluate(() => { document.querySelector('.tvbtns').style.display = 'none'; document.body.classList.remove('hasbtn'); window.dispatchEvent(new Event('resize')); });
-    await tv.waitForTimeout(400);
-    const g = await tv.evaluate(() => { const r = s => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
-      const courts = [...document.querySelectorAll('.tvcourt')].map(e => e.getBoundingClientRect().bottom);
-      return { box: r('.tvlearn'), code: r('.tvlearn svg'), score: r('.tvqr svg'), scoreBox: r('.tvqr'), sign: r('.tvsit.sign'), date: r('#date'), right: r('.tvright'), courtBottom: Math.max(...courts), H: innerHeight }; });
-    assert.ok(g.box.t >= g.courtBottom + 6, shown + ': it does not touch the court box above it');
-    assert.ok(g.box.b <= g.H - 8 && g.box.b >= g.H - 0.035 * g.H - 8, shown + ': it reaches down to just above the edge of the screen (' + Math.round(g.H - g.box.b) + ' px left)');
-    assert.ok(g.code.w >= 0.16 * g.H && g.code.w > g.score.w, shown + ': the code is large (' + Math.round(g.code.w) + ' px), larger than the score code');
-    assert.ok(g.box.l >= g.scoreBox.r && g.scoreBox.l >= g.sign.r && g.box.r <= g.right.l && g.date.r <= g.box.l, shown + ': sign, score code, intro code side by side; clear of the date and of the leaderboards');
-    assert.ok(g.sign.w > 0.25 * innerWidthOf(tv), shown + ': the sign keeps room for names');
-    if (shown === 'with the buttons') await tv.screenshot({ path: SHOTS + 'tv-learn-qr.png' }); else await tv.screenshot({ path: SHOTS + 'tv-learn-qr-full.png' });
-  }
-  await tv.evaluate(() => { document.querySelector('.tvbtns').style.display = ''; document.body.classList.add('hasbtn'); window.dispatchEvent(new Event('resize')); });
+  assert.equal(await tv.locator('.tvlearn, .tvsit.sign .lq').count(), 0, 'the social screen has one QR code only: the score one (the intro code is on the last intro slide)');
+  assert.match(await tv.getAttribute('.tvqr svg', 'data-qr'), /\/p\/\?/);
   await tv.screenshot({ path: SHOTS + 'solo-tv-round1.png' });
   step('round 1 on the TV: two pairs per court, ' + sitting + ' sits out');
 

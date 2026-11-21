@@ -709,15 +709,13 @@
     var keep = function (txt) { return txt.replace(/ /g, ' '); };
     var names = r.sitting.map(function (id) { return keep(name(id)); }).concat(waiting.map(function (t) { return keep(t.name + ' (next round)'); })).join('  ·  ');
     // players scan this to enter their own court's score from their phone
-    var qr = qrSvg(S.link('player', { s: st.seriesId })), learn = hasIntro ? qrSvg(S.link('learn')) : null;
+    var qr = qrSvg(S.link('player', { s: st.seriesId }));
     var title = !wheel ? 'Round ' + r.n : wst === 'spin' ? 'Wheel time!' : wst === 'done' ? 'All matches played' : r.title || 'Round ' + r.n;
     var note = !wheel ? undefined : wst === 'spin' ? 'New partners next' : wst === 'done' ? '' : 'Sets to ' + E.roundSetTo(s, r);
     return h('div', 'tvleft', [head(title, flash, note), h('div', 'tvcourts', courts),
-      h('div', 'tvbottom' + (learn ? ' three' : ''), [
+      h('div', 'tvbottom', [
         signBox(roundKey, names),
-        qr ? h('div', 'tvqr', [h('div', 'cap', ['Enter your score', h('small', null, 'Scan with your phone')]), qr]) : null,
-        // for people new to the game: the intro page for phones. As big as the space under the courts allows.
-        learn ? h('div', 'tvlearn', [h('div', 'cap', ['New to padel?', h('small', null, 'Scan to learn the rules')]), learn]) : null
+        qr ? h('div', 'tvqr', [h('div', 'cap', ['Enter your score', h('small', null, 'Scan with your phone')]), qr]) : null
       ])]);
   }
   function endedLeft(s) {

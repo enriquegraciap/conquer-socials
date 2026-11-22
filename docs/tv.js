@@ -227,7 +227,7 @@
   function show(id) {
     setMode('show');
     st.seriesId = id; st.seriesName = (st.series[id] || {}).name || '';
-    st.rev = null; st.ping = 0; st.session = null; st.pending = {}; st.shown = false; st.lastRound = 0; st.pendingSince = 0;
+    st.rev = null; st.ping = 0; st.session = null; st.saved = null; st.pending = {}; st.shown = false; st.lastRound = 0; st.pendingSince = 0;
     st.lastSession = ''; st.lastStatus = ''; st.holdSince = 0; st.flyerKey = ''; st.flyer = '';
     barTitle();
     loadEventFlyer();
@@ -487,22 +487,37 @@
       st.lastOk = Date.now();
       if (id !== st.seriesId) return null;
       if (!live || !live.sessionId) {
-        if (st.session || !st.shown) { st.session = null; st.rev = null; st.pending = {}; st.shown = true; return loadMonth(E.localDate(new Date()).slice(0, 7)).then(function () { if (id === st.seriesId) draw(); }); }
+        if (st.session || !st.shown) { st.session = null; st.saved = null; st.rev = null; st.pending = {}; st.shown = true; return loadMonth(E.localDate(new Date()).slice(0, 7)).then(function () { if (id === st.seriesId) draw(); }); }
         return null;
       }
       var ping = live.ping || 0;
-      var needSession = live.rev !== st.rev || !st.session || !st.shown;
+      var needSession = live.rev !== st.rev || !st.saved || !st.shown;
       if (!needSession && ping === st.ping) return null;
-      var getSession = needSession ? S.get('pub/sessions/' + id + '/' + live.sessionId).then(E.normalize) : Promise.resolve(st.session);
+      // st.saved is the night as the organizer's device last saved it; st.session is what is shown: the saved night
+      // plus every score the phones have sent since, and the rounds that follow from them (no device has to be open
+      // for the next round to start: see withPlayerScores in engine.js).
+      var getSession = needSession ? S.get('pub/sessions/' + id + '/' + live.sessionId).then(E.normalize) : Promise.resolve(st.saved);
       return getSession.then(function (s) {
         if (!s || id !== st.seriesId) return null;
-        var cur = E.currentRound(s);
-        var getScores = s.status === 'live' && cur ? S.get('pub/scores/' + id + '/' + s.id + '/r' + cur.n).catch(function () { return null; }) : Promise.resolve(null);
-        return getScores.then(function (entries) {
+        var getScores = s.status === 'live' && E.currentRound(s) ? S.get('pub/scores/' + id + '/' + s.id).catch(function () { return null; }) : Promise.resolve(null);
+        return getScores.then(function (scores) {
           return loadMonth(s.month).then(function () {
             if (id !== st.seriesId) return;
-            st.session = s; st.rev = live.rev; st.ping = ping; st.pending = entries || {}; st.shown = true;
-            draw();
+            var now = E.withPlayerScores(s, scores), before = st.session;
+            st.saved = s; st.rev = live.rev; st.ping = ping; st.pending = {}; st.shown = true;
+            // The last score of a round and the round after it arrive together. Show the finished round first, so its
+            // winner gets the crown and the fireworks, and then move on (draw waits for the celebration to end).
+            var was = before && !before.discarded && before.id === now.id && before.status === 'live' ? E.currentRound(before) : null;
+            var cur = now.status === 'live' ? E.currentRound(now) : null;
+            clearTimeout(st.nextTimer);
+            if (was && cur && cur.n === was.n + 1 && !E.roundComplete(was) && E.roundComplete(now.rounds[was.n - 1])) {
+              var finished = E.normalize(E.clone(now));
+              finished.rounds = finished.rounds.slice(0, was.n);
+              st.session = finished;
+              draw();
+              st.session = now;
+              st.nextTimer = setTimeout(draw, 400);
+            } else { st.session = now; draw(); }
           });
         });
       });
@@ -530,8 +545,7 @@
   }
   function status() {
     var late = st.lastOk && Date.now() - st.lastOk > 10000;
-    var waiting = st.pendingSince && Date.now() - st.pendingSince > 8000;
-    statusEl.textContent = late ? 'Reconnecting…' : waiting ? 'Scores are in. Open the organizer’s iPad to continue.' : '';
+    statusEl.textContent = late ? 'Reconnecting…' : '';
   }
 
   // ---------------------------------------------------------------- drawing
@@ -545,7 +559,7 @@
     var cur0 = s && !s.discarded && s.status === 'live' ? E.currentRound(s) : null;
     if (cur0 && st.lastSession === s.id && st.lastRound && cur0.n > st.lastRound && (flyers.length || sparks.length)) {
       st.holdSince = st.holdSince || Date.now();
-      if (Date.now() - st.holdSince < 5000) { clearTimeout(st.holdTimer); st.holdTimer = setTimeout(draw, 250); return; }
+      if (Date.now() - st.holdSince < 4000) { clearTimeout(st.holdTimer); st.holdTimer = setTimeout(draw, 250); return; }
     }
     st.holdSince = 0;
     if (!s || s.discarded) left = bigLeft('Tonight', st.seriesName, h('div', 'tvempty', 'The next night has not been set up yet.'));

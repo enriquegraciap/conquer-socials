@@ -230,7 +230,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   step('late team queued for next round; a sitting team replaced the team that left');
   await scoreRound(2, false);
   await admin.waitForSelector('.roundhead .big:text("Round 3")');
-  await tv.waitForSelector('.tvhead .round:text("Round 3")', { timeout: 6000 });
+  await tv.waitForSelector('.tvhead .round:text("Round 3")', { timeout: 15000 });      // (after the last winner's crown has landed)
   assert.ok((await tv.textContent('.tvcourts')).includes('Olga & Pete'), 'late team is on a court in round 3');
   assert.ok(!(await tv.textContent('.tvleft')).includes(leaving), 'team that left is not in round 3');
   for (let n = 3; n <= 5; n++) { await scoreRound(n, false); await admin.waitForSelector(`.roundhead .big:text("Round ${n + 1}")`); }

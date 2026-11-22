@@ -905,6 +905,14 @@
   // device reads those entries and applies them here, so the night keeps a single owner.
   // entries: { c0: {sa, sb, w, at, by}, c1: ... } for round `roundNo`; c0 is the first court of that round.
   // An entry counts only for the round being played now, and only once (court.pat remembers the last one used).
+  //
+  // The night does not wait for the organizer's device. A round is drawn from the night's own seed, so every
+  // device that knows the night and the scores sent so far works out the same next round by itself
+  // (withPlayerScores): the TV shows it and the phones send their next scores for it. When the organizer's device
+  // is opened again it applies the same scores in the same order and saves the rounds everyone has been playing.
+  // An entry may carry k, the players of the court it was sent for (courtKey): it is ignored for any other court,
+  // so a score can never land on a match it was not meant for.
+  function courtKey(c) { return sideIds(c, 'a').join('+') + '|' + sideIds(c, 'b').join('+'); }
   function pendingPlayerScores(session, roundNo, entries) {
     var cur = currentRound(session), out = [];
     if (!entries || session.status !== 'live' || !cur || cur.n !== roundNo) return out;
@@ -912,6 +920,7 @@
     Object.keys(entries).sort().forEach(function (key) {
       var e = entries[key], idx = Number(String(key).replace(/^c/, '')), c = cur.courts[idx];
       if (!e || !c || c.void || typeof e.sa !== 'number' || typeof e.sb !== 'number' || typeof e.at !== 'number') return;
+      if (e.k && e.k !== courtKey(c)) return;
       if (e.sa % 1 || e.sb % 1 || e.sa < 0 || e.sb < 0 || e.sa > max || e.sb > max) return;
       var w = e.sa > e.sb ? 'a' : e.sb > e.sa ? 'b' : (e.w === 'a' || e.w === 'b' ? e.w : null);
       if (!w || c.pat === e.at) return;
@@ -930,6 +939,28 @@
       if (res.advanced) { out.advanced = true; break; }   // the round is over: anything left belongs to the past
     }
     return out;
+  }
+
+  // Everything the phones have sent, applied: the round being played, then each round that follows from it.
+  // all: { r3: { c0: {...}, c1: {...} }, r4: {...} }. Changes the session in place.
+  function applyAllPlayerScores(session, all) {
+    var out = { applied: [], advanced: 0 };
+    for (var guard = 0; guard < 80; guard++) {
+      var cur = currentRound(session);
+      if (session.status !== 'live' || !cur) break;
+      var res = applyPlayerScores(session, cur.n, (all || {})['r' + cur.n]);
+      res.applied.forEach(function (p) { p.round = cur.n; out.applied.push(p); });
+      if (!res.advanced) break;
+      out.advanced++;
+    }
+    return out;
+  }
+  // The night as it stands for everyone: what is saved, plus the scores the phones have sent since. A copy.
+  function withPlayerScores(session, all) {
+    if (!session || session.status !== 'live' || !all) return session;
+    var copy = normalize(clone(session));
+    applyAllPlayerScores(copy, all);
+    return copy;
   }
 
   // ---- Scoring ------------------------------------------------------------------------------
@@ -1017,7 +1048,7 @@
     addTeam: addTeam, renameTeam: renameTeam, removeTeam: removeTeam, startNight: startNight, endNight: endNight, reopenNight: reopenNight,
     advance: advance, redrawRound: redrawRound, rewindTo: rewindTo,
     isWheel: isWheel, wheelPlan: wheelPlan, wheelSpin: wheelSpin, wheelRelease: wheelRelease, wheelState: wheelState, wheelStandings: wheelStandings, roundSetTo: roundSetTo, roundRobin: roundRobin, setScore: setScore, setCourts: setCourts, isKingsCourt: isKingsCourt,
-    pendingPlayerScores: pendingPlayerScores, applyPlayerScores: applyPlayerScores,
+    pendingPlayerScores: pendingPlayerScores, applyAllPlayerScores: applyAllPlayerScores, withPlayerScores: withPlayerScores, courtKey: courtKey, applyPlayerScores: applyPlayerScores,
     scoringEntities: scoringEntities, entityKey: entityKey, keyOf: keyOf, teamName: teamName,
     leaderboard: leaderboard, resultsDoc: resultsDoc, monthlyBoard: monthlyBoard,
     diffPaths: diffPaths

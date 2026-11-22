@@ -185,6 +185,18 @@ every figure at the top of the file):
 
 Another club gets it by setting `intro: true` in its entry in `docs/config.js`.
 
+## The night goes on without the organizer's page
+
+Phones send each court's score to `pub/scores/…` (no key). A round is drawn from the night's own seed, so every
+device that knows the saved night and the scores sent so far works out the same next round by itself
+(`Engine.withPlayerScores`): when the last score of a round is in, the TV shows the next round and the phones send
+their next scores for it, with nobody's admin page open. When the admin page is opened again it applies the same
+scores in the same order (`applyAllPlayerScores`) and saves the rounds everyone has been playing, with the
+leaderboard record. What still needs the admin page: adding or removing players, changing courts, correcting a
+score, spinning the wheel, and ending the night (which saves the final standings).
+
+Each score carries the players of the court it was sent for (`k`), and is ignored for any other court.
+
 ## Files
 
 | Path | What it is |

@@ -180,12 +180,15 @@
   function applyPhoneScores() {
     var s = state.session, id = state.seriesId, cur = s ? E.currentRound(s) : null;
     if (!s || s.status !== 'live' || !cur) return Promise.resolve();
-    return S.get('pub/scores/' + id + '/' + s.id + '/r' + cur.n).then(function (entries) {
-      if (state.session !== s || !entries || !E.pendingPlayerScores(s, cur.n, entries).length) return;
-      var out = commit(function (x) { return E.applyPlayerScores(x, cur.n, entries); });
+    // every round's scores: the night goes on without this device (the TV and the phones work out each next round
+    // by themselves), so there may be several rounds to catch up on. They are applied in order and saved here.
+    return S.get('pub/scores/' + id + '/' + s.id).then(function (all) {
+      if (state.session !== s || !all || !E.pendingPlayerScores(s, cur.n, all['r' + cur.n]).length) return;
+      var out = commit(function (x) { return E.applyAllPlayerScores(x, all); });
       if (out.applied.length) {
-        var last = out.applied[out.applied.length - 1];
-        toast(out.advanced ? 'Last score came in from a phone. Round ' + (cur.n + 1) + ' is up.' :
+        var last = out.applied[out.applied.length - 1], now = E.currentRound(state.session);
+        toast(out.advanced > 1 ? 'Caught up with the scores sent from phones: ' + out.advanced + ' rounds played. Round ' + now.n + ' is on.' :
+          out.advanced ? 'Last score came in from a phone. Round ' + now.n + ' is up.' :
           'Court ' + last.court + ': ' + last.sa + '\u2013' + last.sb + ' sent from a phone.');
         render();
       }
@@ -803,7 +806,7 @@
   // for those rounds are cleared first, so none of them can land on the rounds that are drawn afresh.
   function deleteFrom(n) {
     var s = state.session, id = state.seriesId, last = s.rounds.length, up = {};
-    for (var k = n; k <= last; k++) up['pub/scores/' + id + '/' + s.id + '/r' + k] = null;
+    for (var k = n; k <= last + 30; k++) up['pub/scores/' + id + '/' + s.id + '/r' + k] = null;      // (and any sent for rounds not saved here yet)
     var go = function () {
       S.write(up).then(function () {
         var out = commit(function (x) { return E.rewindTo(x, n); });

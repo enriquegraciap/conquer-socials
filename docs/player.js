@@ -88,21 +88,23 @@
     var id = st.seriesId;
     S.get('pub/live/' + id).then(function (live) {
       st.failed = false;
-      if (!live || !live.sessionId) { st.session = null; st.loaded = true; render(); return null; }
+      if (!live || !live.sessionId) { st.session = null; st.saved = null; st.loaded = true; render(); return null; }
       var ping = live.ping || 0;
-      var needSession = live.rev !== st.rev || !st.session;
+      // st.saved: the night as the organizer's device last saved it. st.session: that, plus every score sent from
+      // the phones since and the rounds that follow from them, so the next round starts without anyone's help.
+      var needSession = live.rev !== st.rev || !st.saved;
       if (!needSession && ping === st.ping && st.loaded) return null;
-      var getSession = needSession ? S.get('pub/sessions/' + id + '/' + live.sessionId).then(E.normalize) : Promise.resolve(st.session);
-      return getSession.then(function (s) {
-        if (!s) return null;
-        var cur = E.currentRound(s);
-        var getScores = s.status === 'live' && cur ? S.get('pub/scores/' + id + '/' + s.id + '/r' + cur.n).catch(function () { return null; }) : Promise.resolve(null);
-        return getScores.then(function (entries) {
+      var getSession = needSession ? S.get('pub/sessions/' + id + '/' + live.sessionId).then(E.normalize) : Promise.resolve(st.saved);
+      return getSession.then(function (saved) {
+        if (!saved) return null;
+        var getScores = saved.status === 'live' && E.currentRound(saved) ? S.get('pub/scores/' + id + '/' + saved.id).catch(function () { return null; }) : Promise.resolve(null);
+        return getScores.then(function (scores) {
+          var s = E.withPlayerScores(saved, scores), cur = E.currentRound(s);
           var before = st.session ? E.currentRound(st.session) : null;
           var roundChanged = !st.session || st.session.id !== s.id || (before ? before.n : 0) !== (cur ? cur.n : 0);
-          st.session = s; st.rev = live.rev; st.ping = ping; st.pending = entries || {}; st.loaded = true;
-          var saved = S.pref(meKey());
-          st.me = saved && s.teams[saved] ? saved : null;
+          st.saved = saved; st.scores = scores || {}; st.session = s; st.rev = live.rev; st.ping = ping; st.pending = {}; st.loaded = true;
+          var mine = S.pref(meKey());                              // who this phone said it was
+          st.me = mine && s.teams[mine] ? mine : null;
           if (roundChanged) { st.form = null; st.changing = false; st.error = ''; }
           if (!st.sending && !st.askKey) render();
         });
@@ -134,14 +136,19 @@
     var sa = mine.side === 'a' ? f.us : f.them, sb = mine.side === 'a' ? f.them : f.us;
     var w = sa > sb ? 'a' : sb > sa ? 'b' : (f.w === 'us' ? mine.side : (mine.side === 'a' ? 'b' : 'a'));
     var now = Date.now();
-    var entry = { sa: sa, sb: sb, w: w, by: st.me, at: now };
+    var entry = { sa: sa, sb: sb, w: w, by: st.me, at: now, k: E.courtKey(mine.court) };      // k: the players this score is for
     var up = {};
     up['pub/scores/' + st.seriesId + '/' + s.id + '/r' + mine.round.n + '/c' + mine.idx] = entry;
     up['pub/live/' + st.seriesId + '/ping'] = now;
     st.sending = true; st.error = ''; render();
     S.writePublic(up).then(function () {
       st.sending = false; st.changing = false; st.form = null;
-      st.pending['c' + mine.idx] = entry; st.ping = now;
+      // shown at once: this score, and the next round if it was the last one missing
+      var rk = 'r' + mine.round.n;
+      st.scores = st.scores || {}; st.scores[rk] = st.scores[rk] || {}; st.scores[rk]['c' + mine.idx] = entry;
+      var was = mine.round.n;
+      st.session = E.withPlayerScores(st.saved, st.scores); st.ping = now;
+      if ((E.currentRound(st.session) || {}).n !== was) { st.form = null; st.changing = false; }
       render();
       setTimeout(poll, 1200);
     }).catch(function (err) {

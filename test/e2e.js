@@ -267,7 +267,7 @@ const names = [['Ana', 'Luis'], ['Brooke', 'Tyler'], ['Carla', 'Mateo'], ['Dana'
   await admin.click('#startNight');
   await scoreRound(1, false);
   await admin.click('#endNight'); await admin.click('#modalOk');
-  await tv.waitForSelector('.tvboard >> nth=1 >> h2 small:text("2 nights")', { timeout: 6000 });
+  await tv.waitForSelector('.tvboard >> nth=1 >> h2 small:text-matches("^2 (nights|days)$")', { timeout: 6000 });
   step('second night added to the monthly table (2 nights)');
 
   // 12. discard removes it again

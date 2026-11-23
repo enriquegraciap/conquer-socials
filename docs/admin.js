@@ -231,6 +231,7 @@
         if (!look.wide) { look.cands = L.palette(img); look.variant = 0; }
       }
       if (!look.pattern) look.pattern = 'confetti';
+      if (look.band) { look.band = null; look.bandAt = null; look.bandInk = null; look.bandRev = null; extra.band = null; }   // a strip of the old flyer no longer fits
       look.rev = Date.now();
       URL.revokeObjectURL(img.src);
       state.ui.lookBusy = '';
@@ -264,6 +265,7 @@
     if (state.ui.lookBusy) return;
     var look = lookOf(id), extra = {}, other = kind === 'wide' ? 'tall' : 'wide';
     look[kind] = null; look[kind === 'wide' ? 'thumbW' : 'thumbT'] = null; look.rev = Date.now();
+    if (look.band) { look.band = null; look.bandAt = null; look.bandInk = null; look.bandRev = null; extra.band = null; }
     if (kind === 'wide') extra.wide = null;
     if (!look[other]) { extra.phone = null; look.cands = null; look.variant = null; return saveLook(id, look, extra, 'Flyer removed.'); }
     if (kind === 'wide') return saveLook(id, look, extra, 'Wide flyer removed.');      // phones keep the tall one
@@ -274,6 +276,28 @@
       state.ui.lookBusy = '';
       return saveLook(id, look, extra, 'Phone flyer removed. Phones show the wide flyer again.');
     }).catch(function (err) { state.ui.lookBusy = ''; toast('Could not do that: ' + ((err && err.message) || err)); render(); });
+  }
+
+  // The banner can be a blown-up strip of the flyer itself. The strips on offer are worked out here, on this device, from
+  // the stored flyer (the wide one when there is one); the chosen strip is saved as its own picture (eventflyers/{id}/band).
+  function loadBands(id) {
+    var lk = (state.series[id] || {}).look || {}, key = id + ':' + (lk.rev || 0) + ':' + (lk.wide ? 'w' : 't');
+    if (state.ui.bandOpts && state.ui.bandOpts.key === key) return;
+    state.ui.bandOpts = { key: key, list: null };
+    if (!lk.wide && !lk.tall) return;
+    S.get('pub/eventflyers/' + id + '/' + (lk.wide ? 'wide' : 'phone')).then(function (data) { return L.fromDataUrl(data); }).then(function (img) {
+      if (!state.ui.bandOpts || state.ui.bandOpts.key !== key) return;
+      state.ui.bandOpts = { key: key, img: img, list: L.bands(img, 5).map(function (b) { return { band: b, thumb: L.bandImage(img, b, 640, 0.74) }; }) };
+      render();
+    }).catch(function () { if (state.ui.bandOpts && state.ui.bandOpts.key === key) { state.ui.bandOpts.list = []; render(); } });
+  }
+  function bandPic(id) {
+    var lk = (state.series[id] || {}).look || {}, key = id + ':' + (lk.bandRev || 0);
+    if (!lk.band) return null;
+    if (state.ui.bandPic && state.ui.bandPic.key === key) return state.ui.bandPic.data;
+    state.ui.bandPic = { key: key, data: null };
+    S.get('pub/eventflyers/' + id + '/band').then(function (d) { if (state.ui.bandPic && state.ui.bandPic.key === key && typeof d === 'string') { state.ui.bandPic.data = d; render(); } }).catch(function () { /* the pattern shows instead */ });
+    return null;
   }
 
   // ---- TVs: which event each paired screen shows
@@ -1116,7 +1140,15 @@
       }
     } else if (m.type === 'look') {
       var lk = (state.series[m.id] || {}).look || {}, busy = state.ui.lookBusy, has = !!(lk.wide || lk.tall);
-      var setLook = function (patch) { var next = lookOf(m.id); Object.keys(patch).forEach(function (k) { next[k] = patch[k]; }); saveLook(m.id, next); };
+      var setLook = function (patch, extra) { var next = lookOf(m.id); Object.keys(patch).forEach(function (k) { next[k] = patch[k]; }); saveLook(m.id, next, extra); };
+      var noBand = { band: null, bandAt: null, bandInk: null, bandRev: null };
+      if (has) loadBands(m.id);
+      var opts = has ? state.ui.bandOpts : null;
+      var pickBand = function (i) {
+        var it = opts.list[i], data = L.bandImage(opts.img, it.band, 1920, 0.86), rev = Date.now();
+        state.ui.bandPic = { key: m.id + ':' + rev, data: data };
+        setLook({ band: true, bandAt: i + 1, bandInk: it.band.ink, bandRev: rev }, { band: data });
+      };
       var slot = function (kind, title, text, thumb) {
         var on = !!lk[kind];
         return h('div', { class: 'flyslot', 'data-slot': kind }, [
@@ -1133,7 +1165,7 @@
       var bar = h('div', { class: 'lookbar', id: 'lookbar' }, [h('img', { src: S.asset('logo-p.png'), alt: '' }),
         h('div', { class: 'c' }, [h('b', null, state.series[m.id].name), h('span', null, (function (f) { return f.charAt(0).toUpperCase() + f.slice(1).toLowerCase(); })(E.formatOf(state.series[m.id].format).name))]),
         h('img', { class: 'w', src: S.asset('conquer-wordmark-white.png'), alt: '' })]);
-      L.paint(bar, has || lk.pattern || lk.bar ? lk : null);
+      L.paint(bar, has || lk.pattern || lk.bar ? lk : null, bandPic(m.id));
       var logoSlot = function (side, title) {
         var on = !!lk['logo' + side];
         return h('div', { class: 'logoslot', 'data-logo': side }, [
@@ -1148,12 +1180,19 @@
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'For ' + state.series[m.id].name + '. The TV shows the wide flyer between rounds, phones show the flyer for a few seconds when players scan the QR code, and the TV’s top banner takes its colours from it.'),
         slot('wide', 'Wide flyer (landscape)', 'For the TV. Its colours are used for the banner.', lk.thumbW),
         slot('tall', 'Tall flyer (portrait), optional', 'For players’ phones. Without it, phones show the wide flyer.', lk.thumbT),
-        h('div', null, [h('b', null, 'TV banner'), h('p', { class: 'hint', style: 'margin:2px 0 8px' }, has ? 'The colours come from the flyer. Pick the pattern you like.' : 'Add a flyer first: the banner takes its colours from it.')]),
+        h('div', null, [h('b', null, 'TV banner'), h('p', { class: 'hint', style: 'margin:2px 0 8px' }, has ? 'A piece of the flyer itself, blown up, or a pattern in its colours. Tap the one you like: this is how the banner will look.' : 'Add a flyer first: the banner is made from it.')]),
         bar,
+        has ? h('div', { class: 'bandopts', id: 'bandopts' }, [h('span', { class: 'hint', style: 'margin:0' }, !opts || !opts.list ? 'Looking over the flyer…' : opts.list.length ? 'From the flyer itself' : 'No part of this flyer works as a banner; use a pattern.')].concat(
+          ((opts && opts.list) || []).map(function (it, i) {
+            return h('button', { type: 'button', class: 'bandopt' + (lk.band && Number(lk.bandAt) === i + 1 ? ' on' : ''), 'data-band': i + 1, disabled: !!busy, 'aria-label': 'Piece ' + (i + 1) + ' of the flyer',
+              style: 'background-image:url(' + it.thumb + ')', onclick: function () { pickBand(i); } });
+          }))) : null,
+        has ? h('span', { class: 'hint', style: 'margin:0' }, 'Or a pattern in the flyer’s colours') : null,
         has ? h('div', { class: 'patchips' }, L.PATTERNS.map(function (p) {
-          return h('button', { type: 'button', class: 'chip' + ((lk.pattern || 'confetti') === p.id ? ' on' : ''), 'data-pattern': p.id, disabled: !!busy, onclick: function () { setLook({ pattern: p.id }); } }, p.name);
+          return h('button', { type: 'button', class: 'chip' + (!lk.band && (lk.pattern || 'confetti') === p.id ? ' on' : ''), 'data-pattern': p.id, disabled: !!busy,
+            onclick: function () { var patch = { pattern: p.id }; if (lk.band) Object.keys(noBand).forEach(function (k) { patch[k] = null; }); setLook(patch, lk.band ? { band: null } : undefined); } }, p.name);
         })) : null,
-        has && L.candidates(lk).length > 1 ? h('div', { class: 'row' }, [btn('Try other colours', 'small', function () { setLook({ variant: ((Number(lk.variant) || 0) + 1) % L.candidates(lk).length }); }, { disabled: !!busy, id: 'otherColours' }),
+        has && !lk.band && L.candidates(lk).length > 1 ? h('div', { class: 'row' }, [btn('Try other colours', 'small', function () { setLook({ variant: ((Number(lk.variant) || 0) + 1) % L.candidates(lk).length }); }, { disabled: !!busy, id: 'otherColours' }),
           h('span', { class: 'hint', style: 'margin:0' }, 'Steps through the flyer’s main colours.')]) : null,
         has ? h('div', null, [h('b', null, 'Whole TV screen'),
           h('p', { class: 'hint', style: 'margin:2px 0 8px' }, 'Normally only the top banner takes the flyer’s colours. “Flyer’s colours” turns the whole screen into tones of the flyer’s main colour. Yellow lettering, the white “Enter your score” box and the green of a court whose score is in stay as they are.'),

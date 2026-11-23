@@ -238,11 +238,76 @@
     var top = Object.keys(buckets).map(function (k2) { return buckets[k2]; }).sort(function (a, b2) { return b2.n - a.n; })[0];
     return { data: c.toDataURL('image/png'), bg: bg, ink: top && top.n > 20 ? hex(top.r / top.n, top.g / top.n, top.b / top.n) : null };
   }
+  // ---------------------------------------------------------------- a strip of the flyer itself as the banner
+  // The banner is a very wide, low strip (about 12 to 1). bands() looks over the flyer for strips worth blowing up:
+  // colourful, with big shapes rather than small print, and different from one another. Each is { x, y, w, h } in
+  // the picture's own pixels, plus ink: 'dark' when lettering on it has to be dark to be read.
+  var BAND_RATIO = 12;
+  function bands(img, count) {
+    var W = 200, H = Math.max(BAND_RATIO, Math.round(W * img.naturalHeight / img.naturalWidth));
+    var c = document.createElement('canvas'); c.width = W; c.height = H;
+    var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.drawImage(img, 0, 0, W, H);
+    var d = g.getImageData(0, 0, W, H).data, n = W * H, lumA = new Float32Array(n), chr = new Float32Array(n), i, x, y;
+    for (i = 0; i < n; i++) {
+      var r = d[i * 4] / 255, gg = d[i * 4 + 1] / 255, b = d[i * 4 + 2] / 255, mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+      lumA[i] = 0.2126 * r + 0.7152 * gg + 0.0722 * b; chr[i] = mx - mn;
+    }
+    // running totals, so any rectangle's average is four look-ups
+    var sum = function (src, fn) {
+      var t = new Float64Array((W + 1) * (H + 1));
+      for (y = 0; y < H; y++) for (x = 0; x < W; x++) t[(y + 1) * (W + 1) + x + 1] = fn(src, y * W + x, x, y) + t[y * (W + 1) + x + 1] + t[(y + 1) * (W + 1) + x] - t[y * (W + 1) + x];
+      return function (x0, y0, x1, y1) { return t[y1 * (W + 1) + x1] - t[y0 * (W + 1) + x1] - t[y1 * (W + 1) + x0] + t[y0 * (W + 1) + x0]; };
+    };
+    var sL = sum(lumA, function (s, k) { return s[k]; }), sL2 = sum(lumA, function (s, k) { return s[k] * s[k]; }), sC = sum(chr, function (s, k) { return s[k]; });
+    var sE = sum(lumA, function (s, k, px, py) { return (px + 1 < W ? Math.abs(s[k] - s[k + 1]) : 0) + (py + 1 < H ? Math.abs(s[k] - s[k + W]) : 0); });
+    var sInk = sum(lumA, function (s, k) { return (s[k] < 0.45 || chr[k] > 0.3) ? 1 : 0; });       // not the paper: paint, ink, colour
+    var out = [];
+    [1, 0.72, 0.5].forEach(function (scale) {
+      var w = Math.round(W * scale), hh = Math.max(3, Math.round(w / BAND_RATIO));
+      for (var y0 = 0; y0 + hh <= H; y0 += Math.max(1, Math.round(hh / 3))) for (var x0 = 0; x0 + w <= W; x0 += Math.max(1, Math.round(w / 5))) {
+        var a = w * hh, mL = sL(x0, y0, x0 + w, y0 + hh) / a, sd = Math.sqrt(Math.max(0, sL2(x0, y0, x0 + w, y0 + hh) / a - mL * mL));
+        var colour = sC(x0, y0, x0 + w, y0 + hh) / a, edge = sE(x0, y0, x0 + w, y0 + hh) / a, cover = sInk(x0, y0, x0 + w, y0 + hh) / a;
+        // paint that fills the strip counts most; fine print (many edges for little paint) counts against
+        var score = cover * 1.2 + colour * 1.4 + sd * 0.5 - edge * (scale < 1 ? 1.6 : 2.4) + (scale < 1 ? 0.05 : 0);
+        out.push({ x: x0, y: y0, w: w, h: hh, score: score, lum: mL, colour: colour, cover: cover });
+      }
+    });
+    out.sort(function (p, q) { return q.score - p.score; });
+    var over = function (p, q) {
+      var ix = Math.max(0, Math.min(p.x + p.w, q.x + q.w) - Math.max(p.x, q.x)), iy = Math.max(0, Math.min(p.y + p.h, q.y + q.h) - Math.max(p.y, q.y));
+      return ix * iy / Math.min(p.w * p.h, q.w * q.h);
+    };
+    var picked = [], k = img.naturalWidth / W, ky = img.naturalHeight / H;
+    out.forEach(function (p) {
+      if (picked.length >= (count || 6)) return;
+      // different parts of the flyer: no two from the same height on the page, unless they look clearly different
+      if (picked.some(function (q) {
+        var dy = Math.abs((p.y + p.h / 2) - (q.y + q.h / 2)), alike = Math.abs(p.lum - q.lum) < 0.12 && Math.abs(p.colour - q.colour) < 0.12;
+        return over(p, q) > 0.2 || dy < H * 0.07 || (alike && dy < H * 0.16);
+      })) return;
+      picked.push(p);
+    });
+    return picked.map(function (p) {
+      return { x: Math.round(p.x * k), y: Math.round(p.y * ky), w: Math.round(p.w * k), h: Math.round(p.h * ky), ink: p.lum > 0.58 ? 'dark' : 'light' };
+    });
+  }
+  // One of those strips as a picture: a JPEG outW wide (the TV's banner is drawn from a 1920-wide one).
+  function bandImage(img, band, outW, quality) {
+    var w = outW || 1920, hh = Math.round(w / BAND_RATIO), c = document.createElement('canvas');
+    c.width = w; c.height = hh;
+    var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, hh);
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    g.drawImage(img, band.x, band.y, band.w, band.h, 0, 0, w, hh);
+    return c.toDataURL('image/jpeg', quality || 0.86);
+  }
+
   // Paint an element as the banner (or back to the stylesheet's own look when there is nothing to show).
   // look.bar: a plain banner in that colour, for a social that brings its own logos (data-own; lettering in look.barInk).
-  function paint(el, look) {
+  // look.band + picture (the strip chosen in Flyer and look, a data: URL): that strip of the flyer itself fills the banner
+  // (data-band says whether the lettering on it is light or dark). Without the picture yet, the pattern shows meanwhile.
+  function paint(el, look, picture) {
     if (!el) return;
-    el.removeAttribute('data-own'); el.style.removeProperty('--bar-ink');
+    el.removeAttribute('data-own'); el.removeAttribute('data-band'); el.style.removeProperty('--bar-ink'); el.style.backgroundPosition = ''; el.style.backgroundRepeat = '';
     if (!look) { el.style.backgroundColor = ''; el.style.backgroundImage = ''; el.style.backgroundSize = ''; el.style.borderBottomColor = ''; el.removeAttribute('data-pattern'); return; }
     if (look.bar) {
       var ink = look.barInk || (lum(rgb(look.bar)) > 0.45 ? '#0e2238' : '#ffffff');
@@ -251,6 +316,12 @@
       return;
     }
     var b = banner(look);
+    if (look.band && typeof picture === 'string' && /^data:image\//.test(picture)) {
+      el.style.backgroundColor = b.color; el.style.backgroundImage = 'url("' + picture + '")'; el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center'; el.style.backgroundRepeat = 'no-repeat'; el.style.borderBottomColor = b.line;
+      el.removeAttribute('data-pattern'); el.setAttribute('data-band', look.bandInk === 'dark' ? 'dark' : 'light');
+      return;
+    }
     el.style.backgroundColor = b.color;
     el.style.backgroundImage = b.image;
     el.style.backgroundSize = b.size;
@@ -259,5 +330,5 @@
   }
 
   root.Look = { PATTERNS: PATTERNS, readImage: readImage, fromDataUrl: fromDataUrl, shrink: shrink, fitted: fitted, palette: palette,
-    colours: colours, candidates: candidates, banner: banner, paint: paint, theme: theme, logo: logo, luminance: function (h) { return lum(rgb(h)); } };
+    colours: colours, candidates: candidates, banner: banner, bands: bands, bandImage: bandImage, paint: paint, theme: theme, logo: logo, luminance: function (h) { return lum(rgb(h)); } };
 })(typeof self !== 'undefined' ? self : this);

@@ -254,6 +254,21 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .tvbar[data-pattern] .tvbar-l img { filter: brightness(0) invert(1) drop-shadow(0 .25vmin .7vmin rgba(0,0,0,.55)); }
 .tvbar[data-pattern] .tvbar-r img { filter: drop-shadow(0 .25vmin .7vmin rgba(0,0,0,.55)); }
 .tvbar-r img { height: 6.2vmin; width: auto; display: block; }
+/* The banner as a blown-up strip of the flyer itself (data-band: light or dark lettering, whichever reads on it).
+   The picture keeps its own colours; only the lettering gets a soft halo so it stays readable on top. */
+.tvbar[data-band] #bartitle, .tvbar[data-band] #barsub { text-shadow: 0 .25vmin .9vmin rgba(0,0,0,.9), 0 0 .5vmin rgba(0,0,0,.8), 0 0 2.6vmin rgba(0,0,0,.6); }
+.tvbar[data-band] #barsub { color: #fff; }
+.tvbar[data-band] .tvbar-l img { filter: brightness(0) invert(1) drop-shadow(0 .25vmin .8vmin rgba(0,0,0,.8)) drop-shadow(0 0 .4vmin rgba(0,0,0,.6)); }
+.tvbar[data-band] .tvbar-r img { filter: drop-shadow(0 .25vmin .8vmin rgba(0,0,0,.8)) drop-shadow(0 0 .4vmin rgba(0,0,0,.6)); }
+.tvbar[data-band="dark"] #bartitle, .tvbar[data-band="dark"] #barsub { color: #0e2238; text-shadow: 0 0 .9vmin rgba(255,255,255,.98), 0 0 .4vmin rgba(255,255,255,.95), 0 0 2.6vmin rgba(255,255,255,.75); }
+.tvbar[data-band="dark"] .tvbar-l img, .tvbar[data-band="dark"] .tvbar-r img { filter: brightness(0) invert(.12) sepia(1) saturate(6) hue-rotate(175deg) drop-shadow(0 0 .7vmin rgba(255,255,255,.95)) drop-shadow(0 0 .3vmin rgba(255,255,255,.9)); }
+.lookbar[data-band] .c { text-shadow: 0 .2vmin .7vmin rgba(0,0,0,.9), 0 0 .4vmin rgba(0,0,0,.8); }
+.lookbar[data-band="dark"] .c b, .lookbar[data-band="dark"] .c span { color: #0e2238; text-shadow: 0 0 .7vmin rgba(255,255,255,.98), 0 0 .3vmin rgba(255,255,255,.95); }
+.lookbar[data-band="dark"] img, .lookbar[data-band="dark"] img.w { filter: brightness(0) invert(.12) sepia(1) saturate(6) hue-rotate(175deg) drop-shadow(0 0 .5vmin rgba(255,255,255,.95)); }
+.bandopts { display: grid; gap: 8px; margin: 2px 0 4px; }
+.bandopt { display: block; width: 100%; height: 46px; padding: 0; border: 3px solid transparent; border-radius: 9px; background-color: #0a2f41; background-size: cover; background-position: center; cursor: pointer; }
+.bandopt.on { border-color: #f4b63f; box-shadow: 0 0 0 2px #0a2f41; }
+.bandopt:disabled { opacity: .6; }
 #tv { flex: 1 1 auto; min-height: 0; }
 .tvroot { height: 100%; width: 100vw; display: grid; grid-template-columns: 2fr 1fr; gap: 1.6vw; padding: 2.2vmin 1.8vw; }
 .tvleft { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 1.6vmin; min-width: 0; min-height: 0; padding-bottom: 3.6vmin; }

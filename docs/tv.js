@@ -632,8 +632,14 @@
     if (sub) sub.textContent = fmt ? fmt.charAt(0).toUpperCase() + fmt.slice(1).toLowerCase() : '';     // "Fixed partner, king's court"
     // a social with a flyer gets a banner in the flyer's colours; everything else keeps the club's own
     var look = st.mode === 'show' && meta.look && (meta.look.wide || meta.look.tall || meta.look.bar) ? meta.look : null;
-    var sig = look ? JSON.stringify([look.cands, look.variant, look.pattern, look.bar, look.barInk]) : '';
-    if (sig !== st.barSig) { st.barSig = sig; L.paint(document.getElementById('tvbar'), look); }
+    // (a strip of the flyer itself as the banner: its picture is fetched once per choice, and painted when it is here)
+    var bandKey = look && look.band && !look.bar ? st.seriesId + ':' + (look.bandRev || 0) : '';
+    if (bandKey !== (st.bandKey || '')) {
+      st.bandKey = bandKey; st.bandPic = null;
+      if (bandKey) S.get('pub/eventflyers/' + st.seriesId + '/band').then(function (d) { if (st.bandKey === bandKey && typeof d === 'string') { st.bandPic = d; st.barSig = null; barTitle(); } }).catch(function () { st.bandKey = ''; });
+    }
+    var sig = look ? JSON.stringify([look.cands, look.variant, look.pattern, look.bar, look.barInk, bandKey, !!st.bandPic, look.bandInk]) : '';
+    if (sig !== st.barSig) { st.barSig = sig; L.paint(document.getElementById('tvbar'), look, st.bandPic); }
     barLogos(look);
     return applyTheme(look ? L.theme(look) : null);        // true when the screen's colours have just changed
   }

@@ -205,10 +205,51 @@
       soft: t(0.85, 0.85), ink: ink, dim: t(0.55, 0.62),
       wheel: [[t(1, 0.53), '#ffffff'], [pale, ink], [t(0.95, 0.38), '#ffffff'], [t(0.95, 0.77), ink], [t(0.85, 0.23), '#ffffff'], [t(1, 0.64), '#ffffff']] };
   }
+  // A logo for the banner, from a picture the organizer chose: made small, kept as PNG so a see-through background
+  // stays see-through. Also read from it: the colour of its background (bg; null when see-through) so the banner
+  // can take the same one and the logo sits in it without a box around it, and its main dark colour (ink) for the
+  // lettering beside it.
+  function logo(img) {
+    var w = img.naturalWidth, hgt = img.naturalHeight, k = Math.min(1, 900 / w, 260 / hgt);
+    var c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(hgt * k));
+    var g = c.getContext('2d');
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(img, 0, 0, c.width, c.height);
+    var d = g.getImageData(0, 0, c.width, c.height).data, W = c.width, H = c.height;
+    var px = function (x, y) { var i = (Math.max(0, Math.min(H - 1, Math.round(y))) * W + Math.max(0, Math.min(W - 1, Math.round(x)))) * 4; return [d[i], d[i + 1], d[i + 2], d[i + 3]]; };
+    // the background: what the middle of each edge shows (corners may be rounded off)
+    var edge = [px(W / 2, 2), px(W / 2, H - 3), px(2, H / 2), px(W - 3, H / 2), px(W * 0.25, 2), px(W * 0.75, H - 3)];
+    var solid = edge.filter(function (p) { return p[3] > 200; }), bg = null;
+    if (solid.length >= 4) {
+      var mid = function (i) { return solid.map(function (p) { return p[i]; }).sort(function (a, b) { return a - b; })[Math.floor(solid.length / 2)]; };
+      bg = hex(mid(0), mid(1), mid(2));
+    }
+    // the lettering colour: the dark, strong colour there is most of
+    var buckets = {}, step = Math.max(1, Math.floor(Math.sqrt(W * H / 6000)));
+    for (var y = 0; y < H; y += step) for (var x = 0; x < W; x += step) {
+      var p = px(x, y);
+      if (p[3] < 200) continue;
+      var hs = toHsl(p);
+      if (hs[2] > 0.42 || hs[2] < 0.06 || hs[1] < 0.35) continue;
+      var key = Math.round(hs[0] / 12) + ':' + Math.round(hs[2] * 8), b = buckets[key] || (buckets[key] = { n: 0, r: 0, g: 0, b: 0 });
+      b.n++; b.r += p[0]; b.g += p[1]; b.b += p[2];
+    }
+    var top = Object.keys(buckets).map(function (k2) { return buckets[k2]; }).sort(function (a, b2) { return b2.n - a.n; })[0];
+    return { data: c.toDataURL('image/png'), bg: bg, ink: top && top.n > 20 ? hex(top.r / top.n, top.g / top.n, top.b / top.n) : null };
+  }
   // Paint an element as the banner (or back to the stylesheet's own look when there is nothing to show).
+  // look.bar: a plain banner in that colour, for a social that brings its own logos (data-own; lettering in look.barInk).
   function paint(el, look) {
     if (!el) return;
+    el.removeAttribute('data-own'); el.style.removeProperty('--bar-ink');
     if (!look) { el.style.backgroundColor = ''; el.style.backgroundImage = ''; el.style.backgroundSize = ''; el.style.borderBottomColor = ''; el.removeAttribute('data-pattern'); return; }
+    if (look.bar) {
+      var ink = look.barInk || (lum(rgb(look.bar)) > 0.45 ? '#0e2238' : '#ffffff');
+      el.style.backgroundColor = look.bar; el.style.backgroundImage = 'none'; el.style.backgroundSize = ''; el.style.borderBottomColor = ink;
+      el.removeAttribute('data-pattern'); el.setAttribute('data-own', '1'); el.style.setProperty('--bar-ink', ink);
+      return;
+    }
     var b = banner(look);
     el.style.backgroundColor = b.color;
     el.style.backgroundImage = b.image;
@@ -218,5 +259,5 @@
   }
 
   root.Look = { PATTERNS: PATTERNS, readImage: readImage, fromDataUrl: fromDataUrl, shrink: shrink, fitted: fitted, palette: palette,
-    colours: colours, candidates: candidates, banner: banner, paint: paint, theme: theme, luminance: function (h) { return lum(rgb(h)); } };
+    colours: colours, candidates: candidates, banner: banner, paint: paint, theme: theme, logo: logo, luminance: function (h) { return lum(rgb(h)); } };
 })(typeof self !== 'undefined' ? self : this);

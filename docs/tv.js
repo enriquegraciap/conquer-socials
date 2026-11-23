@@ -631,10 +631,33 @@
     var fmt = st.mode === 'show' ? (FORMATS[meta.format] || '') : '';
     if (sub) sub.textContent = fmt ? fmt.charAt(0).toUpperCase() + fmt.slice(1).toLowerCase() : '';     // "Fixed partner, king's court"
     // a social with a flyer gets a banner in the flyer's colours; everything else keeps the club's own
-    var look = st.mode === 'show' && meta.look && (meta.look.wide || meta.look.tall) ? meta.look : null;
-    var sig = look ? JSON.stringify([look.cands, look.variant, look.pattern]) : '';
+    var look = st.mode === 'show' && meta.look && (meta.look.wide || meta.look.tall || meta.look.bar) ? meta.look : null;
+    var sig = look ? JSON.stringify([look.cands, look.variant, look.pattern, look.bar, look.barInk]) : '';
     if (sig !== st.barSig) { st.barSig = sig; L.paint(document.getElementById('tvbar'), look); }
+    barLogos(look);
     return applyTheme(look ? L.theme(look) : null);        // true when the screen's colours have just changed
+  }
+  // A social can bring its own logos for the two ends of the banner (Flyer and look, on the organizer's device):
+  // they take the place of the club's, on that social's screen only. An end without one stays empty.
+  function barLogos(look) {
+    var own = !!(look && look.bar && (look.logoL || look.logoR)), key = own ? st.seriesId + ':' + (look.logoRev || 0) : '';
+    if (key === (st.logoKey || '')) return;
+    st.logoKey = key;
+    var imgs = [document.querySelector('.tvbar-l img'), document.querySelector('.tvbar-r img')];
+    if (!imgs[0] || !imgs[1]) return;
+    if (!st.logo0) st.logo0 = imgs.map(function (im) { return im.getAttribute('src'); });
+    var back = function () { imgs.forEach(function (im, i) { im.src = st.logo0[i]; im.style.visibility = ''; im.hidden = false; }); };
+    if (!own) return back();
+    var id = st.seriesId;
+    imgs.forEach(function (im) { im.style.visibility = 'hidden'; });
+    Promise.all(['logoL', 'logoR'].map(function (k) { return look[k] ? S.get('pub/eventflyers/' + id + '/' + k).catch(function () { return null; }) : Promise.resolve(null); })).then(function (got) {
+      if (st.logoKey !== key) return;
+      got.forEach(function (data, i) {
+        var ok = typeof data === 'string' && /^data:image\//.test(data);
+        if (ok) { imgs[i].src = data; imgs[i].hidden = false; }
+        imgs[i].style.visibility = ok ? '' : 'hidden';
+      });
+    }).catch(function () { st.logoKey = ''; });
   }
   // A social can ask for the whole screen in tones of its flyer's colour (Flyer and look, on the organizer's device).
   var THEME_VARS = ['bg', 'blob1', 'blob2', 'panel', 'deep', 'main', 'mid', 'pale', 'soft', 'ink', 'dim'];

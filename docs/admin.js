@@ -237,6 +237,29 @@
       return saveLook(id, look, extra, kind === 'wide' ? 'Flyer saved. The TV banner now follows its colours.' : 'Phone flyer saved.');
     }).catch(function (err) { state.ui.lookBusy = ''; toast((err && err.message) || 'That picture could not be used.'); render(); });
   }
+  // The social's own logos for the two ends of the TV banner (side: 'L' or 'R'). The banner then turns plain, in the
+  // logos' own background colour (a very light grey when they have none), with the lettering in their main colour.
+  function addLogo(id, side, file) {
+    if (!file || state.ui.lookBusy) return;
+    state.ui.lookBusy = 'Preparing the logo…'; render();
+    L.readImage(file).then(function (img) {
+      var look = lookOf(id), made = L.logo(img), extra = {};
+      extra['logo' + side] = made.data;
+      look['logo' + side] = true; look['thumb' + side] = L.shrink(img, 200, 90, 0.72);
+      if (side === 'L' || !look.logoL) { look.bar = made.bg || '#f2f2f3'; look.barInk = made.ink || null; }
+      look.logoRev = Date.now();
+      URL.revokeObjectURL(img.src);
+      state.ui.lookBusy = '';
+      return saveLook(id, look, extra, 'Logo saved. This social’s TV banner now shows it.');
+    }).catch(function (err) { state.ui.lookBusy = ''; toast((err && err.message) || 'That picture could not be used.'); render(); });
+  }
+  function removeLogo(id, side) {
+    var look = lookOf(id), extra = {};
+    extra['logo' + side] = null;
+    look['logo' + side] = null; look['thumb' + side] = null; look.logoRev = Date.now();
+    if (!look.logoL && !look.logoR) { look.bar = null; look.barInk = null; look.logoRev = null; }
+    saveLook(id, look, extra, 'Logo removed.');
+  }
   function removeFlyer(id, kind) {
     if (state.ui.lookBusy) return;
     var look = lookOf(id), extra = {}, other = kind === 'wide' ? 'tall' : 'wide';
@@ -1074,7 +1097,17 @@
       var bar = h('div', { class: 'lookbar', id: 'lookbar' }, [h('img', { src: S.asset('logo-p.png'), alt: '' }),
         h('div', { class: 'c' }, [h('b', null, state.series[m.id].name), h('span', null, (function (f) { return f.charAt(0).toUpperCase() + f.slice(1).toLowerCase(); })(E.formatOf(state.series[m.id].format).name))]),
         h('img', { class: 'w', src: S.asset('conquer-wordmark-white.png'), alt: '' })]);
-      L.paint(bar, has || lk.pattern ? lk : null);
+      L.paint(bar, has || lk.pattern || lk.bar ? lk : null);
+      var logoSlot = function (side, title) {
+        var on = !!lk['logo' + side];
+        return h('div', { class: 'logoslot', 'data-logo': side }, [
+          h('div', { class: 'pic' }, lk['thumb' + side] ? h('img', { src: lk['thumb' + side], alt: '' }) : h('span', null, title)),
+          h('label', { class: 'btn small flypick' + (busy ? ' off' : ''), for: 'logo-' + side }, on ? 'Replace' : 'Choose ' + title.toLowerCase()),
+          h('input', { type: 'file', id: 'logo-' + side, accept: 'image/*', hidden: true, disabled: !!busy,
+            onchange: function (e) { var f = e.target.files && e.target.files[0]; e.target.value = ''; addLogo(m.id, side, f); } }),
+          on ? btn('Remove', 'small danger', function () { removeLogo(m.id, side); }, { disabled: !!busy, 'data-remove-logo': side }) : null
+        ]);
+      };
       body = [h('h3', null, 'Flyer and look'),
         h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'For ' + state.series[m.id].name + '. The TV shows the wide flyer between rounds, phones show the flyer for a few seconds when players scan the QR code, and the TV’s top banner takes its colours from it.'),
         slot('wide', 'Wide flyer (landscape)', 'For the TV. Its colours are used for the banner.', lk.thumbW),
@@ -1092,6 +1125,9 @@
             h('button', { type: 'button', class: lk.theme === 'flyer' ? '' : 'on', 'data-theme': 'club', disabled: !!busy, onclick: function () { if (lk.theme) setLook({ theme: null }); } }, 'Club colours'),
             h('button', { type: 'button', class: lk.theme === 'flyer' ? 'on' : '', 'data-theme': 'flyer', disabled: !!busy, onclick: function () { if (lk.theme !== 'flyer') setLook({ theme: 'flyer' }); } }, 'Flyer’s colours')
           ])]) : null,
+        h('div', null, [h('b', null, 'Banner logos (optional)'),
+          h('p', { class: 'hint', style: 'margin:2px 0 8px' }, 'For a social run with a partner: their logos take the place of the club’s at the two ends of this social’s TV banner. The banner turns plain, in the logos’ own background colour (or a very light grey), with the name in their colour.'),
+          h('div', { class: 'logoslots' }, [logoSlot('L', 'Left logo'), logoSlot('R', 'Right logo')])]),
         h('div', { class: 'row end' }, [busy ? h('span', { class: 'hint', style: 'margin:0 auto 0 0' }, busy) : null, btn('Done', 'primary', closeModal, { id: 'lookDone' })])];
     } else if (m.type === 'renameSeries') {
       var saveSeries = function () {

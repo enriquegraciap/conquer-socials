@@ -26,11 +26,12 @@ const top = rows.slice(0, 3).map((r, i) => r.rank + '. ' + r.name + ' (' + (r.po
 const link = 'go.playcnqr.com/socials?' + (club === 'tempe' ? 'c=tempe&' : '') + 'v=board&s=' + encodeURIComponent(series);
 const text = 'Conquer Padel: thanks for playing ' + title + ' ' + when + '! Congrats to our top ' + Math.min(3, rows.length) + ': ' + top + '. See the full results and the ' +
   MONTHS[Number(best.m.slice(5, 7)) - 1] + ' leaderboard, and share yours: ' + link;
-// every player of the night (both players of a fixed pair), and what to look up in PlayByPoint: full names and last names
+// every player of the night (both players of a fixed pair), and what to look up in PlayByPoint: each full name, last
+// name and first name (a customer spelled another way is found through the name that is spelled the same)
 const names = [], seen = {};
 rows.forEach(r => (Array.isArray(r.players) && r.players.length ? r.players : [r.name]).forEach(p => { const n = String(p || '').replace(/\s+/g, ' ').trim(); if (n && !seen[n.toLowerCase()]) { seen[n.toLowerCase()] = true; names.push(n); } }));
 const plain = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 const q = {}, queries = [];
-names.forEach(n => { const p = plain(n), t = p.split(' '); if (t.length < 2) return; [p, t[t.length - 1]].forEach(x => { if (x.length >= 3 && !q[x.toLowerCase()]) { q[x.toLowerCase()] = true; queries.push(x); } }); });
+names.forEach(n => { const p = plain(n), t = p.split(' '); if (t.length < 2) return; [p, t[t.length - 1], t[0]].forEach(x => { if (x.length >= 3 && !q[x.toLowerCase()]) { q[x.toLowerCase()] = true; queries.push(x); } }); });
 return { ok: queries.length ? 'yes' : 'no', reason: queries.length ? '' : 'no player has a first and a last name', queries: queries.join('|'), names_json: JSON.stringify(names), text: text,
   key: club + '|' + series + '|' + date, night: date, title: title, players: String(names.length), nice_date: DAYS[dt.getUTCDay()] + ', ' + MONTHS[dt.getUTCMonth()] + ' ' + dt.getUTCDate() };

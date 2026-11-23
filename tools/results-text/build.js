@@ -31,7 +31,7 @@ const secrets = id => ({ id: id, module: 'datastore:GetRecord', version: 1, mapp
 const clean = o => JSON.parse(JSON.stringify(o));
 const is = (a, b) => ({ a: a, b: b, o: 'text:equal' }), not = (a, b) => ({ a: a, b: b, o: 'text:notequal' });
 const meta = sequential => ({ instant: !!sequential, version: 1, scenario: { dlq: false, slots: null, dataloss: false, maxErrors: 3, autoCommit: true, roundtrips: 1, sequential: !!sequential, confidential: false, freshVariables: false, autoCommitTriggerLast: true } });
-const matchSrc = here('match.js').replace(/if \(typeof module[\s\S]*$/, '').replace(/^'use strict';\n/, '');
+const matchSrc = here('match.js').replace(/if \(typeof module[\s\S]*$/, '').replace(/^'use strict';\n/, '');   // (the same name matching goes into two of the code steps)
 const bearer = (field, extra) => [{ name: 'Authorization', value: 'Bearer {{1.' + field + '}}' }, { name: 'Accept', value: 'application/json' }].concat(extra || []);
 
 // (an answer that is not read as JSON arrives as raw bytes: toString() makes it text before it goes into the code)
@@ -40,13 +40,17 @@ at = 0;
 const REST_OF = () => [
     { id: 5, module: 'builtin:BasicFeeder', version: 1, parameters: {}, metadata: pos('Each name to look up'), mapper: { array: '{{split(4.result.queries; "|")}}' },
       filter: { name: 'There is a night with players', conditions: [[is('{{4.result.ok}}', 'yes')]] } },
-    http(6, 'PlayByPoint customers', { url: 'https://api.playbypoint.com/v1/customers?q={{encodeURL(5.value)}}&limit=40', parse: false, headers: bearer('pbp_key', [{ name: 'X-PBP-Facility-Id', value: FACILITY }]) }),
+    http(6, 'PlayByPoint customers', { url: 'https://api.playbypoint.com/v1/customers?q={{encodeURL(5.value)}}&limit=100', parse: false, headers: bearer('pbp_key', [{ name: 'X-PBP-Facility-Id', value: FACILITY }]) }),
     { id: 7, module: 'util:TextAggregator', version: 1, parameters: { feeder: 5, rowSeparator: '\n' }, metadata: pos('All answers'), mapper: { value: '{{toString(6.data)}}' } },
     code(8, 'Who is who', matchSrc + '\n' + here('pick.js'), { names_json: '{{4.result.names_json}}', pool: '{{7.text}}', extra: '{{var.input.extra}}' }),
-    { id: 9, module: 'builtin:BasicFeeder', version: 1, parameters: {}, metadata: pos('Each phone'), mapper: { array: '{{split(8.result.phones; "|")}}' } },
-    http(10, 'HighLevel contact', { url: GHL + '/contacts/search/duplicate?locationId=' + LOCATION + '&number={{encodeURL(9.value)}}', parse: false, headers: bearer('ghl_pit', [{ name: 'Version', value: '2021-07-28' }]) }),
-    { id: 11, module: 'util:TextAggregator', version: 1, parameters: { feeder: 9, rowSeparator: '\n' }, metadata: pos('All contacts'), mapper: { value: '{"p":"{{9.value}}","r":{{ifempty(toString(10.data); "null")}}}' } },
-    code(12, 'The card', here('card.js'), { matched_json: '{{8.result.matched_json}}', skipped_json: '{{8.result.skipped_json}}', ghl: '{{11.text}}', text: '{{4.result.text}}', title: '{{4.result.title}}',
+    { id: 9, module: 'builtin:BasicFeeder', version: 1, parameters: {}, metadata: pos('Each matched player'), mapper: { array: '{{split(8.result.lookups; "|")}}' } },
+    http(10, 'HighLevel: by phone', { url: GHL + '/contacts/search/duplicate?locationId=' + LOCATION + '&number={{encodeURL(get(split(9.value; "~"); 2))}}', parse: false, headers: bearer('ghl_pit', [{ name: 'Version', value: '2021-07-28' }]) }),
+    http(16, 'HighLevel: by email', { url: GHL + '/contacts/search', method: 'post', parse: false, data: '{"locationId":"' + LOCATION + '","pageLimit":5,"query":"{{get(split(9.value; "~"); 3)}}"}',
+      headers: bearer('ghl_pit', [{ name: 'Version', value: '2021-07-28' }, { name: 'Content-Type', value: 'application/json' }]) }),
+    http(17, 'HighLevel: by name', { url: GHL + '/contacts/search', method: 'post', parse: false, data: '{"locationId":"' + LOCATION + '","pageLimit":20,"query":"{{get(split(9.value; "~"); 4)}}"}',
+      headers: bearer('ghl_pit', [{ name: 'Version', value: '2021-07-28' }, { name: 'Content-Type', value: 'application/json' }]) }),
+    { id: 11, module: 'util:TextAggregator', version: 1, parameters: { feeder: 9, rowSeparator: '\n' }, metadata: pos('All contacts'), mapper: { value: '{"i":"{{get(split(9.value; "~"); 1)}}","a":{{ifempty(toString(10.data); "null")}},"b":{{ifempty(toString(16.data); "null")}},"c":{{ifempty(toString(17.data); "null")}}}' } },
+    code(12, 'The card', matchSrc + '\n' + here('card.js'), { matched_json: '{{8.result.matched_json}}', skipped_json: '{{8.result.skipped_json}}', ghl: '{{11.text}}', text: '{{4.result.text}}', title: '{{4.result.title}}',
       club: '{{var.input.club}}', nice_date: '{{4.result.nice_date}}', players: '{{4.result.players}}', key: '{{4.result.key}}', hook: HOOK_URL, dry: '{{var.input.dry}}',
       from: '{{if(var.input.club = "tempe"; "' + CFG.from.tempe + '"; "' + CFG.from.lehi + '")}}', seed: '{{uuid}}' }),
     { id: 20, module: 'datastore:GetRecord', version: 1, mapper: { key: '{{4.result.key}}', returnWrapped: false }, parameters: { datastore: STORE }, metadata: pos('Already a card for this night?') },
@@ -58,7 +62,11 @@ const REST_OF = () => [
     http(14, 'Post the card', { url: 'https://api.telegram.org/bot{{1.telegram_bot_token}}/sendMessage', method: 'post', data: '{{replace(12.result.card; "__CHAT__"; 1.telegram_chat_id)}}',
       headers: [{ name: 'Content-Type', value: 'application/json' }], filter: { name: 'Not a dry run', conditions: [[not('{{var.input.dry}}', '1')]] } }),
     { id: 15, module: 'datastore:UpdateRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Remember where the card is'),
-      mapper: { key: '{{4.result.key}}', data: { chat: '{{14.data.result.chat.id}}', msg: '{{14.data.result.message_id}}' } } }
+      mapper: { key: '{{4.result.key}}', data: { chat: '{{14.data.result.chat.id}}', msg: '{{14.data.result.message_id}}' } } },
+    // an earlier card for the same night that nobody pressed: it no longer sends anything, and says so
+    http(18, 'Retire the earlier card', { url: 'https://api.telegram.org/bot{{1.telegram_bot_token}}/editMessageText', method: 'post', headers: [{ name: 'Content-Type', value: 'application/json' }],
+      data: '{"chat_id":"{{ifempty(20.chat; 1.telegram_chat_id)}}","message_id":{{ifempty(var.input.retire; 20.msg)}},"text":"REPLACED by a newer card for the same night (further down). This one no longer sends anything."}',
+      filter: { name: 'There was an earlier card still waiting', conditions: [[is('{{20.status}}', 'pending'), { a: '{{20.msg}}', o: 'exist' }], [{ a: '{{var.input.retire}}', o: 'exist' }]] } })
   ];
 let REST = null;
 const cardOf = () => ({ name: 'Conquer - Socials results text: card for approval (Claude)', metadata: meta(false),
@@ -66,7 +74,8 @@ const cardOf = () => ({ name: 'Conquer - Socials results text: card for approval
     { name: 'club', type: 'text', required: true, description: 'lehi or tempe' },
     { name: 'series', type: 'text', required: true, description: 'The social\'s id in the socials app (the s= part of its links), for example asu-college-padel-nights' },
     { name: 'extra', type: 'text', required: false, description: 'One more person to send to, as Name|phone (optional)' },
-    { name: 'dry', type: 'text', required: false, description: '1 = work everything out and save it, but post no card' }], output: [] },
+    { name: 'dry', type: 'text', required: false, description: '1 = work everything out and save it, but post no card' },
+    { name: 'retire', type: 'text', required: false, description: 'Telegram message id of an earlier card to mark as replaced (optional)' }], output: [] },
   flow: [
     secrets(1),
     http(2, 'The social\'s name', { url: DB + '/' + ROOT + '/series/{{encodeURL(var.input.series)}}/name.json', parse: false }),

@@ -1,6 +1,6 @@
 // Make code module "The night": picks the latest night of a social from its saved results and writes the text.
 // input: club, series, name_raw (JSON of the social's name), results_raw (JSON of its results), today (YYYY-MM-DD in the
-// club's time zone), yesterday, hour (0-23 there)
+// club's time zone), yesterday, hour (0-23 there), test ("1" = a test card, kept apart from the night's real card)
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const club = String(input.club || 'lehi').toLowerCase() === 'tempe' ? 'tempe' : 'lehi', series = String(input.series || '').trim();
@@ -34,4 +34,4 @@ const plain = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[
 const q = {}, queries = [];
 names.forEach(n => { const p = plain(n), t = p.split(' '); if (t.length < 2) return; [p, t[t.length - 1], t[0]].forEach(x => { if (x.length >= 3 && !q[x.toLowerCase()]) { q[x.toLowerCase()] = true; queries.push(x); } }); });
 return { ok: queries.length ? 'yes' : 'no', reason: queries.length ? '' : 'no player has a first and a last name', queries: queries.join('|'), names_json: JSON.stringify(names), text: text,
-  key: club + '|' + series + '|' + date, night: date, title: title, players: String(names.length), nice_date: DAYS[dt.getUTCDay()] + ', ' + MONTHS[dt.getUTCMonth()] + ' ' + dt.getUTCDate() };
+  key: club + '|' + series + '|' + date + (String(input.test || '') === '1' ? '|test' : ''), night: date, title: title, players: String(names.length), nice_date: DAYS[dt.getUTCDay()] + ', ' + MONTHS[dt.getUTCMonth()] + ' ' + dt.getUTCDate() };

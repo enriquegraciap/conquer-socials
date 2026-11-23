@@ -51,7 +51,7 @@ const REST_OF = () => [
       headers: bearer('ghl_pit', [{ name: 'Version', value: '2021-07-28' }, { name: 'Content-Type', value: 'application/json' }]) }),
     { id: 11, module: 'util:TextAggregator', version: 1, parameters: { feeder: 9, rowSeparator: '\n' }, metadata: pos('All contacts'), mapper: { value: '{"i":"{{get(split(9.value; "~"); 1)}}","a":{{ifempty(toString(10.data); "null")}},"b":{{ifempty(toString(16.data); "null")}},"c":{{ifempty(toString(17.data); "null")}}}' } },
     code(12, 'The card', matchSrc + '\n' + here('card.js'), { matched_json: '{{8.result.matched_json}}', skipped_json: '{{8.result.skipped_json}}', ghl: '{{11.text}}', text: '{{4.result.text}}', title: '{{4.result.title}}',
-      club: '{{var.input.club}}', nice_date: '{{4.result.nice_date}}', players: '{{4.result.players}}', key: '{{4.result.key}}', dry: '{{var.input.dry}}',
+      club: '{{var.input.club}}', nice_date: '{{4.result.nice_date}}', players: '{{4.result.players}}', key: '{{4.result.key}}', dry: '{{var.input.dry}}', test: '{{var.input.test}}',
       from: '{{if(var.input.club = "tempe"; "' + CFG.from.tempe + '"; "' + CFG.from.lehi + '")}}', seed: '{{uuid}}' }),
     { id: 20, module: 'datastore:GetRecord', version: 1, mapper: { key: '{{4.result.key}}', returnWrapped: false }, parameters: { datastore: STORE }, metadata: pos('Already a card for this night?') },
     { id: 13, module: 'datastore:AddRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Keep it until a button is pressed'),
@@ -77,12 +77,13 @@ const cardOf = () => ({ name: 'Conquer - Socials results text: card for approval
     { name: 'series', type: 'text', required: true, description: 'The social\'s id in the socials app (the s= part of its links), for example asu-college-padel-nights' },
     { name: 'extra', type: 'text', required: false, description: 'One more person to send to, as Name|phone (optional)' },
     { name: 'dry', type: 'text', required: false, description: '1 = work everything out and save it, but post no card' },
+    { name: 'test', type: 'text', required: false, description: '1 = a test card: Send texts only the extra person, no player' },
     { name: 'retire', type: 'text', required: false, description: 'Telegram message id of an earlier card to mark as replaced (optional)' }], output: [] },
   flow: [
     secrets(1),
     http(2, 'The social\'s name', { url: DB + '/' + ROOT + '/series/{{encodeURL(var.input.series)}}/name.json', parse: false }),
     http(3, 'Its results', { url: DB + '/' + ROOT + '/results/{{encodeURL(var.input.series)}}.json', parse: false }),
-    code(4, 'The night and the text', here('night.js'), { club: '{{var.input.club}}', series: '{{var.input.series}}', name_raw: '{{toString(2.data)}}', results_raw: '{{toString(3.data)}}',
+    code(4, 'The night and the text', here('night.js'), { test: '{{var.input.test}}', club: '{{var.input.club}}', series: '{{var.input.series}}', name_raw: '{{toString(2.data)}}', results_raw: '{{toString(3.data)}}',
       today: '{{formatDate(now; "YYYY-MM-DD"; ' + TZ + ')}}', yesterday: '{{formatDate(addDays(now; -1); "YYYY-MM-DD"; ' + TZ + ')}}', hour: '{{formatDate(now; "H"; ' + TZ + ')}}' }),
     { id: 40, module: 'builtin:BasicRouter', version: 1, mapper: null, metadata: pos('Is there a night?'), routes: [
       { flow: [{ id: 41, module: 'datastore:AddRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Note why there is no card'), filter: { name: 'No night to text about', conditions: [[not('{{4.result.ok}}', 'yes')]] },

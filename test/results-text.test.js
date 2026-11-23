@@ -75,3 +75,15 @@ test('who is who, and the card: the HighLevel contact is found by phone, email o
   const empty = run(matchSrc + '\n' + body('card.js'), { matched_json: '[]', skipped_json: p.skipped_json, ghl: '', text: n.text, title: n.title, club: 'lehi', nice_date: n.nice_date, players: n.players, key: n.key });
   assert.deepEqual([empty.ok, empty.count, JSON.parse(empty.card).reply_markup, empty.from], ['no', '0', undefined, '']);
 });
+
+test('a test card texts only the extra person and is kept apart from the real card', () => {
+  const n = run(body('night.js'), Object.assign({}, nightIn, { test: "1" }));
+  assert.ok(/\|test$/.test(n.key));
+  const matched = [{ i: '1', name: 'Ana Lopez', phone: '+14805550101', digits: '14805550101', email: '', cname: 'Ana Lopez', close: '' },
+    { i: '2', name: 'Owner', phone: '+14805550100', digits: '14805550100', email: '', cname: '', close: '', extra: true }];
+  const ghl = [{ i: '1', a: { contact: { id: 'c1', phone: '+14805550101' } }, b: null, c: null }, { i: '2', a: { contact: { id: 'c2', phone: '+14805550100' } }, b: null, c: null }].map(x => JSON.stringify(x)).join('\n');
+  const c = run(matchSrc + '\n' + body('card.js'), { matched_json: JSON.stringify(matched), skipped_json: '[]', ghl: ghl, text: n.text, title: n.title, club: 'tempe', nice_date: n.nice_date, players: n.players, key: n.key, test: '1', seed: 'abcdefabcdefabcdefabcdefabcdef12' });
+  assert.deepStrictEqual(JSON.parse(c.recipients_json).map(r => r.cid), ['c2']);
+  assert.ok(/^TEST CARD \| RESULTS TEXT/.test(c.card_text));
+  assert.ok(!/Ana Lopez/.test(c.card_text.split('WILL RECEIVE')[1]));
+});

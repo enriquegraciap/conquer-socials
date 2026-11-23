@@ -24,8 +24,11 @@ const contactFor = m => {
   if (hit.length === 1) return { c: hit[0], how: 'name' };
   return { c: null, how: hit.length > 1 ? hit.length + ' contacts in HighLevel with that name' : 'not a contact in HighLevel' };
 };
+// a test card texts only the extra person: no player is on it
+const test = String(input.test || '') === '1';
 const recipients = [], close = [], seenC = {};
 matched.forEach(m => {
+  if (test && !m.extra) return;
   const got = contactFor(m), c = got.c;
   if (!c) return skipped.push({ name: m.name, why: got.how });
   // (HighLevel keeps this per channel, as "SMS" or "sms": active = switched off by staff, permanent = the person replied STOP)
@@ -45,11 +48,11 @@ const Club = input.club === 'tempe' ? 'Tempe' : 'Lehi';
 // the buttons' one-time token: Make's own random id (random numbers made inside this step repeat from run to run)
 let token = String(input.seed || '').replace(/[^A-Za-z0-9]/g, '').toLowerCase().slice(0, 32);
 if (token.length < 24) for (let i = 0; i < 28; i++) token += 'abcdefghijkmnpqrstuvwxyz23456789'[Math.floor(Math.random() * 32)];
-const lines = ['RESULTS TEXT | ' + input.title + ' (' + Club + ') | ' + input.nice_date,
-  'Send goes to ' + players.length + ' of ' + input.players + ' players' + (extras.length ? ', plus ' + extras.map(r => r.name).join(', ') : '') + '. Nothing is sent until you press Send.',
-  '', 'TEXT', input.text, '', 'WILL RECEIVE (' + players.length + ')', players.map(r => r.name).join(', ') || 'nobody'];
+const lines = [(test ? 'TEST CARD | ' : '') + 'RESULTS TEXT | ' + input.title + ' (' + Club + ') | ' + input.nice_date,
+  test ? 'Test only: Send texts ' + (extras.map(r => r.name).join(', ') || 'nobody') + ' and no player.' : 'Send goes to ' + players.length + ' of ' + input.players + ' players' + (extras.length ? ', plus ' + extras.map(r => r.name).join(', ') : '') + '. Nothing is sent until you press Send.',
+  '', 'TEXT', input.text, '', 'WILL RECEIVE (' + (test ? extras : players).length + ')', (test ? extras : players).map(r => r.name).join(', ') || 'nobody'];
 if (close.length) lines.push('', 'MATCHED BY A SIMILAR NAME, PLEASE CHECK (' + close.length + ')', close.join('\n'));
-if (skipped.length) lines.push('', 'NOT SENT (' + skipped.length + ')', skipped.map(s => s.name + ': ' + s.why).join('\n'));
+if (skipped.length && !test) lines.push('', 'NOT SENT (' + skipped.length + ')', skipped.map(s => s.name + ': ' + s.why).join('\n'));
 const cardText = lines.join('\n').slice(0, 3900);
 // Buttons like the club's other approval cards: one tap, no page to open. The press reaches the bot's own scenario
 // ("Telegram Approvals"), which hands anything that starts with "rt|" to the results-text Send scenario.

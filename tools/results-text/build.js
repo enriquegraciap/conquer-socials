@@ -30,7 +30,7 @@ const code = (id, name, src, input, filter) => ({ id: id, module: 'code:ExecuteC
 const secrets = id => ({ id: id, module: 'datastore:GetRecord', version: 1, mapper: { key: 'prod', returnWrapped: false }, parameters: { datastore: SECRETS }, metadata: pos('Secrets') });
 const clean = o => JSON.parse(JSON.stringify(o));
 const is = (a, b) => ({ a: a, b: b, o: 'text:equal' }), not = (a, b) => ({ a: a, b: b, o: 'text:notequal' });
-const meta = sequential => ({ instant: !!sequential, version: 1, scenario: { dlq: false, slots: null, dataloss: false, maxErrors: 3, autoCommit: true, roundtrips: 1, sequential: !!sequential, confidential: false, freshVariables: false, autoCommitTriggerLast: true } });
+const meta = instant => ({ instant: !!instant, version: 1, scenario: { dlq: false, slots: null, dataloss: false, maxErrors: 3, autoCommit: true, roundtrips: 1, sequential: false, confidential: false, freshVariables: false, autoCommitTriggerLast: true } });
 const matchSrc = here('match.js').replace(/if \(typeof module[\s\S]*$/, '').replace(/^'use strict';\n/, '');   // (the same name matching goes into two of the code steps)
 const bearer = (field, extra) => [{ name: 'Authorization', value: 'Bearer {{1.' + field + '}}' }, { name: 'Accept', value: 'application/json' }].concat(extra || []);
 
@@ -102,8 +102,9 @@ const editSrc = "const head = String(input.head || ''), body = { chat_id: String
   "const sent = lines.length - failed.length, summary = sent + ' sent' + (failed.length ? ', ' + failed.length + ' failed: ' + failed.map(f => f.replace(/^FAILED /, '')).join(', ') : '');\n" +
   "body.text = (head.replace('__SUMMARY__', summary) + '\\n' + String(input.card || '')).slice(0, 4000);\n" +
   "return { edit: JSON.stringify(body), summary: summary, sent: String(sent), has_card: body.chat_id && body.message_id ? 'yes' : 'no' };";
-const edit = (id, codeId) => http(id, 'Mark the card', { url: 'https://api.telegram.org/bot{{2.telegram_bot_token}}/editMessageText', method: 'post', data: '{{' + codeId + '.result.edit}}', headers: [{ name: 'Content-Type', value: 'application/json' }],
-  filter: { name: 'The card is known', conditions: [[is('{{' + codeId + '.result.has_card}}', 'yes')]] } });
+// the card is relabelled first (its buttons go), what Telegram answered is kept with the record, then the person is told
+const edit = (id, codeId) => http(id, 'Mark the card', { url: 'https://api.telegram.org/bot{{2.telegram_bot_token}}/editMessageText', method: 'post', data: '{{' + codeId + '.result.edit}}', headers: [{ name: 'Content-Type', value: 'application/json' }] });
+const marked = id => ' Card relabelled: {{if(' + id + '.data.ok; "yes"; "no, " + ' + id + '.data.description)}}';
 const mine = [is('{{3.token}}', '{{1.t}}'), is('{{3.status}}', 'pending'), { a: '{{1.t}}', o: 'exist' }];
 const stamp = '{{formatDate(now; "ddd MMM D, h:mm A"; if(3.club = "tempe"; "America/Phoenix"; "America/Denver"))}}';
 const send = { name: 'Conquer - Socials results text: Send / Skip buttons (Claude)', metadata: meta(true), interface: { input: [], output: [] },
@@ -120,16 +121,16 @@ const send = { name: 'Conquer - Socials results text: Send / Skip buttons (Claud
           headers: [{ name: 'Authorization', value: 'Bearer {{2.ghl_pit}}' }, { name: 'Version', value: '2021-04-15' }, { name: 'Accept', value: 'application/json' }, { name: 'Content-Type', value: 'application/json' }] }),
         { id: 13, module: 'util:TextAggregator', version: 1, parameters: { feeder: 11, rowSeparator: '\n' }, metadata: pos('How each one went'), mapper: { value: '{{if(12.statusCode < 300; "ok"; "FAILED " + 11.name)}}' } },
         code(14, 'Count', editSrc, { lines: '{{13.text}}', head: 'SENT ' + stamp + ' (__SUMMARY__)', card: '{{3.card}}', chat: '{{3.chat}}', msg: '{{3.msg}}' }),
-        { id: 15, module: 'datastore:UpdateRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Mark as sent'), mapper: { key: '{{1.id}}', data: { status: 'sent', result: '{{14.result.summary}} on ' + stamp } } },
-        respond(17, 'Tell the person', 'Sent', '{{14.result.summary}}.'),
-        edit(16, 14)
+        edit(16, 14),
+        { id: 15, module: 'datastore:UpdateRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Mark as sent'), mapper: { key: '{{1.id}}', data: { status: 'sent', result: '{{14.result.summary}} on ' + stamp + '.' + marked(16) } } },
+        respond(17, 'Tell the person', 'Sent', '{{14.result.summary}}.{{if(16.data.ok; " The card in Telegram now says SENT."; "")}}')
       ] },
       { flow: [
         { id: 20, module: 'datastore:UpdateRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Mark as skipped'), mapper: { key: '{{1.id}}', data: { status: 'skipped', result: 'skipped on ' + stamp } },
           filter: { name: 'Skip, with the card\'s own token, not handled yet', conditions: [mine.concat([is('{{1.do}}', 'skip')])] } },
         code(21, 'New card text', editSrc, { lines: '', head: 'SKIPPED ' + stamp + ' (no texts sent)', card: '{{3.card}}', chat: '{{3.chat}}', msg: '{{3.msg}}' }),
-        respond(23, 'Tell the person', 'Skipped', 'No texts were sent.'),
-        edit(22, 21)
+        edit(22, 21),
+        respond(23, 'Tell the person', 'Skipped', 'No texts were sent.')
       ] },
       { flow: [
         respond(30, 'Nothing to do', 'Nothing was sent', 'This card was already handled, or the link is not the card\'s own.',

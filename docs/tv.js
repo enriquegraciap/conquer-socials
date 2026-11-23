@@ -562,7 +562,7 @@
       if (Date.now() - st.holdSince < 4000) { clearTimeout(st.holdTimer); st.holdTimer = setTimeout(draw, 250); return; }
     }
     st.holdSince = 0;
-    if (!s || s.discarded) left = bigLeft('Tonight', st.seriesName, h('div', 'tvempty', 'The next night has not been set up yet.'));
+    if (!s || s.discarded) left = bigLeft(E.dayWord(null, new Date()), st.seriesName, h('div', 'tvempty', 'The next night has not been set up yet.'));
     else if (s.status === 'setup') left = setupLeft(s);
     else if (s.status === 'ended') left = endedLeft(s);
     else left = liveLeft(s);
@@ -684,14 +684,14 @@
           h('div', 'how', plan ? plan.text : 'The wheel picks your partner. It spins when at least four players are here.')])]),
         s.courts.length ? h('div', 'tvsit', [h('div', 'lab', s.courts.length === 1 ? 'Court' : 'Courts'), h('div', 'names', s.courts.join(' · '))]) : h('div')]);
     }
-    return h('div', 'tvleft', [head('Tonight', false),
+    return h('div', 'tvleft', [head(E.dayWord(s, new Date()), false),
       h('div', 'tvbig', teams.length ? [h('div', 'ttl', teams.length + ' ' + E.formatOf(s).units + ' checked in'), h('div', 'teams', teams.map(function (t) { return h('div', null, t.name); }))]
         : h('div', 'ttl', 'Starting soon')),
       s.courts.length ? h('div', 'tvsit', [h('div', 'lab', 'Courts'), h('div', 'names', s.courts.join(' · ') + '   (court ' + s.courts[s.courts.length - 1] + ' is King’s Court)')]) : h('div')]);
   }
   function liveLeft(s) {
     var r = E.currentRound(s);
-    if (!r) return bigLeft('Tonight', '', h('div', 'ttl', 'Starting soon'));
+    if (!r) return bigLeft(E.dayWord(s, new Date()), '', h('div', 'ttl', 'Starting soon'));
     var flash = r.n !== st.lastRound;
     // A new round this screen watched arrive (the one before it, or the night being set up) gets the full-screen
     // announcement. Opening the page in the middle of a round does not.
@@ -772,7 +772,8 @@
     var nights = Object.keys(monthDocs).filter(function (k) { return monthDocs[k] && monthDocs[k].entries && Object.keys(monthDocs[k].entries).length; }).length;
     var mName = MONTHS[Number((st.monthKey || '2000-01').slice(5, 7)) - 1];
     var unit = s && s.scoring === 'player' ? 'players' : 'teams';
-    var byDay = (st.series[st.seriesId] || {}).format === 'wheel';      // a daytime social: "today", "2 days"
+    // a daytime social: "today", "2 days" (by when it started; before the start, by the clock)
+    var byDay = s && !s.discarded ? E.isDaytime(s, s.status === 'setup' ? new Date() : null) : E.isDaytime(null, new Date());
     return h('div', 'tvright', [
       board(byDay ? 'Today' : 'Tonight', tonight.length ? tonight.length + ' ' + unit : '', tonight, tonight.length, 'Waiting for ' + unit),
       board(mName, nights ? nights + (byDay ? (nights === 1 ? ' day' : ' days') : (nights === 1 ? ' night' : ' nights')) : '', month.slice(0, MONTH_ROWS), Math.min(month.length, MONTH_ROWS), 'No results yet this month')

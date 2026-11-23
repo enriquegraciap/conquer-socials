@@ -263,7 +263,7 @@
     draw(card);
     var tab = function (v, text) { return h('button', { type: 'button', class: 'bd-tab' + (st.view === v ? ' on' : ''), 'data-view': v, 'aria-pressed': st.view === v ? 'true' : 'false', onclick: function () { st.view = v; render(); } }, text); };
     app.replaceChildren(
-      h('div', { class: 'bd-top' }, [st.night ? tab('night', onNow(st.night) ? 'Tonight' : shortDate(st.night.date)) : null, tab('month', monthName(st.month) || 'Month')]),
+      h('div', { class: 'bd-top' }, [st.night ? tab('night', onNow(st.night) ? E.dayWord(st.night) : shortDate(st.night.date)) : null, tab('month', monthName(st.month) || 'Month')]),
       h('div', { class: 'bd-stage' }, card),
       h('div', { class: 'bd-acts' }, [h('button', { type: 'button', class: 'bd-share', id: 'share', onclick: share }, 'Share'), h('button', { type: 'button', class: 'bd-link', id: 'copy', onclick: copyLink }, 'Copy link')]),
       h('p', { class: 'bd-note', id: 'bdnote', hidden: true, role: 'status' }, ''),

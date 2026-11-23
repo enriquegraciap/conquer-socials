@@ -110,7 +110,7 @@ const TEAMS = [['Carter Maclean', 'Kasey Maclean'], ['Lexi Mecham', 'Spencer Mec
   assert.ok(P.date.t >= P.sign.b - 1 && P.date.t >= P.qr.b - 1, 'portrait: date and clock at the very foot');
   assert.ok(!L.over && !P.over, 'nothing runs off either screen');
   assert.deepEqual([L.cut, P.cut], [0, 0], 'no name is cut off on either screen');
-  assert.equal((await tall.textContent('.tvboard >> nth=0 >> h2')).trim().slice(0, 7), 'Tonight');
+  assert.equal((await tall.textContent('.tvboard >> nth=0 >> h2')).trim().replace(/[^A-Za-z].*$/, ''), (() => { const d = new Date(), m = d.getHours() * 60 + d.getMinutes(); return m >= 330 && m <= 1080 ? 'Today' : 'Tonight'; })(), 'today or tonight, by when the social started');
   await tall.screenshot({ path: SHOTS + 'tempe-tv-portrait.png' });
   await wide.screenshot({ path: SHOTS + 'tempe-tv-landscape.png' });
   // a second event: the TV's main menu lists Tempe's events only, also on the portrait screen

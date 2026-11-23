@@ -112,3 +112,13 @@ test('the watcher: a card is due once, when the night is ended or has gone quiet
   assert.equal(run(body('watch.js'), { lehi_raw: JSON.stringify(night('ended', 5)), tempe_raw: 'null', state: '', now_ms: '60000000', l_today: '2026-11-23', l_yday: '2026-11-22', l_hour: '9', t_today: '2026-11-23', t_yday: '2026-11-22', t_hour: '9' }).fire, '0', 'the next morning it is too late');
   assert.equal(at(1000, { soc: { '2026-11': { s1: { date: '2026-11-22', rounds: 0, status: 'ended', entries: { a: { name: 'A B' }, b: { name: 'C D' } } } } } }).watching, '0', 'a night with no round played is ignored');
 });
+
+test('the text says today for a daytime social and tonight for an evening one', () => {
+  const withStart = start => { const r = JSON.parse(JSON.stringify(results)); r['2026-11'].s2.start = start; return Object.assign({}, nightIn, { results_raw: JSON.stringify(r) }); };
+  assert.match(run(body('night.js'), withStart('06:31')).text, /Nights today!/);
+  assert.match(run(body('night.js'), withStart('18:00')).text, /Nights today!/);
+  assert.match(run(body('night.js'), withStart('18:01')).text, /Nights tonight!/);
+  assert.match(run(body('night.js'), withStart('05:29')).text, /Nights tonight!/);
+  assert.match(run(body('night.js'), Object.assign(withStart('09:00'), { today: '2026-11-23', yesterday: '2026-11-22', hour: '9' })).text, /Nights yesterday!/);
+  assert.match(run(body('night.js'), Object.assign(withStart('09:00'), { today: '2026-11-25', yesterday: '2026-11-24', hour: '9' })).text, /Nights on Sunday!/);
+});

@@ -44,7 +44,7 @@ const BASE = 'http://localhost:8787', DB = BASE + '/db', SHOTS = __dirname + '/s
   const top = (await phone.getAttribute('#card', 'data-top')).split('|');
   assert.deepEqual(top, board.slice(0, 3).map(r => r[0] + ':' + r[1]), 'the same top three as the organizer’s table');
   assert.match(await phone.getAttribute('#card', 'aria-label'), /^Taco Tuesday: Standings so far\. 1\. /);
-  assert.deepEqual((await phone.locator('.bd-tab').allTextContents()).map(t => t.trim().toLowerCase()).slice(0, 1), ['tonight']);
+  assert.deepEqual((await phone.locator('.bd-tab').allTextContents()).map(t => t.trim().toLowerCase()).slice(0, 1), [(() => { const d = new Date(), m = d.getHours() * 60 + d.getMinutes(); return m >= 330 && m <= 1080 ? 'Today' : 'Tonight'; })().toLowerCase()]);
   const g = await phone.evaluate(() => { const c = document.getElementById('card'), r = c.getBoundingClientRect(), s = document.getElementById('share').getBoundingClientRect(); return { w: c.width, h: c.height, top: r.top, bottom: r.bottom, ratio: r.width / r.height, shareBottom: s.bottom, H: innerHeight, over: document.documentElement.scrollWidth > innerWidth }; });
   assert.deepEqual([g.w, g.h], [1080, 1920], 'the picture is a phone-shaped 1080 x 1920');
   assert.ok(Math.abs(g.ratio - 9 / 16) < 0.01 && g.top >= 0 && g.shareBottom <= g.H && !g.over, 'the whole picture and the Share button are on one screen: ' + JSON.stringify(g));

@@ -502,3 +502,15 @@ test('rewind refuses rounds that do not exist and nights that are not live', () 
   E.endNight(s);
   assert.equal(E.rewindTo(s, 1).ok, false);
 });
+
+test('today or tonight: by the time the social started (5:30am to 6pm is daytime)', () => {
+  const at = (h, m) => new Date(2026, 10, 23, h, m);
+  assert.equal(E.localTime(at(6, 5)), '06:05');
+  assert.deepEqual(['05:29', '05:30', '12:00', '18:00', '18:01', '22:59'].map(t => E.dayWord({ start: t })), ['Tonight', 'Today', 'Today', 'Today', 'Tonight', 'Tonight']);
+  assert.equal(E.dayWord({ start: '19:00' }, at(9, 0)), 'Tonight', 'once started, the start time decides, not the clock');
+  assert.equal(E.dayWord({ format: 'kings-fixed' }, at(9, 0)), 'Today', 'before the start: by the clock');
+  assert.equal(E.dayWord(null, at(20, 0)), 'Tonight');
+  assert.equal(E.dayWord({ format: 'wheel' }), 'Today'); assert.equal(E.dayWord({ format: 'kings-fixed' }), 'Tonight', 'older nights with no start time: as before');
+  const s = E.newSession({ format: 'kings-fixed', courts: [1] }); ['A', 'B'].forEach(n => E.addTeam(s, n + '1', n + '2')); s.start = '06:31'; E.startNight(s);
+  assert.equal(E.resultsDoc(s).start, '06:31', 'the saved results carry the start time');
+});

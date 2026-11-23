@@ -467,7 +467,7 @@
           h('div', { class: 'panel startbar' }, [
             h('p', { class: 'sitlist' }, summary),
             btn('Start night', 'gold', function () {
-              commit(function (x) { x.date = E.localDate(new Date()); x.month = x.date.slice(0, 7); E.startNight(x); });
+              commit(function (x) { x.date = E.localDate(new Date()); x.month = x.date.slice(0, 7); x.start = E.localTime(new Date()); E.startNight(x); });
               toast('Round 1 is on the TV.');
             }, { disabled: N < 2 || !C, id: 'startNight' })
           ]))
@@ -497,7 +497,7 @@
   function spinWheel() {
     var first = state.session.status === 'setup';
     var out = commit(function (x) {
-      if (first) { x.date = E.localDate(new Date()); x.month = x.date.slice(0, 7); }
+      if (first) { x.date = E.localDate(new Date()); x.month = x.date.slice(0, 7); x.start = E.localTime(new Date()); }
       return E.wheelSpin(x, { sit: state.ui.wheelSit || [] });
     });
     state.ui.wheelSit = [];
@@ -644,7 +644,7 @@
     teams.forEach(function (t) { if (!t.left) have[E.entityKey(t.players)] = true; });
     var regs = state.regulars.filter(function (r) { return !have[r.key]; });
     return h('div', { class: 'panel' }, [
-      h('h2', null, [W.Many, h('small', null, teams.filter(function (t) { return !t.left; }).length + (setup ? ' entered' : ' playing tonight'))]),
+      h('h2', null, [W.Many, h('small', null, teams.filter(function (t) { return !t.left; }).length + (setup ? ' entered' : ' playing ' + E.dayWord(s).toLowerCase()))]),
       W.solo ? h('div', { class: 'addteam solo' }, [
         h('input', { type: 'text', id: 'p1', placeholder: 'Player name', value: state.ui.p1, maxlength: 30, autocapitalize: 'words', autocomplete: 'off',
           oninput: function (e) { state.ui.p1 = e.target.value; }, onkeydown: function (e) { if (e.key === 'Enter') add(); } }),
@@ -913,7 +913,7 @@
             })
           ])) : null
         ]),
-        h('div', { class: 'stack' }, [wheel ? poolPanel(s) : null, boardPanel(s, wheel ? 'Today' : 'Tonight'), teamsPanel(s, false)])
+        h('div', { class: 'stack' }, [wheel ? poolPanel(s) : null, boardPanel(s, E.dayWord(s, s.status === 'setup' ? new Date() : null)), teamsPanel(s, false)])
       ])
     ]);
   }

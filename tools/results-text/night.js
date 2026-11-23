@@ -21,7 +21,10 @@ const rows = Object.keys(best.d.entries).map(k => best.d.entries[k]).filter(e =>
 rows.forEach((r, i) => { r.rank = i > 0 && (rows[i - 1].points || 0) === (r.points || 0) ? rows[i - 1].rank : i + 1; });
 if (rows.length < 2) return none('fewer than two players on the night');
 const date = String(best.d.date), dt = new Date(date + 'T12:00:00Z');
-const when = date === input.today || (date === input.yesterday && Number(input.hour) < 4) ? 'tonight' : date === input.yesterday ? 'last night' : 'on ' + DAYS[dt.getUTCDay()];
+// a social that started between 5:30am and 6pm is "today"; a later one is "tonight" (the app saves the start time)
+const st = /^(\d{1,2}):(\d{2})/.exec(best.d.start || ''), mins = st ? Number(st[1]) * 60 + Number(st[2]) : -1, daytime = st ? mins >= 330 && mins <= 1080 : best.d.format === 'wheel';
+const when = daytime ? (date === input.today ? 'today' : date === input.yesterday ? 'yesterday' : 'on ' + DAYS[dt.getUTCDay()])
+  : date === input.today || (date === input.yesterday && Number(input.hour) < 4) ? 'tonight' : date === input.yesterday ? 'last night' : 'on ' + DAYS[dt.getUTCDay()];
 const top = rows.slice(0, 3).map((r, i) => r.rank + '. ' + r.name + ' (' + (r.points || 0) + (i === 0 ? ' pts' : '') + ')').join(', ');
 const link = 'go.playcnqr.com/socials?' + (club === 'tempe' ? 'c=tempe&' : '') + 'v=board&s=' + encodeURIComponent(series);
 const text = 'Conquer Padel: thanks for playing ' + title + ' ' + when + '! Congrats to our top ' + Math.min(3, rows.length) + ': ' + top + '. See the full results and the ' +

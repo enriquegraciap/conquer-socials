@@ -123,6 +123,17 @@
     var m = d.getMonth() + 1, day = d.getDate();
     return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
   }
+  function localTime(d) { var h = d.getHours(), m = d.getMinutes(); return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m; }
+  // "Today" or "Tonight"? A social that starts between 5:30am and 6pm is a daytime one; later ones are at night.
+  // x is a session or its saved results (both carry start, the HH:MM the first round was drawn at). Before the start
+  // there is no time yet: pass now (a Date) to go by the clock. With neither, the wheel socials count as daytime.
+  function isDaytime(x, now) {
+    var t = /^(\d{1,2}):(\d{2})/.exec((x && x.start) || (now ? localTime(now) : ''));
+    if (!t) return !!x && x.format === 'wheel';
+    var min = Number(t[1]) * 60 + Number(t[2]);
+    return min >= 330 && min <= 1080;
+  }
+  function dayWord(x, now) { return isDaytime(x, now) ? 'Today' : 'Tonight'; }
 
   // The database drops empty lists and empty values; put them back so the rest of the code can rely on them.
   function normalize(s) {
@@ -1058,10 +1069,12 @@
       entries[r.key] = { name: r.name, players: r.players, points: r.points, wins: r.wins, played: r.played, diff: r.diff };   // diff (games won minus lost) only breaks ties
       if (r.left) entries[r.key].left = true;            // removed during the night: counts for the month, not shown for the night
     });
-    return {
+    var doc = {
       date: session.date, status: session.status, scoring: session.scoring, format: session.format,
       rounds: session.rounds.filter(roundComplete).length, entries: entries
     };
+    if (session.start) doc.start = session.start;        // when it began: decides "today" or "tonight" wherever the results are shown
+    return doc;
   }
   function monthlyBoard(resultsBySession) {
     var rows = {};
@@ -1102,7 +1115,7 @@
 
   return {
     RULES: RULES, FORMATS: FORMATS, formatOf: formatOf, isSolo: isSolo, sideIds: sideIds, courtIds: courtIds, sideOf: sideOf, sideName: sideName,
-    newSession: newSession, normalize: normalize, localDate: localDate, clone: clone, randomId: randomId,
+    newSession: newSession, normalize: normalize, localDate: localDate, localTime: localTime, isDaytime: isDaytime, dayWord: dayWord, clone: clone, randomId: randomId,
     teamList: teamList, activeTeams: activeTeams, currentRound: currentRound,
     roundComplete: roundComplete, roundHasScores: roundHasScores, courtDone: courtDone,
     teamStats: teamStats, generateRound: generateRound,

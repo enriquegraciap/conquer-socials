@@ -99,7 +99,7 @@ const NAMES = ['Ana Lopez', 'Bea Ruiz', 'Carla Diaz', 'Dani Mora', 'Elena Gil', 
   assert.deepEqual(courts.map(c => [c.label, c.court, c.king]), [['Court', '7', false], ['Court', '6', false]]);
   courts.forEach(c => [c.a, c.b].forEach(side => assert.ok(teams.map(pairName).includes(side), 'a pair the wheel made: ' + side)));
   assert.equal(await tv.getAttribute('.tvsit.sign', 'data-names'), '', 'everyone plays');
-  assert.equal((await tv.textContent('.tvboard >> nth=0 >> h2')).trim().slice(0, 5), 'Today');
+  assert.equal((await tv.textContent('.tvboard >> nth=0 >> h2')).trim().replace(/[^A-Za-z].*$/, ''), (() => { const d = new Date(), m = d.getHours() * 60 + d.getMinutes(); return m >= 330 && m <= 1080 ? 'Today' : 'Tonight'; })(), 'today or tonight, by when the social started');
   await tv.screenshot({ path: SHOTS + 'wheel-tv-pool.png' });
   step('spin: two wheels drew ' + teams.map(pairName).join(', '));
 

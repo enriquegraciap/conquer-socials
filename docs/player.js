@@ -251,7 +251,7 @@
         [h('span', { class: 'txt' }, [h('b', null, title), h('span', null, text)]), h('span', { class: 'go', 'aria-hidden': 'true' }, '\u203a')]);
     };
     return [
-      h('div', { class: 'pl-hello' }, [h('h2', null, 'Hi, welcome!'), h('p', null, 'Are you playing tonight or running the social?')]),
+      h('div', { class: 'pl-hello' }, [h('h2', null, 'Hi, welcome!'), h('p', null, 'Are you playing ' + E.dayWord(st.session, new Date()).toLowerCase() + ' or running the social?')]),
       h('div', { class: 'pl-roles' }, [
         role('player', 'rolePlayer', 'Player', 'Find your court and send in your scores', function () { st.role = 'player'; render(); }),
         role('admin', 'roleAdmin', 'Admin', 'Run the night: scores, teams, courts, rounds', openAdmin)
@@ -296,7 +296,7 @@
     var solo = E.isSolo(s);
     if (!teams.length) return note(solo ? 'No players yet' : 'No teams yet', 'Ask the organizer to add you. This page updates by itself.');
     return [
-      h('div', { class: 'pl-card' }, [h('h2', null, solo ? 'Who are you?' : 'Which team are you?'), h('p', null, solo ? 'Tap your name. You only do this once tonight.' : 'Tap your names. You only do this once tonight.'),
+      h('div', { class: 'pl-card' }, [h('h2', null, solo ? 'Who are you?' : 'Which team are you?'), h('p', null, (solo ? 'Tap your name.' : 'Tap your names.') + ' You only do this once ' + E.dayWord(s, new Date()).toLowerCase() + '.'),
         h('button', { type: 'button', class: 'pl-link', id: 'roleBack', onclick: function () { st.role = null; render(); } }, 'Back')]),
       h('div', { class: 'pl-list' }, teams.map(function (t) {
         return h('button', { type: 'button', class: 'pl-pick', 'data-team': t.name, onclick: function () { S.pref(meKey(), t.id); st.me = t.id; st.form = null; render(); } }, t.name);
@@ -306,7 +306,7 @@
 
   function roundCard(s) {
     var cur = E.currentRound(s), me = s.teams[st.me];
-    if (me && me.left) return note('You are not in tonight’s draw', 'If that is a mistake, see the organizer.');
+    if (me && me.left) return note('You are not in ' + (E.isDaytime(s, new Date()) ? 'today' : 'tonight') + '’s draw', 'If that is a mistake, see the organizer.');
     if (!cur) return note('Starting soon');
     var mine = myCourt(), wheel = E.isWheel(s), wst = wheel ? E.wheelState(s) : 'none';
     if (wst === 'spin' && !(mine && !mine.entered)) return note('Time for new partners', 'Watch the screen: the wheel is about to spin. Your new partner and court appear here.');
@@ -366,7 +366,7 @@
     var key = E.entityKey(me.players), rows = E.leaderboard(s);
     var row = rows.filter(function (r) { return r.key === key; })[0];
     return h('div', { class: 'pl-foot' }, [
-      h('div', null, [h('b', null, me.name), row && row.played ? h('span', null, row.points + (row.points === 1 ? ' point' : ' points') + (E.isWheel(s) ? ' today' : ' tonight') + ' · place ' + row.rank + ' of ' + rows.length) : h('span', null, E.isWheel(s) ? 'No points yet today' : 'No points yet tonight')]),
+      h('div', null, [h('b', null, me.name), row && row.played ? h('span', null, row.points + (row.points === 1 ? ' point' : ' points') + ' ' + E.dayWord(s).toLowerCase() + ' · place ' + row.rank + ' of ' + rows.length) : h('span', null, E.isWheel(s) ? 'No points yet today' : 'No points yet tonight')]),
       h('button', { type: 'button', class: 'pl-link', id: 'notme', onclick: function () { S.pref(meKey(), null); st.me = null; st.role = null; st.form = null; st.changing = false; render(); } }, 'Not you?')
     ]);
   }

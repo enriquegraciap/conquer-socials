@@ -177,13 +177,14 @@
     if (!scr || !scr.seriesId || String(scr.at || 0) === S.pref('tvPairAt')) return false;
     S.pref('tvPairAt', String(scr.at || 0));
     S.pref('tvShow', scr.seriesId);
+    st.restHold = Date.now() + 10 * 60000;        // someone asked for it: it stays up for a while even if the social is over
     return true;
   }
   function tick() {
     if (document.hidden) return;
     st.ticks++;
-    if (st.mode === 'show') { poll(); if (st.ticks % 15 === 0) refreshEvent(); if (st.ticks % 150 === 0) loadPromo(); }
-    else if (st.mode === 'flyers') { if (st.ticks % 15 === 0) loadFlyers(); if (st.ticks % 30 === 0) loadBoards(); }
+    if (st.mode === 'show') { if (restDue()) startRest(); else { poll(); if (st.ticks % 15 === 0) refreshEvent(); if (st.ticks % 150 === 0) loadPromo(); } }
+    else if (st.mode === 'flyers') { if (st.ticks % 15 === 0) loadFlyers(); if (st.ticks % 30 === 0) loadBoards(); if (fl.rest && st.ticks % 3 === 0) restCheck(); }
     else if (st.mode === 'intro') { /* nothing to fetch: the slides are part of the page */ }
     else decide();
     if (st.mode !== 'menu' && st.mode !== 'boot' && !fixed && st.ticks % 3 === 0) checkPairing();
@@ -238,6 +239,7 @@
   // Chosen on this TV with the remote: remembered on this TV until someone chooses again.
   function choose(what) {
     S.pref('tvShow', what);
+    st.restHold = Date.now() + 10 * 60000;
     if (fixed) {                                  // the address no longer decides
       fixed = null;
       var q = new URLSearchParams(location.search); q.delete('s'); q.delete('flyers'); q.delete('intro');
@@ -330,10 +332,41 @@
   // Two sets: the club's everyday flyers (pub/flyers/club, which also shows the monthly leaderboards) and the
   // flyers for a special event (pub/flyers/special).
   var SLIDE_MS = 15000;
+  // A social that is over hands its screen to the club flyers by itself: a few minutes after End night (the final
+  // standings stay up first), or when no score has come in for 45 minutes. The TV stays on that social: as soon as
+  // anything happens in it again (a new night is set up, a score, the night reopened) the social is back on screen.
+  var REST_AFTER_END = 5 * 60000, REST_QUIET = 45 * 60000;
   var BOARDS = '@boards';                       // the slide that is made here: this month's top three of every social
   var fl = { rev: undefined, list: [], data: {}, cur: null, top: 0, timer: null, loading: false, layers: [], msg: null, board: null, boards: [], month: '' };
+  function restKey() { return st.seriesId + ':' + (st.saved ? st.saved.id : '') + ':' + st.rev + ':' + (st.ping || 0); }
+  function restDue() {
+    var s = st.saved, now = Date.now();
+    if (st.mode !== 'show' || !st.shown || !s || s.discarded || now < (st.restHold || 0) || restKey() === st.restSkip) return false;
+    if (s.status === 'ended') return !s.endedAt || now - Number(s.endedAt) >= REST_AFTER_END;
+    if (s.status !== 'live' || !s.rounds || !s.rounds.length) return false;
+    var last = Math.max(Number(s.scoredAt) || 0, st.phoneAt || 0);
+    if (last) return now - last >= REST_QUIET;
+    return String(s.date) < E.localDate(new Date(now - 6 * 3600000));      // an older night nobody ended, from before these times were kept
+  }
+  function startRest() {
+    var back = { series: st.seriesId, session: st.saved.id, rev: st.rev, ping: st.ping || 0, key: restKey(), at: Date.now() };
+    showFlyers(FLYERS);
+    fl.rest = back;
+  }
+  // While resting: has anything happened in the social? Then it is back. (And with nothing at all to show, no flyers
+  // and no leaderboards, the social simply stays on screen.)
+  function restCheck() {
+    var r = fl.rest;
+    if (!r || st.mode !== 'flyers') return;
+    if (Date.now() - r.at > 30000 && fl.rev !== undefined && !fl.loading && !slides().length) { fl.rest = null; st.restSkip = r.key; return show(r.series); }
+    S.get('pub/live/' + r.series).then(function (live) {
+      if (fl.rest !== r || st.mode !== 'flyers') return;
+      if (live && (live.sessionId !== r.session || live.rev !== r.rev || (live.ping || 0) !== r.ping)) { fl.rest = null; show(r.series); }
+    }).catch(function () { /* next time */ });
+  }
   function showFlyers(which) {
     setMode('flyers');
+    fl.rest = null;
     fl.which = which === SPECIAL ? SPECIAL : FLYERS;
     fl.path = 'pub/flyers/' + (fl.which === SPECIAL ? 'special' : 'club');
     fl.list = []; fl.data = {}; fl.boardSig = '';
@@ -504,6 +537,8 @@
           return loadMonth(s.month).then(function () {
             if (id !== st.seriesId) return;
             var now = E.withPlayerScores(s, scores), before = st.session;
+            st.phoneAt = 0;
+            Object.keys(scores || {}).forEach(function (r) { Object.keys(scores[r] || {}).forEach(function (c) { var at = Number((scores[r][c] || {}).at) || 0; if (at > st.phoneAt) st.phoneAt = at; }); });
             st.saved = s; st.rev = live.rev; st.ping = ping; st.pending = {}; st.shown = true;
             // The last score of a round and the round after it arrive together. Show the finished round first, so its
             // winner gets the crown and the fireworks, and then move on (draw waits for the celebration to end).

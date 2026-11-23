@@ -238,6 +238,18 @@
     var top = Object.keys(buckets).map(function (k2) { return buckets[k2]; }).sort(function (a, b2) { return b2.n - a.n; })[0];
     return { data: c.toDataURL('image/png'), bg: bg, ink: top && top.n > 20 ? hex(top.r / top.n, top.g / top.n, top.b / top.n) : null };
   }
+  // The same part of the flyer for a taller header (the shareable leaderboard picture): as wide as the strip, and as
+  // much higher as the header needs, around the same middle (moved up or down where the flyer ends).
+  function bandTall(img, band, outW, outH, quality) {
+    var w = Math.min(band.w, img.naturalWidth), hh = Math.min(img.naturalHeight, Math.round(w * outH / outW));
+    if (hh === img.naturalHeight) w = Math.min(img.naturalWidth, Math.round(hh * outW / outH));
+    var x = Math.max(0, Math.min(img.naturalWidth - w, Math.round(band.x + band.w / 2 - w / 2))), y = Math.max(0, Math.min(img.naturalHeight - hh, Math.round(band.y + band.h / 2 - hh / 2)));
+    var c = document.createElement('canvas'); c.width = outW; c.height = outH;
+    var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, outW, outH);
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    g.drawImage(img, x, y, w, hh, 0, 0, outW, outH);
+    return c.toDataURL('image/jpeg', quality || 0.86);
+  }
   // ---------------------------------------------------------------- a strip of the flyer itself as the banner
   // The banner is a very wide, low strip (about 12 to 1). bands() looks over the flyer for strips worth blowing up:
   // colourful, with big shapes rather than small print, and different from one another. Each is { x, y, w, h } in
@@ -330,5 +342,5 @@
   }
 
   root.Look = { PATTERNS: PATTERNS, readImage: readImage, fromDataUrl: fromDataUrl, shrink: shrink, fitted: fitted, palette: palette,
-    colours: colours, candidates: candidates, banner: banner, bands: bands, bandImage: bandImage, paint: paint, theme: theme, logo: logo, luminance: function (h) { return lum(rgb(h)); } };
+    colours: colours, candidates: candidates, banner: banner, bands: bands, bandImage: bandImage, bandTall: bandTall, paint: paint, theme: theme, logo: logo, luminance: function (h) { return lum(rgb(h)); } };
 })(typeof self !== 'undefined' ? self : this);

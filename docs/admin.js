@@ -231,7 +231,7 @@
         if (!look.wide) { look.cands = L.palette(img); look.variant = 0; }
       }
       if (!look.pattern) look.pattern = 'confetti';
-      if (look.band) { look.band = null; look.bandAt = null; look.bandInk = null; look.bandRev = null; extra.band = null; }   // a strip of the old flyer no longer fits
+      if (look.band) { look.band = null; look.bandTall = null; look.bandAt = null; look.bandInk = null; look.bandRev = null; extra.band = null; extra.bandTall = null; }   // a strip of the old flyer no longer fits
       look.rev = Date.now();
       URL.revokeObjectURL(img.src);
       state.ui.lookBusy = '';
@@ -265,7 +265,7 @@
     if (state.ui.lookBusy) return;
     var look = lookOf(id), extra = {}, other = kind === 'wide' ? 'tall' : 'wide';
     look[kind] = null; look[kind === 'wide' ? 'thumbW' : 'thumbT'] = null; look.rev = Date.now();
-    if (look.band) { look.band = null; look.bandAt = null; look.bandInk = null; look.bandRev = null; extra.band = null; }
+    if (look.band) { look.band = null; look.bandTall = null; look.bandAt = null; look.bandInk = null; look.bandRev = null; extra.band = null; extra.bandTall = null; }
     if (kind === 'wide') extra.wide = null;
     if (!look[other]) { extra.phone = null; look.cands = null; look.variant = null; return saveLook(id, look, extra, 'Flyer removed.'); }
     if (kind === 'wide') return saveLook(id, look, extra, 'Wide flyer removed.');      // phones keep the tall one
@@ -589,7 +589,7 @@
   }
   function endNightAsk() {
     state.ui.modal = { type: 'confirm', title: 'End the night?', text: 'Tonight’s results are saved to the monthly leaderboard and the TV shows the final standings. You can reopen the night if you end it by mistake.', ok: 'End night', danger: true,
-      onOk: function () { commit(function (x) { E.endNight(x); }); render(); } };
+      onOk: function () { commit(function (x) { E.endNight(x); x.endedAt = Date.now(); }); render(); } };
     render();
   }
   function roundTitle(r) { return r.title ? r.title : 'Round ' + r.n; }
@@ -972,7 +972,7 @@
                 if (state.dirty || state.saving) { toast('Still saving. Try again in a moment.'); return render(); }
                 newNight(s); render();
               }, { id: 'nextNight' }),
-              btn('Reopen this night', '', function () { commit(function (x) { E.reopenNight(x); }); render(); }),
+              btn('Reopen this night', '', function () { commit(function (x) { E.reopenNight(x); delete x.endedAt; x.scoredAt = Date.now(); }); render(); }),
               btn('Discard this night (do not count it)', 'danger', function () {
                 state.ui.modal = { type: 'confirm', title: 'Discard this night?', text: 'Its points are removed from the monthly leaderboard. Use this for test runs.', ok: 'Discard', danger: true,
                   onOk: function () { discardNight(s); } };
@@ -1141,13 +1141,13 @@
     } else if (m.type === 'look') {
       var lk = (state.series[m.id] || {}).look || {}, busy = state.ui.lookBusy, has = !!(lk.wide || lk.tall);
       var setLook = function (patch, extra) { var next = lookOf(m.id); Object.keys(patch).forEach(function (k) { next[k] = patch[k]; }); saveLook(m.id, next, extra); };
-      var noBand = { band: null, bandAt: null, bandInk: null, bandRev: null };
+      var noBand = { band: null, bandTall: null, bandAt: null, bandInk: null, bandRev: null };
       if (has) loadBands(m.id);
       var opts = has ? state.ui.bandOpts : null;
       var pickBand = function (i) {
         var it = opts.list[i], data = L.bandImage(opts.img, it.band, 1920, 0.86), rev = Date.now();
         state.ui.bandPic = { key: m.id + ':' + rev, data: data };
-        setLook({ band: true, bandAt: i + 1, bandInk: it.band.ink, bandRev: rev }, { band: data });
+        setLook({ band: true, bandTall: true, bandAt: i + 1, bandInk: it.band.ink, bandRev: rev }, { band: data, bandTall: L.bandTall(opts.img, it.band, 1080, 372, 0.88) });
       };
       var slot = function (kind, title, text, thumb) {
         var on = !!lk[kind];
@@ -1190,7 +1190,7 @@
         has ? h('span', { class: 'hint', style: 'margin:0' }, 'Or a pattern in the flyer’s colours') : null,
         has ? h('div', { class: 'patchips' }, L.PATTERNS.map(function (p) {
           return h('button', { type: 'button', class: 'chip' + (!lk.band && (lk.pattern || 'confetti') === p.id ? ' on' : ''), 'data-pattern': p.id, disabled: !!busy,
-            onclick: function () { var patch = { pattern: p.id }; if (lk.band) Object.keys(noBand).forEach(function (k) { patch[k] = null; }); setLook(patch, lk.band ? { band: null } : undefined); } }, p.name);
+            onclick: function () { var patch = { pattern: p.id }; if (lk.band) Object.keys(noBand).forEach(function (k) { patch[k] = null; }); setLook(patch, lk.band ? { band: null, bandTall: null } : undefined); } }, p.name);
         })) : null,
         has && !lk.band && L.candidates(lk).length > 1 ? h('div', { class: 'row' }, [btn('Try other colours', 'small', function () { setLook({ variant: ((Number(lk.variant) || 0) + 1) % L.candidates(lk).length }); }, { disabled: !!busy, id: 'otherColours' }),
           h('span', { class: 'hint', style: 'margin:0' }, 'Steps through the flyer’s main colours.')]) : null,
@@ -1261,7 +1261,7 @@
       var saveScore = function () {
         var n = m.n, wasLast = n === s.rounds.length;
         var wasOff = !!c.void;
-        var out = commit(function (x) { return E.setScore(x, n, m.i, m.sa, m.sb, m.w, { revive: wasOff }); });
+        var out = commit(function (x) { x.scoredAt = Date.now(); return E.setScore(x, n, m.i, m.sa, m.sb, m.w, { revive: wasOff }); });
         state.ui.modal = null;
         if (!out.ok) toast(out.error);
         else if (wasOff) toast('Court ' + c.court + ' counts as played: ' + m.sa + '\u2013' + m.sb + '. The points are on the leaderboard.');

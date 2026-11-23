@@ -69,17 +69,19 @@
   // The pictures the card needs: the social's own logos when it has them, else the club's; and the banner's motif.
   function loadLook() {
     var look = st.series.look || {}, own = !!(look.bar && (look.logoL || look.logoR));
-    var sig = JSON.stringify([own, look.logoRev, look.cands, look.variant, look.pattern]);
+    var band = !own && look.band ? (look.bandTall ? 'bandTall' : 'band') : '';       // a piece of the flyer itself as the banner (Flyer and look)
+    var sig = JSON.stringify([own, look.logoRev, look.cands, look.variant, look.pattern, band, look.bandRev]);
     if (sig === st.sig) return Promise.resolve();
     st.sig = sig;
-    var get = function (k) { return look[k] ? S.get('pub/eventflyers/' + id + '/' + k).then(function (d) { return typeof d === 'string' && /^data:image\//.test(d) ? image(d) : null; }).catch(function () { return null; }) : Promise.resolve(null); };
+    var get = function (k) { return look[k] || k === band ? S.get('pub/eventflyers/' + id + '/' + k).then(function (d) { return typeof d === 'string' && /^data:image\//.test(d) ? image(d) : null; }).catch(function () { return null; }) : Promise.resolve(null); };
     var tile = function () {
       var b = look.cands && !look.bar ? L.banner(look) : null, m = b && /^url\("(data:image\/svg\+xml,[^"]+)"\)$/.exec(b.image);
       return m ? image(m[1]).then(function (img) { return img ? { img: img, size: b.size } : null; }) : Promise.resolve(null);
     };
     return Promise.all([own ? get('logoL') : image(S.asset('logo-p.png')), own ? get('logoR') : image(S.asset('conquer-wordmark-white.png')), tile(),
       document.fonts && document.fonts.load ? Promise.all([document.fonts.load('700 60px "Barlow Condensed"'), document.fonts.load('600 60px "Barlow Condensed"'), document.fonts.load('500 60px "Barlow Condensed"'), document.fonts.load('60px Knewave')]).catch(function () {}) : null
-    ]).then(function (got) { st.imgs = { l: got[0], r: got[1], own: own }; st.tile = got[2]; });
+      , band ? get(band) : Promise.resolve(null)
+    ]).then(function (got) { st.imgs = { l: got[0], r: got[1], own: own }; st.tile = got[2]; st.band = got[got.length - 1] || null; });
   }
 
   // ---------------------------------------------------------------- the picture
@@ -101,7 +103,7 @@
     var p = th ? { bg: th.bg, panel: th.panel, row: th.deep, text: '#ffffff', dim: th.soft, line: th.main }
       : { bg: '#071a30', panel: '#12304f', row: '#0d2440', text: '#ffffff', dim: '#9fb6d0', line: GOLD };
     p.bar = own ? look.bar : c ? c.base : '#0a2f41';
-    p.barInk = own ? (look.barInk || (L.luminance(look.bar) > 0.45 ? '#0e2238' : '#ffffff')) : '#ffffff';
+    p.barInk = own ? (look.barInk || (L.luminance(look.bar) > 0.45 ? '#0e2238' : '#ffffff')) : st.band && look.bandInk === 'dark' ? '#0e2238' : '#ffffff';
     p.barLine = own ? p.barInk : c ? c.a1 : GOLD;
     p.grad = c && !own && look.pattern === 'plain' ? c.a1 : null;
     p.stripes = c && !own && (!look.pattern || look.pattern === 'stripes') ? [c.a1, c.a2] : null;
@@ -115,7 +117,10 @@
     var BH = 372;
     ctx.fillStyle = p.bar; ctx.fillRect(0, 0, W, BH);
     ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, BH); ctx.clip();
-    if (st.tile) {
+    if (st.band) {                                   // the chosen piece of the flyer, filling the banner in its own colours
+      var bk = Math.max(W / st.band.naturalWidth, BH / st.band.naturalHeight), bw = st.band.naturalWidth * bk, bh = st.band.naturalHeight * bk;
+      ctx.drawImage(st.band, (W - bw) / 2, (BH - bh) / 2, bw, bh);
+    } else if (st.tile) {
       var m = /^([\d.]+)vmin ([\d.]+)vmin$/.exec(st.tile.size) || [0, 13, 10], tw = Math.round(Number(m[1]) * 10.8), thh = Math.round(Number(m[2]) * 10.8), t = document.createElement('canvas');
       t.width = tw; t.height = thh; t.getContext('2d').drawImage(st.tile.img, 0, 0, tw, thh);
       ctx.fillStyle = ctx.createPattern(t, 'repeat'); ctx.fillRect(0, 0, W, BH);
@@ -132,16 +137,25 @@
     }
     ctx.restore();
     ctx.fillStyle = p.barLine; ctx.fillRect(0, BH, W, 8);
+    var onBand = !!st.band, darkInk = onBand && p.barInk !== '#ffffff', glow = darkInk ? 'rgba(255,255,255,.95)' : 'rgba(0,0,0,.8)';
     var logo = function (img, right, maxH, maxW) {
       if (!img) return;
-      var k = Math.min(maxH / img.naturalHeight, maxW / img.naturalWidth), w = img.naturalWidth * k, hh = img.naturalHeight * k;
-      ctx.drawImage(img, right ? W - 56 - w : 56, 40 + (maxH - hh) / 2, w, hh);
+      var k = Math.min(maxH / img.naturalHeight, maxW / img.naturalWidth), w = img.naturalWidth * k, hh = img.naturalHeight * k, src = img;
+      if (onBand) {                                   // on a piece of the flyer: the club's logos in the lettering's colour, with a soft halo
+        src = document.createElement('canvas'); src.width = Math.ceil(w); src.height = Math.ceil(hh);
+        var lc = src.getContext('2d'); lc.drawImage(img, 0, 0, src.width, src.height); lc.globalCompositeOperation = 'source-in'; lc.fillStyle = p.barInk; lc.fillRect(0, 0, src.width, src.height);
+        ctx.save(); ctx.shadowColor = glow; ctx.shadowBlur = 16; ctx.shadowOffsetY = darkInk ? 0 : 3;
+        ctx.drawImage(src, right ? W - 56 - w : 56, 40 + (maxH - hh) / 2, w, hh); ctx.drawImage(src, right ? W - 56 - w : 56, 40 + (maxH - hh) / 2, w, hh); ctx.restore();
+        return;
+      }
+      ctx.drawImage(src, right ? W - 56 - w : 56, 40 + (maxH - hh) / 2, w, hh);
     };
     var LH = st.imgs.own ? 118 : 86;
     logo(st.imgs.l, false, LH, 400); logo(st.imgs.r, true, st.imgs.own ? LH : 62, 400);
     var name = String(st.series.name || 'Padel social').toUpperCase(), top = 40 + LH + 22, room = BH - top - 26;
     ctx.fillStyle = p.barInk; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    if (!st.imgs.own) { ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3; }
+    if (onBand) { ctx.shadowColor = glow; ctx.shadowBlur = 22; ctx.shadowOffsetY = darkInk ? 0 : 4; }
+    else if (!st.imgs.own) { ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3; }
     var size = fitText(ctx, name, '400', SCRIPT, 96, 58, W - 96), lines = [name];
     if (ctx.measureText(name).width > W - 96) {                         // two lines, broken as evenly as the words allow
       var words = name.split(' '), bestAt = 1, bestGap = Infinity;
@@ -150,7 +164,7 @@
       size = Math.min(fitText(ctx, lines[0], '400', SCRIPT, 84, 36, W - 96), fitText(ctx, lines[1], '400', SCRIPT, 84, 36, W - 96), Math.floor(room / 2.2));
       ctx.font = '400 ' + size + 'px ' + SCRIPT;
     }
-    lines.forEach(function (ln, i) { ctx.fillText(ln, W / 2, top + room / 2 + (i - (lines.length - 1) / 2) * size * 1.12); });
+    for (var pass = 0; pass < (onBand ? 2 : 1); pass++) lines.forEach(function (ln, i) { ctx.fillText(ln, W / 2, top + room / 2 + (i - (lines.length - 1) / 2) * size * 1.12); });   // (twice on a picture: a fuller halo)
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 
     // ---- what this is

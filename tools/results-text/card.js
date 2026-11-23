@@ -1,7 +1,7 @@
 // Make code module "The card" (match.js is put in front of this): who really gets the text (a HighLevel contact that
 // takes texts), and the Telegram card.
 // input: matched_json, skipped_json, ghl (one line per matched player: {"i": number, "a": HighLevel's answer for the phone,
-// "b": its answer for the email, "c": its answer for the name}), text, title, club, nice_date, players, key, hook, dry,
+// "b": its answer for the email, "c": its answer for the name}), text, title, club, nice_date, players, key, dry,
 // from (the club's own number the text goes out from), seed (a random id)
 const parse = (s, d) => { if (s && typeof s === 'object') return s; try { return JSON.parse(s); } catch (e) { return d; } };
 const matched = parse(input.matched_json, []), skipped = parse(input.skipped_json, []), answers = {};
@@ -51,8 +51,9 @@ const lines = ['RESULTS TEXT | ' + input.title + ' (' + Club + ') | ' + input.ni
 if (close.length) lines.push('', 'MATCHED BY A SIMILAR NAME, PLEASE CHECK (' + close.length + ')', close.join('\n'));
 if (skipped.length) lines.push('', 'NOT SENT (' + skipped.length + ')', skipped.map(s => s.name + ': ' + s.why).join('\n'));
 const cardText = lines.join('\n').slice(0, 3900);
-const url = what => String(input.hook) + '?id=' + encodeURIComponent(input.key) + '&t=' + token + '&do=' + what;
+// Buttons like the club's other approval cards: one tap, no page to open. The press reaches the bot's own scenario
+// ("Telegram Approvals"), which hands anything that starts with "rt|" to the results-text Send scenario.
 const card = { chat_id: '__CHAT__', disable_web_page_preview: true, text: cardText };
-if (recipients.length) card.reply_markup = { inline_keyboard: [[{ text: 'Send to ' + recipients.length, url: url('send') }, { text: 'Skip', url: url('skip') }]] };
+if (recipients.length) card.reply_markup = { inline_keyboard: [[{ text: '\u2705 Send to ' + recipients.length, callback_data: 'rt|s|' + token }, { text: '\u274c Skip', callback_data: 'rt|k|' + token }]] };
 return { ok: recipients.length ? 'yes' : 'no', recipients_json: JSON.stringify(recipients.map(r => ({ cid: r.cid, name: r.name }))), count: String(recipients.length), card: JSON.stringify(card), card_text: cardText,
   token: token, msg_json: JSON.stringify(String(input.text)), from: String(input.from || '') };

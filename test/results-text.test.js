@@ -54,7 +54,7 @@ test('who is who, and the card: the HighLevel contact is found by phone, email o
     { i: '4', a: { contact: { id: 'g4', phone: '+14805550004', dndSettings: { sms: { status: 'permanent', message: 'STOP_KEYWORD' } } } }, b: none, c: none },
     { i: '5', a: null, b: none, c: { contacts: [{ id: 'g7', firstNameLowerCase: 'nicole', lastNameLowerCase: 'nohl', phone: '+14805557777' }] } },
     { i: '6', a: { contact: { id: 'g0', phone: '+14805550100' } }, b: none, c: none }].map(x => JSON.stringify(x)).join('\n');
-  const c = run(matchSrc + '\n' + body('card.js'), { matched_json: p.matched_json, skipped_json: p.skipped_json, ghl: ghl, text: n.text, title: n.title, club: 'tempe', nice_date: n.nice_date, players: n.players, key: n.key, hook: 'https://hook.example/x', dry: '', from: '+14805550199' });
+  const c = run(matchSrc + '\n' + body('card.js'), { matched_json: p.matched_json, skipped_json: p.skipped_json, ghl: ghl, text: n.text, title: n.title, club: 'tempe', nice_date: n.nice_date, players: n.players, key: n.key, dry: '', from: '+14805550199' });
   assert.equal(c.ok, 'yes');
   assert.deepEqual(JSON.parse(c.recipients_json), [{ cid: 'g1', name: 'Ana López' }, { cid: 'g2', name: 'Bruno Diaz' }, { cid: 'g3', name: 'Carla Ruiz' }, { cid: 'g0', name: 'Enrique (you)' }]);
   assert.deepEqual([c.count, c.from, JSON.parse(c.msg_json)], ['4', '+14805550199', n.text]);
@@ -64,12 +64,14 @@ test('who is who, and the card: the HighLevel contact is found by phone, email o
     'NOT SENT (3)', 'Zain: only one name', 'Dana Opted: opted out of texts in HighLevel', 'Nick Nohl: not a contact in HighLevel'].join('\n'));
   assert.ok(!/^#/.test(card.text) && !/—/.test(card.text), 'never looks like a lead card (those start with # and carry a long-dash line)');
   const [send, skip] = card.reply_markup.inline_keyboard[0];
-  assert.equal(send.text, 'Send to 4');
-  assert.match(send.url, /^https:\/\/hook\.example\/x\?id=tempe%7Casu-college-padel-nights%7C2026-11-22&t=[a-z0-9]{28}&do=send$/);
-  assert.equal(skip.url, send.url.replace(/send$/, 'skip'));
-  const seeded = run(matchSrc + '\n' + body('card.js'), { matched_json: p.matched_json, skipped_json: '[]', ghl: ghl, text: n.text, title: n.title, club: 'tempe', nice_date: n.nice_date, players: n.players, key: n.key, hook: 'https://hook.example/x', seed: '0b9c7f1e-52aa-4c1d-9e0f-3a6d8c2b7e41' });
+  assert.equal(send.text, '\u2705 Send to 4'); assert.equal(skip.text, '\u274c Skip');
+  assert.match(send.callback_data, /^rt\|s\|[a-z0-9]{28}$/, 'a one-tap button: its data starts with rt| and carries the card\'s token');
+  assert.equal(skip.callback_data, 'rt|k|' + c.token);
+  assert.ok(send.callback_data.length <= 64 && !send.url, 'within Telegram\'s limit for a button, and no link to open');
+  const seeded = run(matchSrc + '\n' + body('card.js'), { matched_json: p.matched_json, skipped_json: '[]', ghl: ghl, text: n.text, title: n.title, club: 'tempe', nice_date: n.nice_date, players: n.players, key: n.key, seed: '0b9c7f1e-52aa-4c1d-9e0f-3a6d8c2b7e41' });
+  assert.equal(JSON.parse(seeded.card).reply_markup.inline_keyboard[0][0].callback_data.length, 37);
   assert.equal(seeded.token, '0b9c7f1e52aa4c1d9e0f3a6d8c2b7e41', 'the token is the random id Make hands in');
   // nobody to send to: a card with no buttons
-  const empty = run(matchSrc + '\n' + body('card.js'), { matched_json: '[]', skipped_json: p.skipped_json, ghl: '', text: n.text, title: n.title, club: 'lehi', nice_date: n.nice_date, players: n.players, key: n.key, hook: 'https://hook.example/x' });
+  const empty = run(matchSrc + '\n' + body('card.js'), { matched_json: '[]', skipped_json: p.skipped_json, ghl: '', text: n.text, title: n.title, club: 'lehi', nice_date: n.nice_date, players: n.players, key: n.key });
   assert.deepEqual([empty.ok, empty.count, JSON.parse(empty.card).reply_markup, empty.from], ['no', '0', undefined, '']);
 });

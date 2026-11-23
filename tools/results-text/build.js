@@ -51,7 +51,7 @@ const REST_OF = () => [
       headers: bearer('ghl_pit', [{ name: 'Version', value: '2021-07-28' }, { name: 'Content-Type', value: 'application/json' }]) }),
     { id: 11, module: 'util:TextAggregator', version: 1, parameters: { feeder: 9, rowSeparator: '\n' }, metadata: pos('All contacts'), mapper: { value: '{"i":"{{get(split(9.value; "~"); 1)}}","a":{{ifempty(toString(10.data); "null")}},"b":{{ifempty(toString(16.data); "null")}},"c":{{ifempty(toString(17.data); "null")}}}' } },
     code(12, 'The card', matchSrc + '\n' + here('card.js'), { matched_json: '{{8.result.matched_json}}', skipped_json: '{{8.result.skipped_json}}', ghl: '{{11.text}}', text: '{{4.result.text}}', title: '{{4.result.title}}',
-      club: '{{var.input.club}}', nice_date: '{{4.result.nice_date}}', players: '{{4.result.players}}', key: '{{4.result.key}}', hook: HOOK_URL, dry: '{{var.input.dry}}',
+      club: '{{var.input.club}}', nice_date: '{{4.result.nice_date}}', players: '{{4.result.players}}', key: '{{4.result.key}}', dry: '{{var.input.dry}}',
       from: '{{if(var.input.club = "tempe"; "' + CFG.from.tempe + '"; "' + CFG.from.lehi + '")}}', seed: '{{uuid}}' }),
     { id: 20, module: 'datastore:GetRecord', version: 1, mapper: { key: '{{4.result.key}}', returnWrapped: false }, parameters: { datastore: STORE }, metadata: pos('Already a card for this night?') },
     { id: 13, module: 'datastore:AddRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Keep it until a button is pressed'),
@@ -59,6 +59,8 @@ const REST_OF = () => [
       mapper: { key: '{{4.result.key}}', overwrite: true, data: { status: '{{if(var.input.dry = "1"; "dry"; if(12.result.ok = "yes"; "pending"; "nobody"))}}', token: '{{12.result.token}}', club: '{{var.input.club}}', series: '{{var.input.series}}',
         title: '{{4.result.title}}', night: '{{4.result.night}}', text: '{{4.result.text}}', msg_json: '{{12.result.msg_json}}', from: '{{12.result.from}}', recipients: '{{12.result.recipients_json}}', count: '{{12.result.count}}',
         card: '{{12.result.card_text}}', created: '{{formatDate(now; "YYYY-MM-DD HH:mm"; ' + TZ + ')}}', result: '{{8.result.found}} PlayByPoint customers looked at' } } },
+    { id: 19, module: 'datastore:AddRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('So a button press finds this card'),
+      mapper: { key: 'tok-{{12.result.token}}', overwrite: true, data: { status: 'pointer', night: '{{4.result.key}}', created: '{{formatDate(now; "YYYY-MM-DD HH:mm"; ' + TZ + ')}}' } } },
     http(14, 'Post the card', { url: 'https://api.telegram.org/bot{{1.telegram_bot_token}}/sendMessage', method: 'post', data: '{{replace(12.result.card; "__CHAT__"; 1.telegram_chat_id)}}',
       headers: [{ name: 'Content-Type', value: 'application/json' }], filter: { name: 'Not a dry run', conditions: [[not('{{var.input.dry}}', '1')]] } }),
     { id: 15, module: 'datastore:UpdateRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Remember where the card is'),
@@ -91,50 +93,53 @@ at = 5; REST = REST_OF(); at = 0;
 const card = cardOf();
 
 // ---------------------------------------------------------------- the buttons
+// A press on a card's button goes to the bot's own scenario (Telegram Approvals), whose "rt|" route calls this one's
+// webhook with cb (the button's data: rt|s|token to send, rt|k|token to skip), cq (the press, to answer it) and by
+// (who pressed). This scenario answers that call at once, so the other one never waits, and then does the work.
 at = 0;
-const page = (title, line) => '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + title + '</title>' +
-  '<body style="margin:0;font:20px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;background:#071a30;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center">' +
-  '<div style="padding:24px;max-width:520px"><h1 style="font-size:30px;margin:0 0 12px">' + title + '</h1><p style="margin:0">' + line + '</p><p style="opacity:.7;font-size:16px">You can close this page.</p></div>';
-const respond = (id, name, title, line, filter) => ({ id: id, module: 'gateway:WebhookRespond', version: 1, parameters: {}, metadata: pos(name), filter: filter,
-  mapper: { status: '200', body: page(title, line), headers: [{ key: 'Content-Type', value: 'text/html; charset=utf-8' }] } });
-const editSrc = "const head = String(input.head || ''), body = { chat_id: String(input.chat || ''), message_id: Number(input.msg || 0), text: (head + '\\n' + String(input.card || '')).slice(0, 4000), disable_web_page_preview: true };\n" +
+const TOKEN = 'get(split(1.cb; "|"); 3)', DO = 'get(split(1.cb; "|"); 2)';
+const tg = (id, name, method, query, extra) => http(id, name, Object.assign({ url: 'https://api.telegram.org/bot{{2.telegram_bot_token}}/' + method + '?' + query, method: 'post' }, extra || {}));
+const answer = (id, text, alert, filter) => tg(id, 'Answer the press', 'answerCallbackQuery', 'callback_query_id={{encodeURL(1.cq)}}' + (alert ? '&show_alert=true' : '') + '&text={{encodeURL(' + text + ')}}', { filter: filter });
+const editSrc = "const head = String(input.head || ''), body = { chat_id: String(input.chat || ''), message_id: Number(input.msg || 0), text: '', disable_web_page_preview: true };\n" +
   "const lines = String(input.lines || '').split('\\n').filter(Boolean), failed = lines.filter(l => l !== 'ok');\n" +
   "const sent = lines.length - failed.length, summary = sent + ' sent' + (failed.length ? ', ' + failed.length + ' failed: ' + failed.map(f => f.replace(/^FAILED /, '')).join(', ') : '');\n" +
   "body.text = (head.replace('__SUMMARY__', summary) + '\\n' + String(input.card || '')).slice(0, 4000);\n" +
-  "return { edit: JSON.stringify(body), summary: summary, sent: String(sent), has_card: body.chat_id && body.message_id ? 'yes' : 'no' };";
-// the card is relabelled first (its buttons go), what Telegram answered is kept with the record, then the person is told
-const edit = (id, codeId) => http(id, 'Mark the card', { url: 'https://api.telegram.org/bot{{2.telegram_bot_token}}/editMessageText', method: 'post', data: '{{' + codeId + '.result.edit}}', headers: [{ name: 'Content-Type', value: 'application/json' }] });
+  "return { edit: JSON.stringify(body), summary: summary, sent: String(sent) };";
+const edit = (id, codeId) => http(id, 'Relabel the card (its buttons go)', { url: 'https://api.telegram.org/bot{{2.telegram_bot_token}}/editMessageText', method: 'post', data: '{{' + codeId + '.result.edit}}', headers: [{ name: 'Content-Type', value: 'application/json' }] });
 const marked = id => ' Card relabelled: {{if(' + id + '.data.ok; "yes"; "no, " + ' + id + '.data.description)}}';
-const mine = [is('{{3.token}}', '{{1.t}}'), is('{{3.status}}', 'pending'), { a: '{{1.t}}', o: 'exist' }];
+const mine = [is('{{3.token}}', '{{' + TOKEN + '}}'), is('{{3.status}}', 'pending'), { a: '{{' + TOKEN + '}}', o: 'exist' }];
 const stamp = '{{formatDate(now; "ddd MMM D, h:mm A"; if(3.club = "tempe"; "America/Phoenix"; "America/Denver"))}}';
+const who = '{{ifempty(1.by; "someone")}}';
 const send = { name: 'Conquer - Socials results text: Send / Skip buttons (Claude)', metadata: meta(true), interface: { input: [], output: [] },
   flow: [
     { id: 1, module: 'gateway:CustomWebHook', version: 1, parameters: { hook: HOOK, maxResults: 1 }, mapper: {}, metadata: pos('A button was pressed') },
-    Object.assign(secrets(2), {}),
-    { id: 3, module: 'datastore:GetRecord', version: 1, mapper: { key: '{{1.id}}', returnWrapped: false }, parameters: { datastore: STORE }, metadata: pos('The card') },
+    { id: 31, module: 'gateway:WebhookRespond', version: 1, parameters: {}, metadata: pos('Answer the caller at once'), mapper: { status: '200', body: 'ok', headers: [] } },
+    secrets(2),
+    { id: 32, module: 'datastore:GetRecord', version: 1, mapper: { key: 'tok-{{ifempty(' + TOKEN + '; "none")}}', returnWrapped: false }, parameters: { datastore: STORE }, metadata: pos('Which night this button belongs to') },
+    { id: 3, module: 'datastore:GetRecord', version: 1, mapper: { key: '{{ifempty(32.night; "none")}}', returnWrapped: false }, parameters: { datastore: STORE }, metadata: pos('The card') },
     { id: 4, module: 'builtin:BasicRouter', version: 1, mapper: null, metadata: pos('Which button'), routes: [
       { flow: [
-        { id: 10, module: 'datastore:UpdateRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Mark as being sent (so it cannot go twice)'), mapper: { key: '{{1.id}}', data: { status: 'sending' } },
-          filter: { name: 'Send, with the card\'s own token, not handled yet', conditions: [mine.concat([is('{{1.do}}', 'send')])] } },
+        { id: 10, module: 'datastore:UpdateRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Mark as being sent (so it cannot go twice)'), mapper: { key: '{{32.night}}', data: { status: 'sending' } },
+          filter: { name: 'Send, with the card\'s own token, not handled yet', conditions: [mine.concat([is('{{' + DO + '}}', 's')])] } },
+        answer(33, '"Sending to " + 3.count + "..."'),
         { id: 11, module: 'json:ParseJSON', version: 1, parameters: { type: '' }, metadata: pos('Each person'), mapper: { json: '{{3.recipients}}' } },
         http(12, 'Text through HighLevel', { url: GHL + '/conversations/messages', method: 'post', data: '{"type":"SMS","contactId":"{{11.cid}}","message":{{3.msg_json}},"fromNumber":"{{3.from}}"}',
           headers: [{ name: 'Authorization', value: 'Bearer {{2.ghl_pit}}' }, { name: 'Version', value: '2021-04-15' }, { name: 'Accept', value: 'application/json' }, { name: 'Content-Type', value: 'application/json' }] }),
         { id: 13, module: 'util:TextAggregator', version: 1, parameters: { feeder: 11, rowSeparator: '\n' }, metadata: pos('How each one went'), mapper: { value: '{{if(12.statusCode < 300; "ok"; "FAILED " + 11.name)}}' } },
-        code(14, 'Count', editSrc, { lines: '{{13.text}}', head: 'SENT ' + stamp + ' (__SUMMARY__)', card: '{{3.card}}', chat: '{{3.chat}}', msg: '{{3.msg}}' }),
+        code(14, 'Count', editSrc, { lines: '{{13.text}}', head: '✅ SENT by ' + who + ', ' + stamp + ' (__SUMMARY__)', card: '{{3.card}}', chat: '{{3.chat}}', msg: '{{3.msg}}' }),
         edit(16, 14),
-        { id: 15, module: 'datastore:UpdateRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Mark as sent'), mapper: { key: '{{1.id}}', data: { status: 'sent', result: '{{14.result.summary}} on ' + stamp + '.' + marked(16) } } },
-        respond(17, 'Tell the person', 'Sent', '{{14.result.summary}}.{{if(16.data.ok; " The card in Telegram now says SENT."; "")}}')
+        { id: 15, module: 'datastore:UpdateRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Mark as sent'), mapper: { key: '{{32.night}}', data: { status: 'sent', result: '{{14.result.summary}}, by ' + who + ' on ' + stamp + '.' + marked(16) } } }
       ] },
       { flow: [
-        { id: 20, module: 'datastore:UpdateRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Mark as skipped'), mapper: { key: '{{1.id}}', data: { status: 'skipped', result: 'skipped on ' + stamp } },
-          filter: { name: 'Skip, with the card\'s own token, not handled yet', conditions: [mine.concat([is('{{1.do}}', 'skip')])] } },
-        code(21, 'New card text', editSrc, { lines: '', head: 'SKIPPED ' + stamp + ' (no texts sent)', card: '{{3.card}}', chat: '{{3.chat}}', msg: '{{3.msg}}' }),
-        edit(22, 21),
-        respond(23, 'Tell the person', 'Skipped', 'No texts were sent.')
+        { id: 20, module: 'datastore:UpdateRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Mark as skipped'), mapper: { key: '{{32.night}}', data: { status: 'skipped', result: 'skipped by ' + who + ' on ' + stamp } },
+          filter: { name: 'Skip, with the card\'s own token, not handled yet', conditions: [mine.concat([is('{{' + DO + '}}', 'k')])] } },
+        answer(34, '"Skipped. No texts were sent."'),
+        code(21, 'New card text', editSrc, { lines: '', head: '❌ SKIPPED by ' + who + ', ' + stamp + ' (no texts sent)', card: '{{3.card}}', chat: '{{3.chat}}', msg: '{{3.msg}}' }),
+        edit(22, 21)
       ] },
       { flow: [
-        respond(30, 'Nothing to do', 'Nothing was sent', 'This card was already handled, or the link is not the card\'s own.',
-          { name: 'Wrong token, or handled already', conditions: [[not('{{3.token}}', '{{1.t}}')], [not('{{3.status}}', 'pending')], [{ a: '{{1.t}}', o: 'notexist' }]] })
+        answer(35, '"Nothing was sent: this card was already handled (" + ifempty(3.status; "not found") + ")."', true,
+          { name: 'Wrong token, or handled already', conditions: [[not('{{3.token}}', '{{' + TOKEN + '}}')], [not('{{3.status}}', 'pending')], [{ a: '{{' + TOKEN + '}}', o: 'notexist' }]] })
       ] }
     ] }
   ] };

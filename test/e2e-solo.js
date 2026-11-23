@@ -49,7 +49,8 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   let sitting = (await tv.getAttribute('.tvsit', 'data-names')).trim();
   assert.ok(NAMES.includes(sitting), 'one player sits out: ' + sitting);
   assert.equal((await tv.textContent('.tvboard >> nth=0 >> h2 small')).trim(), '9 players');
-  assert.equal(await tv.locator('.tvlearn, .tvsit.sign .lq').count(), 0, 'the social screen has one QR code only: the score one (the intro code is on the last intro slide)');
+  assert.equal(await tv.locator('.tvlearn, .tvsit.sign .lq').count(), 0, 'no intro QR code on the social screen (it is on the last intro slide)');
+  assert.equal(await tv.locator('.tvsit.sign .sq svg').count(), 0, 'and no sign-up QR code while the sign shows who sits out');
   assert.match(await tv.getAttribute('.tvqr svg', 'data-qr'), /\/p\/\?/);
   await tv.screenshot({ path: SHOTS + 'solo-tv-round1.png' });
   step('round 1 on the TV: two pairs per court, ' + sitting + ' sits out');
@@ -80,6 +81,11 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
     ['King\u2019s Court Monday Open Play', weekday(3) + ' \u00b7 6:30 AM to 8:30 AM', 'Full'],
     ['Taco Tuesday', weekday(4) + ' \u00b7 7 PM to 9 PM', '']],
     'the next three events: not the past one, not this social itself, one per program; spots left from capacity');
+  // each event has a small QR code to its own sign-up page; it stays inside the sign and takes nothing from the score QR
+  assert.equal(await tv.getAttribute('.tvsit.sign .sq svg', 'data-qr'), 'https://app.playbypoint.com/programs/wheel');
+  assert.equal((await tv.textContent('.tvsit.sign .sq span')).trim(), 'Sign up');
+  const sq = await tv.evaluate(() => { const r = s => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width }; }; return { box: r('.tvsit.sign'), sq: r('.tvsit.sign .sq'), ev: r('.tvsit.sign .ev'), score: r('.tvqr'), svg: r('.tvsit.sign .sq svg') }; });
+  assert.ok(sq.sq.t >= sq.box.t && sq.sq.b <= sq.box.b && sq.sq.r <= sq.box.r && sq.ev.r <= sq.sq.l && sq.box.b <= sq.score.b + 1 && sq.svg.w > 100, 'the sign-up code fits in the sign: ' + JSON.stringify(sq));
   const shownNow = () => tv.evaluate(() => { const l = document.querySelector('.tvsit.sign .line'); return [l.querySelector('.ev').textContent, l.querySelector('.when').textContent, l.querySelector('.spots') ? l.querySelector('.spots').textContent : '']; });
   assert.deepEqual(await shownNow(), ['Wheel of Fortune - Ladies Round Robin', 'Tomorrow \u00b7 10 AM to 12 PM', '14 spots left'], 'one event at a time, the next one first');
   const still1 = await tv.evaluate(() => document.querySelector('.tvsit.sign .ev').getBoundingClientRect().x);
@@ -92,6 +98,9 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   const swapAfter = Date.now() - tSwap;
   assert.ok(swapAfter > 5000 && swapAfter < 11000, 'it changes to the next event after about 10 seconds (' + swapAfter + ' ms after the first look)');
   assert.deepEqual(await shownNow(), ['King\u2019s Court Monday Open Play', weekday(3) + ' \u00b7 6:30 AM to 8:30 AM', 'Full']);
+  assert.equal(await tv.getAttribute('.tvsit.sign .sq svg', 'data-qr'), 'https://app.playbypoint.com/programs/kings', 'the code changes with the event');
+  assert.equal((await tv.textContent('.tvsit.sign .sq span')).trim(), 'Details', 'a full event: the code is for its details');
+  await tv.screenshot({ path: SHOTS + 'tv-sign-ads-full.png' });
   await tv.waitForSelector('.tvsit.sign[data-idx="2"]', { timeout: 15000 });
   assert.deepEqual(await shownNow(), ['Taco Tuesday', weekday(4) + ' \u00b7 7 PM to 9 PM', ''], 'no spots shown when the capacity is not known');
   await tv.waitForSelector('.tvsit.sign[data-phase="wait"]', { timeout: 15000 });

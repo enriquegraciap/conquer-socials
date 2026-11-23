@@ -109,6 +109,7 @@
     asset: function (name) { return home + name; },
     // Where "Speak the names" sends its recording (never the real service while on a test database).
     voiceURL: params.get('voice') || (params.get('db') ? '' : String(cfg.voiceURL || '')),
+    signupURL: String(cfg.signupURL || ''),                   // where the TV sign's sign-up QR codes point (+ the event's program id)
     // Go to another page. Inside another site's page the whole window moves, not just the frame.
     go: function (url) {
       if (framed) { try { root.top.location.href = url; return; } catch (e) { /* not allowed: move the frame instead */ } }

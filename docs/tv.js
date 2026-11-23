@@ -117,11 +117,11 @@
   }
 
   // A QR code as a crisp, scalable drawing.
-  function qrSvg(text) {
+  function qrSvg(text, margin) {
     try {
       var q = window.qrcode(0, 'L');
       q.addData(text); q.make();
-      var n = q.getModuleCount(), quiet = 3, size = n + quiet * 2, d = '';
+      var n = q.getModuleCount(), quiet = margin || 3, size = n + quiet * 2, d = '';
       for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (q.isDark(r, c)) d += 'M' + (c + quiet) + ' ' + (r + quiet) + 'h1v1h-1z';
       var ns = 'http://www.w3.org/2000/svg';
       var svg = document.createElementNS(ns, 'svg');
@@ -914,9 +914,10 @@
   // A still line that changes every 10 seconds. With nobody sitting out it goes through the club's next three
   // events: name, day and time, spots left. With players sitting out: their names for the first 30 seconds of
   // a round, then the three events (10 seconds each) and the names again for 10 seconds, over and over.
-  // The events are read from pub/promo/{club}: the club's coming sessions from PlayByPoint.
+  // The events are read from pub/promo/{club}: the club's coming sessions from PlayByPoint. Beside each event is a
+  // small QR code to its sign-up page (S.signupURL + the event's program id).
   var SIGN_FIRST = 30000, SIGN_SWAP = 10000, SIGN_NAMES = 10000, SIGN_EVENTS = 3;
-  var sign = { el: null, lab: null, line: null, round: '', since: 0, names: '', shown: '' };
+  var sign = { el: null, lab: null, line: null, qr: null, round: '', since: 0, names: '', shown: '' };
   function loadPromo() {
     var id = st.seriesId, club = S.club.id;                   // each club's coming sessions are in its own part of the database
     S.get('pub/promo/' + club).then(function (p) { if (id === st.seriesId) { st.promo = p || null; signUpdate(); } }).catch(function () { /* next time */ });
@@ -955,15 +956,16 @@
       seen[key] = true;
       var cap = Number(it.cap) || 0, left = cap - (Number(it.count) || 0);
       out.push({ name: it.name, when: dayWord(it.date, now) + ' · ' + clock12(it.start) + (it.end ? ' to ' + clock12(it.end) : ''),
-        spots: !cap ? '' : left <= 0 ? 'Full' : left + (left === 1 ? ' spot left' : ' spots left') });
+        spots: !cap ? '' : left <= 0 ? 'Full' : left + (left === 1 ? ' spot left' : ' spots left'),
+        url: S.signupURL && /^[A-Za-z0-9._~-]+$/.test(it.program || '') ? S.signupURL + it.program : '' });
     });
     return out;
   }
   // The box itself is made once and kept, so a redraw of the screen does not disturb it.
   function signBox(roundKey, names) {
     if (!sign.el) {
-      sign.lab = h('div', 'lab'); sign.line = h('div', 'line');
-      sign.el = h('div', 'tvsit sign', [sign.lab, sign.line]);
+      sign.lab = h('div', 'lab'); sign.line = h('div', 'line'); sign.qr = h('div', 'sq');
+      sign.el = h('div', 'tvsit sign', [sign.lab, sign.line, sign.qr]);
     }
     if (sign.round !== roundKey) { sign.round = roundKey; sign.since = Date.now(); }
     sign.names = names || '';
@@ -983,14 +985,17 @@
   }
   function signUpdate() {
     if (!sign.el || !sign.el.isConnected || st.mode !== 'show') return;
-    var ads = adItems(), now = signState(ads), a = ads[now.idx];
+    var ads = adItems(), now = signState(ads), a = ads[now.idx], url = now.phase === 'ads' && a.url ? a.url : '';
+    sign.el.className = 'tvsit sign ' + now.phase + (url ? ' hasqr' : '');      // first: the QR code takes room from the line
     var key = now.phase + '|' + (now.phase === 'wait' ? sign.names : now.phase === 'ads' ? JSON.stringify(a) : '') + '|' + sign.line.clientWidth;
     sign.el.setAttribute('data-phase', now.phase);
     sign.el.setAttribute('data-idx', String(now.idx));
     sign.el.setAttribute('data-ads', JSON.stringify(ads.map(function (x) { return [x.name, x.when, x.spots]; })));
     if (key === sign.shown) return;
     sign.shown = key;
-    sign.el.className = 'tvsit sign ' + now.phase;
+    var code = url ? qrSvg(url, 1) : null;
+    sign.qr.replaceChildren.apply(sign.qr, code ? [code, h('span', null, a.spots === 'Full' ? 'Details' : 'Sign up')] : []);
+    if (!code) sign.el.classList.remove('hasqr');
     sign.lab.textContent = now.phase === 'wait' ? 'Sitting out this round' : now.phase === 'ads' ? 'Coming up at Conquer' : 'Everyone plays';
     var parts = now.phase === 'wait' ? [h('div', 'who', sign.names)]
       : now.phase === 'ads' ? [h('div', 'ev', a.name), h('div', 'det', [h('span', 'when', a.when), a.spots ? h('span', 'spots' + (a.spots === 'Full' ? ' full' : ''), a.spots) : null])] : [];
@@ -1000,7 +1005,7 @@
     Array.prototype.forEach.call(sign.line.children, function (el) {
       el.style.fontSize = '';
       // (a long list of people sitting out may get quite small: every name has to be there)
-      var size = parseFloat(getComputedStyle(el).fontSize), min = size * (el.className === 'who' ? 0.36 : 0.55), guard = 0;
+      var size = parseFloat(getComputedStyle(el).fontSize), min = size * (el.className === 'who' ? 0.36 : el.className === 'ev' ? 0.45 : 0.55), guard = 0;
       while ((el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 2) && size > min && guard++ < 40) { size *= 0.95; el.style.fontSize = size + 'px'; }
     });
   }

@@ -294,12 +294,20 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .tvsit.sign .line { min-width: 0; font-family: var(--display); }
 .tvsit.sign .line.swap { animation: signswap .6s ease-out; }
 @keyframes signswap { from { opacity: 0; transform: translateY(.8vmin); } to { opacity: 1; transform: none; } }
-.tvsit.sign .line .ev { font-size: 4.6vmin; font-weight: 700; line-height: 1.2; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+/* the event's name: one line; a very long one is made smaller and may then take two lines (same height either way) */
+.tvsit.sign .line .ev { font-size: 4.6vmin; font-weight: 700; line-height: 1.1; letter-spacing: .03em; text-transform: uppercase; min-height: 5.5vmin; max-height: 5.6vmin; overflow: hidden; }
 .tvsit.sign .line .det { font-size: 3.4vmin; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; }
 .tvsit.sign .line .det .when { color: var(--gold); }
 .tvsit.sign .line .det .spots { margin-left: 1.2em; padding: 0 .5em; border-radius: .3em; background: rgba(255,255,255,.14); color: #fff; font-size: .82em; letter-spacing: .05em; text-transform: uppercase; }
 .tvsit.sign .line .det .spots.full { background: rgba(244,182,63,.25); color: var(--gold); }
 .tvsit.sign .line .who { font-size: 4.2vmin; font-weight: 500; line-height: 1.22; max-height: 10.6vmin; overflow: hidden; overflow-wrap: break-word; }      /* a fixed height: smaller letters give more lines */
+/* "coming up": a small QR code to the event's sign-up page, at the right end of the sign */
+.tvsit.sign .sq { display: none; }
+.tvsit.sign.hasqr { grid-template-columns: minmax(0, 1fr) auto; column-gap: 1.2vw; }
+.tvsit.sign.hasqr .lab, .tvsit.sign.hasqr .line { grid-column: 1; }
+.tvsit.sign.hasqr .sq { display: block; grid-column: 2; grid-row: 1 / span 2; align-self: center; background: #fff; border-radius: .8vmin; padding: .4vmin .4vmin .25vmin; }
+.tvsit.sign .sq svg { display: block; width: 10.8vmin; height: 10.8vmin; }
+.tvsit.sign .sq span { display: block; margin-top: .1vmin; font-family: var(--display); font-weight: 700; font-size: 1.5vmin; line-height: 1.15; letter-spacing: .12em; text-transform: uppercase; text-align: center; color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .tvsit.sign .line.swap { animation: none; } }
 /* WPR Social rating after a name on the leaderboards: plain green figures, the green of a court whose score is
    in, a little brighter so it reads on the dark board. No rating: (NR) in a darker blue. */
@@ -648,6 +656,7 @@ body.tv.themed .tvqr { color: var(--t-ink); }
 body.tv.themed .tvqr .cap small { color: var(--t-main); }
 body.tv.themed .tvsit.sign .line .det .spots { background: var(--t-main); }
 body.tv.themed .tvsit.sign .line .det .spots.full { background: var(--t-ink); }
+body.tv.themed .tvsit.sign .sq span { color: var(--t-ink); }
 body.tv.themed .tvbig .teams div { border-bottom-color: var(--t-main); }
 body.tv.themed .podium div { background: var(--t-panel); }
 body.tv.themed .podium div:first-child { background: var(--t-main); color: var(--gold); }

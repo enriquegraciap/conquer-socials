@@ -28,7 +28,8 @@ const recipients = [], close = [], seenC = {};
 matched.forEach(m => {
   const got = contactFor(m), c = got.c;
   if (!c) return skipped.push({ name: m.name, why: got.how });
-  const sms = c.dndSettings && c.dndSettings.SMS && c.dndSettings.SMS.status === 'active';
+  // (HighLevel keeps this per channel, as "SMS" or "sms": active = switched off by staff, permanent = the person replied STOP)
+  const dnd = c.dndSettings || {}, ch = dnd.SMS || dnd.sms, sms = !!ch && (ch.status === 'active' || ch.status === 'permanent');
   if (c.dnd === true || sms) return skipped.push({ name: m.name, why: 'opted out of texts in HighLevel' });
   if (!c.phone) return skipped.push({ name: m.name, why: 'no phone on the HighLevel contact' });
   if (seenC[c.id]) return skipped.push({ name: m.name, why: 'same contact as ' + seenC[c.id] });

@@ -51,7 +51,7 @@ test('who is who, and the card: the HighLevel contact is found by phone, email o
     { i: '2', a: { contact: null }, b: { contacts: [{ id: 'g2', firstNameLowerCase: 'bruno', lastNameLowerCase: 'diaz', phone: '+40766088881', email: 'other@x.edu' }] }, c: none },
     // nothing by phone or email, one contact with her name
     { i: '3', a: { message: 'not found' }, b: none, c: { contacts: [{ id: 'g3', firstNameLowerCase: 'carla', lastNameLowerCase: 'ruiz', phone: '+14805559999' }, { id: 'gx', firstNameLowerCase: 'carlos', lastNameLowerCase: 'ruiz', phone: '+14805558888' }] } },
-    { i: '4', a: { contact: { id: 'g4', dnd: true, phone: '+14805550004' } }, b: none, c: none },
+    { i: '4', a: { contact: { id: 'g4', phone: '+14805550004', dndSettings: { sms: { status: 'permanent', message: 'STOP_KEYWORD' } } } }, b: none, c: none },
     { i: '5', a: null, b: none, c: { contacts: [{ id: 'g7', firstNameLowerCase: 'nicole', lastNameLowerCase: 'nohl', phone: '+14805557777' }] } },
     { i: '6', a: { contact: { id: 'g0', phone: '+14805550100' } }, b: none, c: none }].map(x => JSON.stringify(x)).join('\n');
   const c = run(matchSrc + '\n' + body('card.js'), { matched_json: p.matched_json, skipped_json: p.skipped_json, ghl: ghl, text: n.text, title: n.title, club: 'tempe', nice_date: n.nice_date, players: n.players, key: n.key, hook: 'https://hook.example/x', dry: '', from: '+14805550199' });

@@ -190,3 +190,8 @@ test('a player who is in PlayByPoint but not in HighLevel is added there, then t
   const bad = run(matchSrc + '\n' + body('card.js'), Object.assign({ created: JSON.stringify({ i: '2', r: { statusCode: 422, message: 'phone is invalid' } }) }, base));
   assert.match(bad.card_text, /Merlin Stone: could not be added to HighLevel \(phone is invalid\)/);
 });
+
+test('the top three in the text are numbered 1, 2, 3, also when two are level on points', () => {
+  const r = JSON.parse(JSON.stringify(results)); r['2026-11'].s2.entries.c.points = 14; r['2026-11'].s2.entries.c.wins = 2;
+  assert.match(run(body('night.js'), Object.assign({}, nightIn, { results_raw: JSON.stringify(r) })).text, /1\. Ana López \(16 pts\), 2\. Bruno Diaz \(14\), 3\. Carla Ruiz \(14\)\./);
+});

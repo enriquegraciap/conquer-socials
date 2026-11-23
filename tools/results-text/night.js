@@ -25,7 +25,8 @@ const date = String(best.d.date), dt = new Date(date + 'T12:00:00Z');
 const st = /^(\d{1,2}):(\d{2})/.exec(best.d.start || ''), mins = st ? Number(st[1]) * 60 + Number(st[2]) : -1, daytime = st ? mins >= 330 && mins <= 1080 : best.d.format === 'wheel';
 const when = daytime ? (date === input.today ? 'today' : date === input.yesterday ? 'yesterday' : 'on ' + DAYS[dt.getUTCDay()])
   : date === input.today || (date === input.yesterday && Number(input.hour) < 4) ? 'tonight' : date === input.yesterday ? 'last night' : 'on ' + DAYS[dt.getUTCDay()];
-const top = rows.slice(0, 3).map((r, i) => r.rank + '. ' + r.name + ' (' + (r.points || 0) + (i === 0 ? ' pts' : '') + ')').join(', ');
+// (numbered 1, 2, 3 as they are listed, also when two are level on points: wins and games decide the order)
+const top = rows.slice(0, 3).map((r, i) => (i + 1) + '. ' + r.name + ' (' + (r.points || 0) + (i === 0 ? ' pts' : '') + ')').join(', ');
 const link = 'go.playcnqr.com/socials?' + (club === 'tempe' ? 'c=tempe&' : '') + 'v=board&s=' + encodeURIComponent(series);
 // (a social can have a fuller public name than the short one used in the app: Flyer and look, "Name on the leaderboard to share")
 const shared = parse(input.share_raw, {}), publicName = String((shared && shared.name) || '').replace(/\s+/g, ' ').trim() || title;

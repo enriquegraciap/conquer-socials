@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const DOCS = path.join(__dirname, '..', 'docs');
 const CLUBS = { tempe: 'Tempe' };                       // folder: name (the same ids as "clubs" in docs/config.js)
-const PAGES = ['index.html', 'tv/index.html', 'p/index.html', 'flyers/index.html'];
+const PAGES = ['index.html', 'tv/index.html', 'p/index.html', 'flyers/index.html', 'board/index.html'];
 
 for (const [id, name] of Object.entries(CLUBS)) {
   for (const page of PAGES) {

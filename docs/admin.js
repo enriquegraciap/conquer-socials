@@ -927,7 +927,9 @@
         h('tbody', null, rows.map(function (r) {
           return h('tr', null, [h('td', null, String(r.rank)), h('td', null, r.name), h('td', { class: 'num' }, String(r.played)), h('td', { class: 'num' }, String(r.wins)), h('td', { class: 'num' }, String(r.sitOuts)), h('td', { class: 'pts num' }, String(r.points))]);
         }))
-      ]) : h('p', { class: 'hint' }, 'Nothing yet.')
+      ]) : h('p', { class: 'hint' }, 'Nothing yet.'),
+      // the phone page players can share: this night and the month, in the social's own look (the same address every week)
+      rows.length ? h('p', { class: 'hint', style: 'margin:10px 0 0' }, h('a', { href: S.here('board', { s: state.seriesId }), target: '_blank', rel: 'noopener', id: 'boardLink' }, 'Leaderboard to share (phone page)')) : null
     ]);
   }
 

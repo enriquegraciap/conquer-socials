@@ -48,10 +48,11 @@
     if (viaPublic && kind === 'player') parts.push('v=p');
     if (viaPublic && kind === 'flyers') parts.push('v=flyers');
     if (viaPublic && kind === 'learn') parts.push('v=learn');
+    if (viaPublic && kind === 'board') parts.push('v=board');
     Object.keys(query || {}).forEach(function (k) { parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(query[k])); });
     var qs = parts.length ? '?' + parts.join('&') : '';
     if (viaPublic) return pub + qs;
-    return home + clubDir + (kind === 'tv' ? 'tv/' : kind === 'player' ? 'p/' : kind === 'flyers' ? 'flyers/' : kind === 'learn' ? 'learn/' : '') + qs;
+    return home + clubDir + (kind === 'tv' ? 'tv/' : kind === 'player' ? 'p/' : kind === 'flyers' ? 'flyers/' : kind === 'learn' ? 'learn/' : kind === 'board' ? 'board/' : '') + qs;
   }
 
   function request(method, path, body) {

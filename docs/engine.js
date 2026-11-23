@@ -1035,13 +1035,16 @@
     rows.forEach(function (r, i) { r.rank = i > 0 && rows[i - 1].points === r.points ? rows[i - 1].rank : i + 1; });
     return rows;
   }
-  function leaderboard(session) {
+  // Tonight's table. Whoever was removed during the night is not on it; withLeft: they are (marked left), because
+  // the points they won still count for the month.
+  function leaderboard(session, withLeft) {
     var st = teamStats(session), rows = {};
     teamList(session).forEach(function (t) {
       var s = st[t.id];
-      if (t.left && !s.played) return;
+      if (t.left && (!withLeft || !s.played)) return;
       scoringEntities(t, session.scoring).forEach(function (e) {
-        var r = rows[e.key] || (rows[e.key] = { key: e.key, name: e.name, players: e.players, points: 0, wins: 0, played: 0, diff: 0, sitOuts: 0 });
+        var r = rows[e.key] || (rows[e.key] = { key: e.key, name: e.name, players: e.players, points: 0, wins: 0, played: 0, diff: 0, sitOuts: 0, left: true });
+        if (!t.left) r.left = false;
         r.points += s.points; r.wins += s.wins; r.played += s.played; r.diff += s.points - s.against; r.sitOuts += s.satOut;
       });
     });
@@ -1050,8 +1053,10 @@
   // The small record saved for every night; the monthly table is the sum of these.
   function resultsDoc(session) {
     var entries = {};
-    leaderboard(session).forEach(function (r) {
-      if (r.played) entries[r.key] = { name: r.name, players: r.players, points: r.points, wins: r.wins, played: r.played };
+    leaderboard(session, true).forEach(function (r) {
+      if (!r.played) return;
+      entries[r.key] = { name: r.name, players: r.players, points: r.points, wins: r.wins, played: r.played, diff: r.diff };   // diff (games won minus lost) only breaks ties
+      if (r.left) entries[r.key].left = true;            // removed during the night: counts for the month, not shown for the night
     });
     return {
       date: session.date, status: session.status, scoring: session.scoring, format: session.format,
@@ -1068,9 +1073,9 @@
       if (!doc || !doc.entries) return;
       Object.keys(doc.entries).forEach(function (key) {
         var e = doc.entries[key];
-        var r = rows[key] || (rows[key] = { key: key, name: e.name, players: e.players, points: 0, wins: 0, played: 0, nights: 0 });
+        var r = rows[key] || (rows[key] = { key: key, name: e.name, players: e.players, points: 0, wins: 0, played: 0, diff: 0, nights: 0 });
         r.name = e.name || r.name; r.players = e.players || r.players;
-        r.points += e.points || 0; r.wins += e.wins || 0; r.played += e.played || 0; r.nights++;
+        r.points += e.points || 0; r.wins += e.wins || 0; r.played += e.played || 0; r.diff += e.diff || 0; r.nights++;
       });
     });
     return rankRows(Object.keys(rows).map(function (k) { return rows[k]; }));

@@ -106,15 +106,22 @@ test('a match that was called off can be counted after all, and called off again
   r.courts.forEach((x, i) => { if (!x.void) E.setScore(s, 1, i, 4, 1); });
   assert.equal(E.currentRound(s).n, 2, 'the night went on to round 2');
   E.setScore(s, 2, 0, 4, 0);
-  const before = E.leaderboard(s).reduce((a, x) => a + x.points, 0);
+  const before = E.leaderboard(s, true).reduce((a, x) => a + x.points, 0);
   // it was played after all: 3-4 to the side with the player who had been removed
   const out = E.setScore(s, 1, 1, 3, 4, null, { revive: true });
   assert.ok(out.ok && out.tooLate, 'round 2 is already being played: the points count, the courts stay as they are');
   assert.deepEqual([c.void, c.sa, c.sb, c.w, c.revived], [false, 3, 4, 'b', 'a']);
   assert.equal(E.currentRound(s).n, 2);
-  const board = E.leaderboard(s);
+  const board = E.leaderboard(s, true);                      // everyone whose points count, removed players too
   assert.equal(board.reduce((a, x) => a + x.points, 0), before + 2 * (3 + 4), 'both pairs get their games');
   assert.equal(board.find(x => x.key === E.keyOf(s.teams[leaver].name)).points, 4, 'the removed player too');
+  // a player removed during the night is not on tonight's table, but the saved results keep the points for the month
+  const gone = E.keyOf(s.teams[leaver].name);
+  assert.equal(E.leaderboard(s).find(x => x.key === gone), undefined, 'not on tonight’s table');
+  assert.equal(E.leaderboard(s).length, board.length - 1);
+  assert.deepEqual([E.resultsDoc(s).entries[gone].points, E.resultsDoc(s).entries[gone].left], [4, true], 'saved for the month, marked as removed');
+  assert.equal(E.monthlyBoard({ a: E.resultsDoc(s) }).find(x => x.key === gone).points, 4, 'on the month’s table');
+  assert.equal(Object.values(E.resultsDoc(s).entries).filter(e => e.left).length, 1, 'nobody else is marked');
   stay.forEach(id => assert.ok(board.find(x => x.key === E.keyOf(s.teams[id].name)).points >= 3));
   const back = E.normalize(JSON.parse(JSON.stringify(s, (k, v) => v === false || v === null ? undefined : v)));
   assert.deepEqual([!!back.rounds[0].courts[1].void, back.rounds[0].courts[1].revived], [false, 'a'], 'it survives the database');

@@ -180,6 +180,15 @@ table.board td.pts { font-family: var(--display); font-size: 24px; font-weight: 
 .flyslot .pic.wide { aspect-ratio: 16 / 9; }
 .flyslot .pic.tall { aspect-ratio: 4 / 5; width: 84px; justify-self: center; }
 .flyslot .pic img { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* Switch players: every court of the round with its players as buttons */
+.swlist { display: grid; gap: 10px; }
+.swcourt { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px 10px; align-items: center; border: 1px solid var(--rule); border-radius: 10px; padding: 10px; }
+.swcourt > b { grid-column: 1 / -1; font-family: var(--display); font-size: 18px; letter-spacing: .08em; text-transform: uppercase; color: var(--court-deep); }
+.swcourt.off { grid-template-columns: minmax(0, 1fr); background: #f4f7fb; }
+.swcourt.off .swside { display: flex; flex-wrap: wrap; }
+.swside { display: grid; gap: 6px; }
+.swvs { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.swchip { min-height: 46px; padding: 4px 12px; font-family: var(--body); font-size: 17px; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }
 .patchips { display: flex; flex-wrap: wrap; gap: 8px; }
 .patchips .chip { min-height: 44px; padding: 0 14px; font-family: var(--body); font-size: 16px; }
 /* A true-to-scale copy of the TV's top banner (10% of the screen height, as on the TV) */

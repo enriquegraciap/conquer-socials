@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "description": "Padel socials: iPad admin page and TV display",
   "scripts": {
-    "test": "node --test test/engine.test.js test/individual.test.js test/wheel.test.js test/noadmin.test.js",
+    "test": "node --test test/engine.test.js test/individual.test.js test/wheel.test.js test/noadmin.test.js test/swap.test.js",
     "simulate": "node test/simulate.js 14 8 2026",
     "stats": "node test/stats.js 300 14",
     "mock": "node tools/mock-server.js 8787 test-key",
-    "e2e": "node test/e2e.js && node test/e2e-look.js && node test/e2e-solo.js && node test/e2e-voice.js && node test/e2e-wheel.js && node test/e2e-tempe.js && node test/e2e-noadmin.js"
+    "e2e": "node test/e2e.js && node test/e2e-look.js && node test/e2e-solo.js && node test/e2e-voice.js && node test/e2e-wheel.js && node test/e2e-tempe.js && node test/e2e-noadmin.js && node test/e2e-switch.js"
   }
 }

@@ -892,6 +892,7 @@
             h('div', { class: 'row end', style: 'margin-top:8px' }, [
               wheel ? null : h('span', { class: 'hint', style: 'margin:0' }, 'Sets to'), wheel ? null : setsControl(s), h('span', { style: 'flex:1' }),
               btn('Change courts', 'small', function () { state.ui.modal = { type: 'courts', courts: s.courts.slice() }; render(); }, { id: 'changeCourts' }),
+              cur && left ? btn('Switch ' + words(s).many, 'small', function () { state.ui.modal = { type: 'switch', a: null, b: null }; render(); }, { id: 'switchPlaces' }) : null,
               wheel && wst === 'playing' && cur && !E.roundHasScores(cur) ? btn('Spin again', 'small', spinAgain, { id: 'spinAgain' }) : null,
               !wheel && cur && !E.roundHasScores(cur) ? btn('Re-draw this round', 'small', function () {
                 state.ui.modal = { type: 'confirm', title: 'Re-draw round ' + cur.n + '?', text: cur.n === 1 ? 'Makes a new draw for round 1.' : 'Chooses again who sits out and where everyone plays, following the same rules. Use it after adding or removing a ' + words(s).one + '.', ok: 'Re-draw', onOk: function () { commit(function (x) { E.redrawRound(x); }); render(); } };
@@ -1005,6 +1006,39 @@
         courtPicker(m.courts, function (next) { m.courts = next; render(); }),
         h('div', { class: 'notice' }, [effect, m.courts.length && !E.isWheel(s) ? h('div', { style: 'margin-top:6px' }, teamsN + ' ' + Wc.many + ' on ' + kk + (kk === 1 ? ' court' : ' courts') + ': ' + (Wc.per * kk) + ' play, ' + (teamsN - Wc.per * kk) + ' sit out each round.') : null]),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Use these courts', 'primary', applyCourts, { disabled: same || !m.courts.length, id: 'applyCourts' })])];
+    } else if (m.type === 'switch') {
+      // Two taps: the two change places in the round being played (on court for on court, or on court for sitting out).
+      var swR = E.currentRound(s), swW = words(s), swWheel = E.isWheel(s);
+      var swOpen = swR ? swR.courts.filter(function (c) { return !c.void && !c.w; }) : [], swDone = swR ? swR.courts.length - swOpen.length : 0;
+      var swOff = !swR ? [] : E.activeTeams(s).filter(function (t) { return !swR.courts.some(function (c) { return !!E.sideOf(c, t.id); }); }).map(function (t) { return t.id; });
+      var swPlace = function (id) {
+        var c = swR.courts.filter(function (x) { return !!E.sideOf(x, id); })[0];
+        return c ? 'court ' + c.court : swR.sitting.indexOf(id) >= 0 ? 'sitting out' : 'joining next round';
+      };
+      var swChip = function (id) {
+        var on = m.a === id || m.b === id;
+        return h('button', { type: 'button', class: 'chip swchip' + (on ? ' on' : ''), 'data-switch': id, 'aria-pressed': on ? 'true' : 'false', onclick: function () {
+          if (m.a === id) { m.a = m.b; m.b = null; } else if (m.b === id) m.b = null; else if (!m.a) m.a = id; else m.b = id;
+          render();
+        } }, teamNameOf(id));
+      };
+      var swSide = function (c, side) { return h('div', { class: 'swside' }, E.sideIds(c, side).map(swChip)); };
+      var swDo = function () {
+        var a = m.a, b = m.b, out = commit(function (x) { return E.swapPlaces(x, a, b); });
+        if (!out.ok) { toast(out.error); return; }
+        m.a = null; m.b = null;
+        toast(out.sits ? teamNameOf(out.sits === a ? b : a) + ' plays on court ' + out.court + '. ' + teamNameOf(out.sits) + ' sits out.' : teamNameOf(a) + ' and ' + teamNameOf(b) + ' have changed places.');
+        render();
+      };
+      body = [h('h3', null, 'Switch ' + swW.many),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, 'Tap two ' + swW.many + ': they change places for ' + (swR ? roundTitle(swR).toLowerCase() : 'this round') + '. Tap one who is sitting out and one on a court to bring them in.' +
+          (swWheel ? ' On a wheel day the two also change teams until the next spin.' : '')),
+        h('div', { class: 'swlist' }, swOpen.map(function (c) {
+          return h('div', { class: 'swcourt' }, [h('b', null, (c.label ? c.label + ' · ' : '') + 'Court ' + c.court + (!swWheel && E.isKingsCourt(s, swR, c) ? ' · King’s' : '')), swSide(c, 'a'), h('span', { class: 'swvs' }, 'vs'), swSide(c, 'b')]);
+        }).concat(swOff.length ? [h('div', { class: 'swcourt off' }, [h('b', null, 'Not playing this round'), h('div', { class: 'swside' }, swOff.map(swChip))])] : [])),
+        swDone ? h('p', { class: 'hint', style: 'margin:0' }, swDone + (swDone === 1 ? ' court is' : ' courts are') + ' not shown: ' + (swDone === 1 ? 'it already has' : 'they already have') + ' a result. To change one, clear its score first.') : null,
+        h('div', { class: 'notice', id: 'switchSay' }, m.a && m.b ? teamNameOf(m.a) + ' (' + swPlace(m.a) + ') and ' + teamNameOf(m.b) + ' (' + swPlace(m.b) + ') change places.' : m.a ? teamNameOf(m.a) + ' (' + swPlace(m.a) + '): now tap who to switch with.' : 'Nobody picked yet.'),
+        h('div', { class: 'row end' }, [btn('Done', '', closeModal), btn('Switch', 'primary', swDo, { disabled: !(m.a && m.b), id: 'doSwitch' })])];
     } else if (m.type === 'rename') {
       // WPR Social rating beside each name on the TV's leaderboards; empty means NR (not rated)
       var ratingRow = function (fields) {

@@ -557,6 +557,12 @@
     if (k >= w.stages.length) return w.respin ? 'spin' : 'done';
     return 'playing';
   }
+  // Which wheel team (its place in wheel.teams) is on a side of a court. Courts carry it (ta, tb); older ones are
+  // worked out from the players.
+  function courtTeam(c, side, of) {
+    var t = side === 'a' ? c.ta : c.tb;
+    return t !== undefined && t !== null ? t : of[sideIds(c, side)[0]];
+  }
   // The pool table of the current spin: teams ranked by matches won, then games won, then fewest games lost,
   // then the match between the two.
   function wheelStandings(session) {
@@ -567,7 +573,7 @@
       if (r.stage !== 'pool' && r.stage !== 'set') return;
       r.courts.forEach(function (c) {
         if (!c.w || c.void) return;
-        var A = rows[of[sideIds(c, 'a')[0]]], B = rows[of[sideIds(c, 'b')[0]]];
+        var A = rows[courtTeam(c, 'a', of)], B = rows[courtTeam(c, 'b', of)];
         if (!A || !B) return;
         A.played++; B.played++; A.gf += c.sa || 0; A.ga += c.sb || 0; B.gf += c.sb || 0; B.ga += c.sa || 0;
         var win = c.w === 'a' ? A : B, lose = c.w === 'a' ? B : A;
@@ -592,7 +598,7 @@
     };
     var of = {};
     w.teams.forEach(function (t, i) { t.forEach(function (id) { of[id] = i; }); });
-    var winnerOf = function (c) { return of[sideIds(c, c.w)[0]]; };
+    var winnerOf = function (c) { return courtTeam(c, c.w, of); };
     var prev = currentRound(session), matches = [], labels = [], pools = w.stages.filter(function (x) { return x === 'pool'; }).length, title;
     if (stage === 'set') { matches = [[0, 1]]; title = 'Set ' + (k + 1) + (w.stages.length > 1 ? ' of ' + w.stages.length : ''); }
     else if (stage === 'pool') { var rr = roundRobin(T); matches = rr[k % rr.length].matches; title = (w.respin ? 'Round ' : 'Pool round ') + (k + 1) + ' of ' + pools; }
@@ -603,7 +609,7 @@
         matches = T === 5 ? [[rank[0], winnerOf(prev.courts[0])], [rank[1], rank[2]]] : [[rank[0], rank[3]], [rank[1], rank[2]]];
         labels = ['Semifinal', 'Semifinal']; title = 'Semifinals';
       } else if (stage === 'final') {                   // the semifinal winners play the final, the losers the bronze medal match
-        var loserOf = function (c) { return of[sideIds(c, c.w === 'a' ? 'b' : 'a')[0]]; }, l0 = loserOf(prev.courts[0]), l1 = loserOf(prev.courts[1]);
+        var loserOf = function (c) { return courtTeam(c, c.w === 'a' ? 'b' : 'a', of); }, l0 = loserOf(prev.courts[0]), l1 = loserOf(prev.courts[1]);
         matches = [[winnerOf(prev.courts[0]), winnerOf(prev.courts[1])]]; labels = ['Final']; title = 'Final';
         if (l0 !== undefined && l1 !== undefined && playing(l0).length === 2 && playing(l1).length === 2) { matches.push([l0, l1]); labels.push('Bronze match'); title = 'Final & bronze match'; }
       }
@@ -618,7 +624,7 @@
       var a = playing(m[0]), b = playing(m[1]);
       if (a.length < 2 && b.length < 2) return;
       var at = wheelCourt(session, round.courts.length);
-      var c = { court: at.court, level: at.level, a: a, b: b, sa: null, sb: null, w: null, void: false };
+      var c = { court: at.court, level: at.level, a: a, b: b, sa: null, sb: null, w: null, void: false, ta: m[0], tb: m[1] };
       if (at.wait) c.wait = true;
       if (labels.length) c.label = labels[round.courts.length] || labels[0];
       if (a.length < 2 || b.length < 2) { c.void = true; c.w = a.length < 2 ? 'b' : 'a'; }     // a team that lost a player cannot play
@@ -765,6 +771,50 @@
     });
     out.advanced = advance(session);
     return out;
+  }
+
+  // Switch two places in the round being played: two teams (fixed partners) or two players (individual, wheel).
+  // Each of the two is on a court that has no score yet, or is sitting out (or waiting to join). On court for
+  // on court: they change places. On court for sitting out: the one sitting out plays and the other sits.
+  // Wheel: the two change teams for the rest of this set of partners (two of the same team of three just change
+  // whose turn it is to rest).
+  function swapPlaces(session, x, y) {
+    var cur = currentRound(session), one = formatOf(session).unit;
+    if (session.status !== 'live' || !cur) return { ok: false, error: 'There is no round being played.' };
+    if (x === y || !session.teams[x] || !session.teams[y] || session.teams[x].left || session.teams[y].left) return { ok: false, error: 'Pick two different ' + formatOf(session).units + '.' };
+    var where = function (id) {
+      for (var i = 0; i < cur.courts.length; i++) { var side = sideOf(cur.courts[i], id); if (side) return { c: cur.courts[i], side: side }; }
+      return null;
+    };
+    var px = where(x), py = where(y);
+    if (!px && !py) return { ok: false, error: 'Neither of them is on a court this round.' };
+    var busy = [px, py].filter(function (p) { return p && courtDone(p.c); })[0];
+    if (busy) return { ok: false, error: busy.c.void ? 'Court ' + busy.c.court + ' has no match this round.' : 'Court ' + busy.c.court + ' already has a score. Clear that score first.' };
+    if (px && py && px.c === py.c && (px.side === py.side || !isSolo(session))) return { ok: false, error: 'They are on the same court' + (isSolo(session) ? ' and the same side' : '') + ': nothing would change.' };
+    var put = function (p, from, to) {
+      if (Array.isArray(p.c[p.side])) p.c[p.side] = p.c[p.side].map(function (id) { return id === from ? to : id; }); else p.c[p.side] = to;
+      p.c.sa = null; p.c.sb = null;
+    };
+    var sitSwap = function (list, from, to) { var i = list.indexOf(from); if (i >= 0) list[i] = to; return i >= 0; };
+    if (px && py) {
+      if (px.c === py.c) { var A = px.c[px.side].map(function (id) { return id === x ? y : id; }), B = py.c[py.side].map(function (id) { return id === y ? x : id; }); px.c[px.side] = A; py.c[py.side] = B; px.c.sa = null; px.c.sb = null; }
+      else { put(px, x, y); put(py, y, x); }
+    } else {
+      var on = px || py, inId = px ? y : x, outId = px ? x : y;     // inId was off court and now plays; outId sits
+      put(on, outId, inId);
+      if (!sitSwap(cur.sitting, inId, outId)) cur.sitting.push(outId);
+      if (cur.n === 1 && !isWheel(session)) {                      // round 1: the one who now sits comes in next round on the court they left
+        cur.entry = cur.entry || {};
+        delete cur.entry[inId];
+        cur.entry[outId] = on.c.level;
+      }
+    }
+    if (isWheel(session) && session.wheel) {                       // the pairs of this spin follow
+      var w = session.wheel, flip = function (id) { return id === x ? y : id === y ? x : id; };
+      w.teams = w.teams.map(function (t) { return t.map(flip); });
+      w.left = w.left.map(flip); w.right = w.right.map(flip); w.sit = w.sit.map(flip);
+    }
+    return { ok: true, court: (px || py).c.court, other: px && py ? py.c.court : null, sits: px && py ? null : (px ? x : y) };
   }
 
   function startNight(session, opts) {
@@ -1052,7 +1102,7 @@
     roundComplete: roundComplete, roundHasScores: roundHasScores, courtDone: courtDone,
     teamStats: teamStats, generateRound: generateRound,
     addTeam: addTeam, renameTeam: renameTeam, removeTeam: removeTeam, startNight: startNight, endNight: endNight, reopenNight: reopenNight,
-    advance: advance, redrawRound: redrawRound, rewindTo: rewindTo,
+    advance: advance, redrawRound: redrawRound, rewindTo: rewindTo, swapPlaces: swapPlaces,
     isWheel: isWheel, wheelPlan: wheelPlan, wheelSpin: wheelSpin, wheelRelease: wheelRelease, wheelState: wheelState, wheelStandings: wheelStandings, roundSetTo: roundSetTo, roundRobin: roundRobin, setScore: setScore, setCourts: setCourts, isKingsCourt: isKingsCourt,
     pendingPlayerScores: pendingPlayerScores, applyAllPlayerScores: applyAllPlayerScores, withPlayerScores: withPlayerScores, courtKey: courtKey, applyPlayerScores: applyPlayerScores,
     scoringEntities: scoringEntities, entityKey: entityKey, keyOf: keyOf, teamName: teamName,

@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "mcp__Conquer_GoHighLevel_CRM",
       "mcp__Make"
     ],
     "ask": [

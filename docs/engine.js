@@ -863,19 +863,25 @@
   }
 
   // Enter or correct a score. winner ('a' or 'b') is only needed when the games are level.
-  function setScore(session, roundNo, courtIdx, sa, sb, winner) {
+  // opts.revive: the court was called off ("no match", because someone left) but the match was played after all:
+  // the score counts and the court is a normal one again. Clearing that score calls it off again, as it was.
+  function setScore(session, roundNo, courtIdx, sa, sb, winner, opts) {
     var r = session.rounds[roundNo - 1];
     if (!r) return { ok: false, error: 'No such round' };
-    var c = r.courts[courtIdx];
-    if (!c || c.void) return { ok: false, error: 'No such court' };
+    var c = r.courts[courtIdx], revive = !!(opts && opts.revive);
+    if (!c || (c.void && !revive)) return { ok: false, error: 'No such court' };
     var oldW = c.w;
-    if (sa === null || sb === null || sa === undefined || sb === undefined) { c.sa = null; c.sb = null; c.w = null; }
-    else {
+    if (sa === null || sb === null || sa === undefined || sb === undefined) {
+      if (c.void) return { ok: true, regenerated: false, advanced: false, tooLate: false };
+      if (c.revived) { c.void = true; c.w = c.revived; c.sa = null; c.sb = null; delete c.revived; }
+      else { c.sa = null; c.sb = null; c.w = null; }
+    } else {
       sa = Number(sa); sb = Number(sb);
       var max = roundSetTo(session, r);
       if (!(sa >= 0 && sb >= 0) || sa > max || sb > max) return { ok: false, error: 'Scores go from 0 to ' + max + ' (sets to ' + max + ' games)' };
       var w = sa > sb ? 'a' : sb > sa ? 'b' : (winner === 'a' || winner === 'b' ? winner : null);
       if (!w) return { ok: false, error: 'Level score: choose which team moves up' };
+      if (c.void) { c.void = false; c.revived = oldW === 'b' ? 'b' : 'a'; }
       c.sa = sa; c.sb = sb; c.w = w;
     }
     var out = { ok: true, regenerated: false, advanced: false, tooLate: false };

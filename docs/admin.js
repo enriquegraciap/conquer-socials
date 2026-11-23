@@ -833,15 +833,15 @@
   function courtCard(s, r, c, i, small) {
     var king = E.isKingsCourt(s, r, c);
     var done = !!c.w && !c.void;
-    var open = function () { state.ui.modal = { type: 'score', n: r.n, i: i, sa: c.sa, sb: c.sb, w: c.sa === c.sb ? c.w : null }; render(); };
-    return h('button', { type: 'button', class: 'courtcard' + (king ? ' king' : '') + (c.void ? ' void' : done ? '' : ' todo'), disabled: c.void, 'data-court': c.court, 'data-round': r.n, onclick: open,
+    var open = function () { state.ui.modal = { type: 'score', n: r.n, i: i, sa: c.sa, sb: c.sb, w: !c.void && c.sa === c.sb ? c.w : null }; render(); };
+    return h('button', { type: 'button', class: 'courtcard' + (king ? ' king' : '') + (c.void ? ' void' : done ? '' : ' todo'), 'data-court': c.court, 'data-round': r.n, onclick: open,
       'aria-label': (c.label ? c.label + ', court ' : 'Court ') + c.court + ': ' + sideNameOf(c, 'a') + ' against ' + sideNameOf(c, 'b') + (done ? ', ' + c.sa + ' to ' + c.sb + '. Tap to correct.' : '. Tap to enter the score.') }, [
       h('div', { class: 'cn' }, [h('b', null, String(c.court)), h('span', null, c.label ? c.label : c.wait && !done ? 'Next up' : E.isWheel(s) ? 'Court' : king ? 'King’s' : 'Court')]),
       h('div', { class: 'tm' }, [
         h('div', { class: done && c.w === 'a' ? 'won' : '' }, sideNameOf(c, 'a')),
         h('div', { class: done && c.w === 'b' ? 'won' : '' }, sideNameOf(c, 'b'))
       ]),
-      c.void ? h('div', { class: 'sc enter' }, 'No match') : done ? h('div', { class: 'sc num' }, [h('span', null, String(c.sa)), h('span', null, String(c.sb))]) : h('div', { class: 'sc enter' }, small ? 'Enter' : 'Enter score')
+      c.void ? h('div', { class: 'sc enter' }, ['No match', h('small', null, 'Played after all? Tap')]) : done ? h('div', { class: 'sc num' }, [h('span', null, String(c.sa)), h('span', null, String(c.sb))]) : h('div', { class: 'sc enter' }, small ? 'Enter' : 'Enter score')
     ]);
   }
 
@@ -1149,9 +1149,11 @@
       var ready = m.sa !== null && m.sb !== null && (!level || m.w);
       var saveScore = function () {
         var n = m.n, wasLast = n === s.rounds.length;
-        var out = commit(function (x) { return E.setScore(x, n, m.i, m.sa, m.sb, m.w); });
+        var wasOff = !!c.void;
+        var out = commit(function (x) { return E.setScore(x, n, m.i, m.sa, m.sb, m.w, { revive: wasOff }); });
         state.ui.modal = null;
         if (!out.ok) toast(out.error);
+        else if (wasOff) toast('Court ' + c.court + ' counts as played: ' + m.sa + '\u2013' + m.sb + '. The points are on the leaderboard.');
         else if (out.regenerated) toast(E.isWheel(s) ? 'The next matches have been redone with the corrected result.' : 'Round ' + (n + 1) + ' has been redone with the corrected result.');
         else if (out.tooLate) toast('Points corrected. Court positions stay as they were played.');
         else if (out.advanced && wasLast) toast((E.isWheel(s) ? roundTitle(E.currentRound(state.session)) : 'Round ' + (n + 1)) + ' is up on the TV.');
@@ -1161,13 +1163,14 @@
       body = [
         h('h3', null, roundTitle(r) + ' · Court ' + c.court + (c.label ? ' · ' + c.label : !E.isWheel(s) && E.isKingsCourt(s, r, c) ? ' · King’s Court' : '')),
         h('p', { class: 'hint', style: 'margin:-8px 0 0' }, 'Sets to ' + E.roundSetTo(s, r) + ' games. A point for every game won.'),
+        c.void ? h('div', { class: 'notice' }, 'This match was called off because someone on it was removed. If it was played after all, enter the score here: it counts for everyone on the court. To have a removed player in the next rounds too, press Bring back beside the name.') : null,
         h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, sideNameOf(c, 'a')), h('div', { class: 'digits' }, digits('sa'))]),
         h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, sideNameOf(c, 'b')), h('div', { class: 'digits' }, digits('sb'))]),
         level ? h('div', { class: 'notice' }, [h('div', { style: 'margin-bottom:8px;font-weight:600' }, E.isWheel(s) ? 'Level on games. Which pair won?' : E.isSolo(s) ? 'Level on games. Which pair moves up?' : 'Level on games. Which team moves up?'), h('div', { class: 'row' }, [
           btn(sideNameOf(c, 'a'), m.w === 'a' ? 'primary small' : 'small', function () { m.w = 'a'; render(); }),
           btn(sideNameOf(c, 'b'), m.w === 'b' ? 'primary small' : 'small', function () { m.w = 'b'; render(); })])]) : null,
         h('div', { class: 'row end' }, [
-          c.w ? btn('Clear score', 'danger', function () { commit(function (x) { E.setScore(x, m.n, m.i, null, null); }); closeModal(); }) : null,
+          c.w && !c.void ? btn(c.revived ? 'Call it off again' : 'Clear score', 'danger', function () { commit(function (x) { E.setScore(x, m.n, m.i, null, null); }); closeModal(); }) : null,
           btn('Cancel', '', closeModal),
           btn('Save score', 'primary', saveScore, { disabled: !ready, id: 'saveScore' })
         ])

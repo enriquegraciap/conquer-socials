@@ -152,11 +152,15 @@
     };
     var LH = st.imgs.own ? 118 : 86;
     logo(st.imgs.l, false, LH, 400); logo(st.imgs.r, true, st.imgs.own ? LH : 62, 400);
-    var name = String(st.series.name || 'Padel social').toUpperCase(), top = 40 + LH + 22, room = BH - top - 26;
+    // The name on the picture. A social can give its public name in two parts (Flyer and look): a small line above
+    // (with a crown if wished), the name itself, and a very small line under it.
+    var sh = st.series.share || {}, over = String(sh.over || '').replace(/\s+/g, ' ').trim().toUpperCase(), under = String(sh.note || '').replace(/\s+/g, ' ').trim().toUpperCase();
+    var name = String(sh.title || st.series.name || 'Padel social').toUpperCase(), top0 = 40 + LH + (over || under ? 4 : 22), room0 = BH - top0 - (under ? 18 : 26);
+    var overH = over ? 62 : 0, underH = under ? 40 : 0, top = top0 + overH, room = room0 - overH - underH;
     ctx.fillStyle = p.barInk; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (onBand) { ctx.shadowColor = glow; ctx.shadowBlur = 22; ctx.shadowOffsetY = darkInk ? 0 : 4; }
     else if (!st.imgs.own) { ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3; }
-    var size = fitText(ctx, name, '400', SCRIPT, 96, 58, W - 96), lines = [name];
+    var size = fitText(ctx, name, '400', SCRIPT, Math.min(96, Math.floor(room * 0.98)), Math.min(58, Math.floor(room * 0.6)), W - 96), lines = [name];
     if (ctx.measureText(name).width > W - 96) {                         // two lines, broken as evenly as the words allow
       var words = name.split(' '), bestAt = 1, bestGap = Infinity;
       for (var i = 1; i < words.length; i++) { var gap = Math.abs(words.slice(0, i).join(' ').length - words.slice(i).join(' ').length); if (gap < bestGap) { bestGap = gap; bestAt = i; } }
@@ -165,6 +169,17 @@
       ctx.font = '400 ' + size + 'px ' + SCRIPT;
     }
     for (var pass = 0; pass < (onBand ? 2 : 1); pass++) lines.forEach(function (ln, i) { ctx.fillText(ln, W / 2, top + room / 2 + (i - (lines.length - 1) / 2) * size * 1.12); });   // (twice on a picture: a fuller halo)
+    if (over) {
+      var os = fitText(ctx, over, '400', SCRIPT, 50, 30, W - 240), ow = ctx.measureText(over).width, cw = sh.crown ? os * 1.25 : 0, gapC = sh.crown ? 16 : 0, ox = (W - (cw + gapC + ow)) / 2, oy = top0 + overH / 2 + 2;
+      ctx.textAlign = 'left';
+      for (pass = 0; pass < (onBand ? 2 : 1); pass++) ctx.fillText(over, ox + cw + gapC, oy);
+      if (sh.crown) crown(ctx, ox + cw / 2, oy - os * 0.06, cw);
+      ctx.textAlign = 'center'; ctx.fillStyle = p.barInk;
+    }
+    if (under) {
+      fitText(ctx, under, '600', DISPLAY, 27, 18, W - 110);
+      for (pass = 0; pass < (onBand ? 2 : 1); pass++) caps(ctx, under, W / 2, BH - (onBand ? 30 : 30), 3);
+    }
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 
     // ---- what this is
@@ -224,6 +239,18 @@
     cv.setAttribute('data-view', st.view); cv.setAttribute('data-rows', String(rows.length)); cv.setAttribute('data-top', rows.slice(0, 3).map(function (r) { return r.name + ':' + r.points; }).join('|'));
   }
   // a line of small capitals with space between the letters (where the browser's canvas cannot space letters: thin spaces)
+  // A king's crown in the club's yellow, w wide, around (cx, cy).
+  function crown(ctx, cx, cy, w) {
+    var hh = w * 0.7, x0 = cx - w / 2, y0 = cy - hh / 2, pt = function (fx, fy) { return [x0 + fx * w, y0 + fy * hh]; };
+    var path = [[0.04, 0.98], [0, 0.22], [0.27, 0.56], [0.5, 0.06], [0.73, 0.56], [1, 0.22], [0.96, 0.98]].map(function (q) { return pt(q[0], q[1]); });
+    ctx.save();
+    ctx.beginPath(); path.forEach(function (q, i) { if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }); ctx.closePath();
+    ctx.fillStyle = GOLD; ctx.fill();
+    ctx.shadowColor = 'transparent'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(2, w * 0.05); ctx.strokeStyle = '#0e2238'; ctx.stroke();
+    [[0, 0.22], [0.5, 0.06], [1, 0.22]].forEach(function (q) { var c = pt(q[0], q[1]); ctx.beginPath(); ctx.arc(c[0], c[1], w * 0.075, 0, 7); ctx.fillStyle = GOLD; ctx.fill(); ctx.stroke(); });
+    ctx.fillStyle = '#0e2238'; ctx.fillRect(x0 + w * 0.1, y0 + hh * 0.74, w * 0.8, Math.max(2, hh * 0.07));
+    ctx.restore();
+  }
   function caps(ctx, text, x, y, px) {
     if ('letterSpacing' in ctx) { ctx.letterSpacing = px + 'px'; ctx.fillText(text, x + px / 2, y); ctx.letterSpacing = '0px'; }
     else ctx.fillText(text.split('').join('\u200a'), x, y);

@@ -1142,6 +1142,26 @@
       var lk = (state.series[m.id] || {}).look || {}, busy = state.ui.lookBusy, has = !!(lk.wide || lk.tall);
       var setLook = function (patch, extra) { var next = lookOf(m.id); Object.keys(patch).forEach(function (k) { next[k] = patch[k]; }); saveLook(m.id, next, extra); };
       var noBand = { band: null, bandTall: null, bandAt: null, bandInk: null, bandRev: null };
+      // How the social's name reads on the leaderboard picture players share (and in the results text): its public name
+      // can be longer than the short one used here, in two parts, with a crown and a very small line under it.
+      if (!m.share) { var sh0 = state.series[m.id].share || {}; m.share = { over: sh0.over || '', title: sh0.title || '', note: sh0.note || '', crown: !!sh0.crown }; }
+      var shField = function (key, idd, ph, max) { return h('input', { type: 'text', id: idd, placeholder: ph, value: m.share[key], maxlength: max, autocomplete: 'off', oninput: function (e) { m.share[key] = e.target.value; } }); };
+      var saveShare = function () {
+        var tidy = function (x) { return String(x || '').replace(/\s+/g, ' ').trim(); }, out = {};
+        ['over', 'title', 'note'].forEach(function (k) { if (tidy(m.share[k])) out[k] = tidy(m.share[k]); });
+        if (m.share.crown && out.over) out.crown = true;
+        if (out.over || out.title) out.name = ((out.over ? out.over + ' ' : '') + (out.title || state.series[m.id].name)).trim();      // the name in full, for the results text
+        var up = {}; up['pub/series/' + m.id + '/share'] = Object.keys(out).length ? out : null;
+        state.ui.lookBusy = 'Saving…'; render();
+        S.write(up).then(function () { state.series[m.id].share = Object.keys(out).length ? out : null; state.ui.lookBusy = ''; toast('Saved. The leaderboard to share shows it now.'); render(); })
+          .catch(function (err) {
+            state.ui.lookBusy = '';
+            if (err.status === 401 || err.status === 403) { var back = state.ui.modal; state.ui.modal = { type: 'key', wrong: !!S.getKey(), then: function () { state.ui.modal = back; saveShare(); } }; render(); }
+            else { toast('Could not save: ' + err.message); render(); }
+          });
+      };
+      var crownBox = h('input', { type: 'checkbox', id: 'shCrown', onchange: function (e) { m.share.crown = !!e.target.checked; } });
+      crownBox.checked = !!m.share.crown;
       if (has) loadBands(m.id);
       var opts = has ? state.ui.bandOpts : null;
       var pickBand = function (i) {
@@ -1200,6 +1220,13 @@
             h('button', { type: 'button', class: lk.theme === 'flyer' ? '' : 'on', 'data-theme': 'club', disabled: !!busy, onclick: function () { if (lk.theme) setLook({ theme: null }); } }, 'Club colours'),
             h('button', { type: 'button', class: lk.theme === 'flyer' ? 'on' : '', 'data-theme': 'flyer', disabled: !!busy, onclick: function () { if (lk.theme !== 'flyer') setLook({ theme: 'flyer' }); } }, 'Flyer’s colours')
           ])]) : null,
+        h('div', { class: 'shareform' }, [h('b', null, 'Name on the leaderboard to share (optional)'),
+          h('p', { class: 'hint', style: 'margin:2px 0 8px' }, 'For when the social\u2019s real name is longer than the short one used here. It shows on the picture players share and in the results text. Empty: the name as it is.'),
+          shField('over', 'shOver', 'Small line above, for example King\u2019s Court', 40),
+          shField('title', 'shTitle', 'Big line, for example AM Open Play (empty: ' + state.series[m.id].name + ')', 40),
+          shField('note', 'shNote', 'Very small line under it, for example Every Monday at 6:30 AM', 90),
+          h('label', { class: 'shcheck', for: 'shCrown' }, [crownBox, h('span', null, 'A crown beside the small line')]),
+          h('div', { class: 'row' }, [btn('Save name', 'small', saveShare, { id: 'shSave', disabled: !!busy })])]),
         h('div', null, [h('b', null, 'Banner logos (optional)'),
           h('p', { class: 'hint', style: 'margin:2px 0 8px' }, 'For a social run with a partner: their logos take the place of the club’s at the two ends of this social’s TV banner. The banner turns plain, in the logos’ own background colour (or a very light grey), with the name in their colour.'),
           h('div', { class: 'logoslots' }, [logoSlot('L', 'Left logo'), logoSlot('R', 'Right logo')])]),

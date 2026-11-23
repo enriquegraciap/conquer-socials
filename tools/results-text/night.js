@@ -27,7 +27,9 @@ const when = daytime ? (date === input.today ? 'today' : date === input.yesterda
   : date === input.today || (date === input.yesterday && Number(input.hour) < 4) ? 'tonight' : date === input.yesterday ? 'last night' : 'on ' + DAYS[dt.getUTCDay()];
 const top = rows.slice(0, 3).map((r, i) => r.rank + '. ' + r.name + ' (' + (r.points || 0) + (i === 0 ? ' pts' : '') + ')').join(', ');
 const link = 'go.playcnqr.com/socials?' + (club === 'tempe' ? 'c=tempe&' : '') + 'v=board&s=' + encodeURIComponent(series);
-const text = 'Conquer Padel: thanks for playing ' + title + ' ' + when + '! Congrats to our top ' + Math.min(3, rows.length) + ': ' + top + '. See the full results and the ' +
+// (a social can have a fuller public name than the short one used in the app: Flyer and look, "Name on the leaderboard to share")
+const shared = parse(input.share_raw, {}), publicName = String((shared && shared.name) || '').replace(/\s+/g, ' ').trim() || title;
+const text = 'Conquer Padel: thanks for playing ' + publicName + ' ' + when + '! Congrats to our top ' + Math.min(3, rows.length) + ': ' + top + '. See the full results and the ' +
   MONTHS[Number(best.m.slice(5, 7)) - 1] + ' leaderboard, and share yours: ' + link;
 // every player of the night (both players of a fixed pair), and what to look up in PlayByPoint: each full name, last
 // name and first name (a customer spelled another way is found through the name that is spelled the same)
@@ -36,5 +38,5 @@ rows.forEach(r => (Array.isArray(r.players) && r.players.length ? r.players : [r
 const plain = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 const q = {}, queries = [];
 names.forEach(n => { const p = plain(n), t = p.split(' '); if (t.length < 2) return; [p, t[t.length - 1], t[0]].forEach(x => { if (x.length >= 3 && !q[x.toLowerCase()]) { q[x.toLowerCase()] = true; queries.push(x); } }); });
-return { ok: 'yes', reason: '', start: String(best.d.start || ''), queries: queries.join('|'), names_json: JSON.stringify(names), text: text,
+return { ok: 'yes', reason: '', start: String(best.d.start || ''), public_name: publicName, queries: queries.join('|'), names_json: JSON.stringify(names), text: text,
   key: club + '|' + series + '|' + date + (String(input.test || '') === '1' ? '|test' : ''), night: date, title: title, players: String(names.length), nice_date: DAYS[dt.getUTCDay()] + ', ' + MONTHS[dt.getUTCMonth()] + ' ' + dt.getUTCDate() };

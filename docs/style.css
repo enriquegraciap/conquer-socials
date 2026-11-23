@@ -265,6 +265,9 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .lookbar[data-band] .c { text-shadow: 0 .2vmin .7vmin rgba(0,0,0,.9), 0 0 .4vmin rgba(0,0,0,.8); }
 .lookbar[data-band="dark"] .c b, .lookbar[data-band="dark"] .c span { color: #0e2238; text-shadow: 0 0 .7vmin rgba(255,255,255,.98), 0 0 .3vmin rgba(255,255,255,.95); }
 .lookbar[data-band="dark"] img, .lookbar[data-band="dark"] img.w { filter: brightness(0) invert(.12) sepia(1) saturate(6) hue-rotate(175deg) drop-shadow(0 0 .5vmin rgba(255,255,255,.95)); }
+.shareform input[type="text"] { display: block; width: 100%; margin: 0 0 8px; }
+.shcheck { display: flex; align-items: center; gap: 10px; margin: 2px 0 10px; font-size: 16px; }
+.shcheck input { width: 22px; height: 22px; }
 .bandopts { display: grid; gap: 8px; margin: 2px 0 4px; }
 .bandopt { display: block; width: 100%; height: 46px; padding: 0; border: 3px solid transparent; border-radius: 9px; background-color: #0a2f41; background-size: cover; background-position: center; cursor: pointer; }
 .bandopt.on { border-color: #f4b63f; box-shadow: 0 0 0 2px #0a2f41; }

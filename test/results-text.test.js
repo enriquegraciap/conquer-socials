@@ -159,3 +159,10 @@ test('the day\'s PlayByPoint roster: which program, which session, who was signe
   assert.deepEqual(sk.map(x => x.name + ': ' + x.why), ['Alex: not on the PlayByPoint roster of this session', "John's Friend: not on the PlayByPoint roster of this session"]);
   assert.equal(JSON.parse(pick('no').matched_json).length, 2, 'outside a roster the loose match is not used');
 });
+
+test('the text uses the social\'s public name when it has one', () => {
+  const t = run(body('night.js'), Object.assign({}, nightIn, { share_raw: JSON.stringify({ over: "King's Court", title: 'AM Open Play', name: "King's Court AM Open Play" }) }));
+  assert.match(t.text, /thanks for playing King's Court AM Open Play tonight!/);
+  assert.equal(t.public_name, "King's Court AM Open Play"); assert.equal(t.title, 'ASU College Padel Nights', 'the card keeps the short name');
+  assert.match(run(body('night.js'), Object.assign({}, nightIn, { share_raw: 'null' })).text, /thanks for playing ASU College Padel Nights tonight!/);
+});

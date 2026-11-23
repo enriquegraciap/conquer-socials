@@ -232,9 +232,8 @@
 
     // ---- foot
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = p.line; ctx.fillRect(W / 2 - 60, H - 104, 120, 5);
-    ctx.fillStyle = p.dim; ctx.font = '600 30px ' + DISPLAY; caps(ctx, 'A POINT FOR EVERY GAME WON', W / 2, H - 62, 4);
-    ctx.fillStyle = p.text; ctx.font = '700 34px ' + DISPLAY; caps(ctx, clubLine().toUpperCase(), W / 2, H - 22, 6);
+    ctx.fillStyle = p.line; ctx.fillRect(W / 2 - 60, H - 112, 120, 5);
+    ctx.fillStyle = p.text; fitText(ctx, clubLine().toUpperCase(), '700', DISPLAY, 58, 40, W - 220); caps(ctx, clubLine().toUpperCase(), W / 2, H - 38, 7);      // the club's name, large: this picture travels
     cv.setAttribute('aria-label', (st.series.name || 'Social') + ': ' + head + '. ' + rows.slice(0, 3).map(function (r) { return r.rank + '. ' + r.name + ', ' + r.points + ' points'; }).join('; '));
     cv.setAttribute('data-view', st.view); cv.setAttribute('data-rows', String(rows.length)); cv.setAttribute('data-top', rows.slice(0, 3).map(function (r) { return r.name + ':' + r.points; }).join('|'));
   }

@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Make"
+    ],
+    "ask": [
+      "mcp__Make__scenarios_delete",
+      "mcp__Make__data-stores_delete",
+      "mcp__Make__data-store-records_delete",
+      "mcp__Make__data-structures_delete",
+      "mcp__Make__hooks_delete",
+      "mcp__Make__hook-incomings_delete",
+      "mcp__Make__folders_delete",
+      "mcp__Make__keys_delete",
+      "mcp__Make__organizations_delete",
+      "mcp__Make__teams_delete",
+      "mcp__Make__scenario-labels_delete",
+      "mcp__Make__scenario-custom-properties_delete",
+      "mcp__Make__credential-requests_delete",
+      "mcp__Make__credential-requests_credential-delete"
+    ]
+  }
+}

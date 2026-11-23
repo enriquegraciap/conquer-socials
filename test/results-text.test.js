@@ -20,14 +20,14 @@ const nightIn = { club: 'tempe', series: 'asu-college-padel-nights', name_raw: '
 test('the night: latest night, its top three (removed players left out), the text and what to look up', () => {
   const n = run(body('night.js'), nightIn);
   assert.equal(n.ok, 'yes');
-  assert.equal(n.text, 'Conquer Padel: thanks for playing ASU College Padel Nights tonight! Congrats to our top 3: 1. Ana López (16 pts), 2. Bruno Diaz (14), 3. Carla Ruiz (13). See the full results and the November leaderboard, and share yours: go.playcnqr.com/socials?c=tempe&v=board&s=asu-college-padel-nights');
+  assert.equal(n.text, 'Conquer Padel: thanks for playing ASU College Padel Nights tonight! Congrats to our top 3:\n\n1. Ana López (16 pts)\n2. Bruno Diaz (14)\n3. Carla Ruiz (13)\n\nSee the full results and the November leaderboard, and share yours: go.playcnqr.com/socials?1afl');
   assert.deepEqual([n.key, n.night, n.players, n.nice_date], ['tempe|asu-college-padel-nights|2026-11-22', '2026-11-22', '6', 'Sunday, November 22']);
   assert.deepEqual(JSON.parse(n.names_json), ['Ana López', 'Bruno Diaz', 'Carla Ruiz', 'Zain', 'Dana Opted', 'Nick Nohl']);
   assert.equal(n.queries, 'Ana Lopez|Lopez|Ana|Bruno Diaz|Diaz|Bruno|Carla Ruiz|Ruiz|Carla|Dana Opted|Opted|Dana|Nick Nohl|Nohl|Nick');
   assert.match(run(body('night.js'), Object.assign({}, nightIn, { today: '2026-11-23', yesterday: '2026-11-22', hour: '1' })).text, /Nights tonight!/, 'just after midnight it is still tonight');
   assert.match(run(body('night.js'), Object.assign({}, nightIn, { today: '2026-11-23', yesterday: '2026-11-22', hour: '9' })).text, /Nights last night!/);
   assert.match(run(body('night.js'), Object.assign({}, nightIn, { today: '2026-11-25', yesterday: '2026-11-24', hour: '9' })).text, /Nights on Sunday!/);
-  assert.match(run(body('night.js'), Object.assign({}, nightIn, { club: 'lehi', series: 'tacotue' })).text, /share yours: go\.playcnqr\.com\/socials\?v=board&s=tacotue$/);
+  assert.match(run(body('night.js'), Object.assign({}, nightIn, { club: 'lehi', series: 'tacotue' })).text, /share yours: go\.playcnqr\.com\/socials\?[a-z0-9]{4}$/);
   assert.equal(run(body('night.js'), Object.assign({}, nightIn, { results_raw: 'null' })).ok, 'no');
   assert.match(run(body('night.js'), Object.assign({}, nightIn, { name_raw: 'null' })).reason, /^the social was not found /);
   assert.equal(run(body('night.js'), Object.assign({}, nightIn, { name_raw: 'ASU College Padel Nights', results_raw: results })).ok, 'yes', 'values already read as JSON (or a bare name) work too');
@@ -193,5 +193,17 @@ test('a player who is in PlayByPoint but not in HighLevel is added there, then t
 
 test('the top three in the text are numbered 1, 2, 3, also when two are level on points', () => {
   const r = JSON.parse(JSON.stringify(results)); r['2026-11'].s2.entries.c.points = 14; r['2026-11'].s2.entries.c.wins = 2;
-  assert.match(run(body('night.js'), Object.assign({}, nightIn, { results_raw: JSON.stringify(r) })).text, /1\. Ana López \(16 pts\), 2\. Bruno Diaz \(14\), 3\. Carla Ruiz \(14\)\./);
+  assert.match(run(body('night.js'), Object.assign({}, nightIn, { results_raw: JSON.stringify(r) })).text, /:\n\n1\. Ana López \(16 pts\)\n2\. Bruno Diaz \(14\)\n3\. Carla Ruiz \(14\)\n\nSee the full/);
+});
+
+test('the short link: the text, the leaderboard page and the page that opens it work out the same code', () => {
+  const grab = (file, re) => { const m = re.exec(fs.readFileSync(__dirname + '/../docs/' + file, 'utf8')); assert.ok(m, 'shortCode found in ' + file); return new Function('return (' + m[1] + ')')(); };
+  const wrap = grab('wrap.js', /(function shortCode\(c, s\) \{[^\n]*\})\n/);
+  const store = grab('store.js', /shortCode: (function \(club, series\) \{[^\n]*\}),\n/);
+  [['lehi', 'kc-am-open-play'], ['tempe', 'asu-college-padel-nights'], ['lehi', 'tacotue']].forEach(([club, series]) => {
+    const link = run(body('night.js'), Object.assign({}, nightIn, { club: club, series: series })).text.split('share yours: ')[1];
+    assert.equal(link, 'go.playcnqr.com/socials?' + store(club, series));
+    assert.equal(wrap(club, series), store(club, series));
+    assert.match(store(club, series), /^[a-z0-9]{4}$/);
+  });
 });

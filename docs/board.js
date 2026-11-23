@@ -268,7 +268,7 @@
     st.busy = true;
     card.toBlob(function (blob) {
       st.busy = false;
-      var url = S.link('board', { s: id }), file = blob && typeof File === 'function' ? new File([blob], fileName(), { type: 'image/png' }) : null;
+      var url = S.short(id), file = blob && typeof File === 'function' ? new File([blob], fileName(), { type: 'image/png' }) : null;
       var done = function () {}, fail = function (err) { if (err && err.name !== 'AbortError') save(blob); };
       if (file && navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file], title: st.series.name || 'Leaderboard' }).then(done, fail);
       else if (navigator.share) navigator.share({ title: st.series.name || 'Leaderboard', text: shareText(), url: url }).then(done, fail);
@@ -282,7 +282,7 @@
     note('Picture saved. Share it from your photos.');
   }
   function copyLink() {
-    var url = S.link('board', { s: id });
+    var url = S.short(id);
     var ok = function () { note('Link copied.'); }, no = function () { note(url); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(ok, no); else no();
   }

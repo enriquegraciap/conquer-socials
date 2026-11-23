@@ -26,11 +26,14 @@ const st = /^(\d{1,2}):(\d{2})/.exec(best.d.start || ''), mins = st ? Number(st[
 const when = daytime ? (date === input.today ? 'today' : date === input.yesterday ? 'yesterday' : 'on ' + DAYS[dt.getUTCDay()])
   : date === input.today || (date === input.yesterday && Number(input.hour) < 4) ? 'tonight' : date === input.yesterday ? 'last night' : 'on ' + DAYS[dt.getUTCDay()];
 // (numbered 1, 2, 3 as they are listed, also when two are level on points: wins and games decide the order)
-const top = rows.slice(0, 3).map((r, i) => (i + 1) + '. ' + r.name + ' (' + (r.points || 0) + (i === 0 ? ' pts' : '') + ')').join(', ');
-const link = 'go.playcnqr.com/socials?' + (club === 'tempe' ? 'c=tempe&' : '') + 'v=board&s=' + encodeURIComponent(series);
+const top = rows.slice(0, 3).map((r, i) => (i + 1) + '. ' + r.name + ' (' + (r.points || 0) + (i === 0 ? ' pts' : '') + ')').join('\n');
+// The link is kept as short as it can be: the club's page and a four-character code that stands for this social
+// (worked out from its name the same way in wrap.js, which turns it back into the social's leaderboard).
+const shortCode = (c, s) => { const t = c + '/' + s; let h = 5381; for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return ('0000' + h.toString(36)).slice(-4); };
+const link = 'go.playcnqr.com/socials?' + shortCode(club, series);
 // (a social can have a fuller public name than the short one used in the app: Flyer and look, "Name on the leaderboard to share")
 const shared = parse(input.share_raw, {}), publicName = String((shared && shared.name) || '').replace(/\s+/g, ' ').trim() || title;
-const text = 'Conquer Padel: thanks for playing ' + publicName + ' ' + when + '! Congrats to our top ' + Math.min(3, rows.length) + ': ' + top + '. See the full results and the ' +
+const text = 'Conquer Padel: thanks for playing ' + publicName + ' ' + when + '! Congrats to our top ' + Math.min(3, rows.length) + ':\n\n' + top + '\n\nSee the full results and the ' +
   MONTHS[Number(best.m.slice(5, 7)) - 1] + ' leaderboard, and share yours: ' + link;
 // every player of the night (both players of a fixed pair), and what to look up in PlayByPoint: each full name, last
 // name and first name (a customer spelled another way is found through the name that is spelled the same)

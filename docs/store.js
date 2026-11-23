@@ -102,6 +102,14 @@
     // An address for OTHER people to open: players scanning the TV's QR code, an address read out or sent on.
     // Uses the public address from config.js when one is set. kind: 'admin', 'tv', 'player' or 'flyers'.
     link: function (kind, query) { return address(kind, query, !!pub); },
+    // The short link of a social's leaderboard, as texted to players: the first club's page and a four-character code
+    // that stands for the club and the social (wrap.js finds the social again from it).
+    shortCode: function (club, series) { var t = club + '/' + series, hh = 5381; for (var i = 0; i < t.length; i++) hh = ((hh * 33) ^ t.charCodeAt(i)) >>> 0; return ('0000' + hh.toString(36)).slice(-4); },
+    short: function (series) {
+      var first = String(cfg.publicURL || '').replace(/\/+$/, '');
+      if (params.get('db') || !first) return address('board', { s: series }, !!pub);
+      return first + '?' + this.shortCode(clubId || 'lehi', series);
+    },
     // An address for moving around on THIS device (buttons and links between the pages, staff QR codes). Stays on
     // the site the page was opened on, where this device's admin key is remembered.
     here: function (kind, query) { return address(kind, query, !!pub && framed); },

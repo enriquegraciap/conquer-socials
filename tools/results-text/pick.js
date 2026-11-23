@@ -9,7 +9,7 @@ String(input.pool || '').split('\n').forEach(line => {
   if (Array.isArray(j)) j = { customers: j };
   if (j && j.customer) j = { customers: [j.customer] };
   ((j && j.customers) || []).forEach(c => { if (!c || !c.id || byId[c.id]) return; byId[c.id] = true;
-    customers.push({ id: c.id, name: String(c.name || ((c.first_name || '') + ' ' + (c.last_name || ''))).replace(/\s+/g, ' ').trim(), phone: e164(c.phone), raw: String(c.phone || ''), email: String(c.email || '').trim().toLowerCase() }); });
+    customers.push({ id: c.id, first: String(c.first_name || '').trim(), last: String(c.last_name || '').trim(), name: String(c.name || ((c.first_name || '') + ' ' + (c.last_name || ''))).replace(/\s+/g, ' ').trim(), phone: e164(c.phone), raw: String(c.phone || ''), email: String(c.email || '').trim().toLowerCase() }); });
 });
 let names = []; try { names = Array.isArray(input.names_json) ? input.names_json : JSON.parse(input.names_json || '[]'); } catch (e) { names = []; }
 const out = matchPlayers(names, customers);
@@ -28,7 +28,7 @@ if (String(input.roster || '') === 'yes') {
     return false;
   });
 }
-const matched = out.matched.map(m => ({ name: m.name, phone: m.customer.phone, digits: m.customer.raw.replace(/\D/g, ''), email: m.customer.email, cname: m.customer.name, close: m.how === 'exact' ? '' : m.customer.name }));
+const matched = out.matched.map(m => ({ name: m.name, phone: m.customer.phone, digits: m.customer.raw.replace(/\D/g, ''), email: m.customer.email, cname: m.customer.name, cfirst: m.customer.first || '', clast: m.customer.last || '', close: m.how === 'exact' ? '' : m.customer.name }));
 const extra = String(input.extra || '').split('|'), xp = e164(extra[1]);
 if (xp && !matched.some(m => m.phone === xp)) matched.push({ name: (extra[0] || 'Extra').trim(), phone: xp, digits: xp.replace(/\D/g, ''), email: '', cname: '', close: '', extra: true });
 const safe = s => String(s || '').replace(/[|~"\\\n\r]/g, ' ').trim();

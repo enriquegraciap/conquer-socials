@@ -166,3 +166,27 @@ test('the text uses the social\'s public name when it has one', () => {
   assert.equal(t.public_name, "King's Court AM Open Play"); assert.equal(t.title, 'ASU College Padel Nights', 'the card keeps the short name');
   assert.match(run(body('night.js'), Object.assign({}, nightIn, { share_raw: 'null' })).text, /thanks for playing ASU College Padel Nights tonight!/);
 });
+
+test('a player who is in PlayByPoint but not in HighLevel is added there, then texted', () => {
+  const matched = [{ i: '1', name: 'Ana Lopez', phone: '+14805550101', digits: '14805550101', email: 'ana@x.com', cname: 'Ana Lopez', cfirst: 'Ana', clast: 'Lopez', close: '' },
+    { i: '2', name: 'Merlin Stone', phone: '+14805550102', digits: '14805550102', email: 'm@x.com', cname: 'Merlin Stone', cfirst: 'Merlin', clast: 'Stone', close: '' },
+    { i: '3', name: 'No Phone', phone: '', digits: '', email: '', cname: 'No Phone', close: '' }];
+  const ghl = [{ i: '1', a: { contact: { id: 'c1', phone: '+14805550101' } }, b: null, c: null }, { i: '2', a: {}, b: { contacts: [] }, c: { contacts: [] } }, { i: '3', a: {}, b: null, c: null }].map(x => JSON.stringify(x)).join('\n');
+  const base = { matched_json: JSON.stringify(matched), skipped_json: '[]', ghl: ghl, text: 'T', title: 'King\'s Court AM Open Play', club: 'lehi', nice_date: 'Monday, November 23', players: '3', key: 'k', location: 'LOC', seed: 'abcdefabcdefabcdefabcdefabcdef12' };
+  const plan = JSON.parse(run(matchSrc + '\n' + body('card.js'), Object.assign({ plan: '1' }, base)).creates);
+  assert.equal(plan.length, 2, 'one contact to add, and the harmless search that is always there');
+  assert.deepEqual([plan[0].i, plan[0].u], ['2', 'https://services.leadconnectorhq.com/contacts/']);
+  assert.deepEqual(JSON.parse(plan[0].b), { locationId: 'LOC', firstName: 'Merlin', lastName: 'Stone', phone: '+14805550102', tags: ['club-lehi', 'lehi-social-player'], source: 'Socials app: played King\'s Court AM Open Play', email: 'm@x.com' });
+  assert.match(plan[1].u, /contacts\/search$/);
+  assert.equal(JSON.parse(run(matchSrc + '\n' + body('card.js'), Object.assign({ plan: '1', dry: '1' }, base)).creates).length, 1, 'nobody is added on a dry run');
+  assert.equal(JSON.parse(run(matchSrc + '\n' + body('card.js'), Object.assign({ plan: '1', test: '1' }, base)).creates).length, 1, 'nor for a test card');
+  const created = [{ i: '2', r: { contact: { id: 'new1' } } }, { i: '0', r: { contacts: [] } }].map(x => JSON.stringify(x)).join('\n');
+  const c = run(matchSrc + '\n' + body('card.js'), Object.assign({ created: created }, base));
+  assert.deepEqual(JSON.parse(c.recipients_json).map(r => r.cid), ['c1', 'new1']);
+  assert.match(c.card_text, /ADDED TO HIGHLEVEL AS NEW CONTACTS \(1\)\nMerlin Stone/);
+  assert.match(c.card_text, /No Phone: not a contact in HighLevel/);
+  const dup = run(matchSrc + '\n' + body('card.js'), Object.assign({ created: JSON.stringify({ i: '2', r: { statusCode: 400, message: 'This location does not allow duplicated contacts.', meta: { contactId: 'old9' } } }) }, base));
+  assert.deepEqual(JSON.parse(dup.recipients_json).map(r => r.cid), ['c1', 'old9'], 'HighLevel already had this person under other details: that contact is used');
+  const bad = run(matchSrc + '\n' + body('card.js'), Object.assign({ created: JSON.stringify({ i: '2', r: { statusCode: 422, message: 'phone is invalid' } }) }, base));
+  assert.match(bad.card_text, /Merlin Stone: could not be added to HighLevel \(phone is invalid\)/);
+});

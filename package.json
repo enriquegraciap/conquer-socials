@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Padel socials: iPad admin page and TV display",
   "scripts": {
-    "test": "node --test test/engine.test.js test/individual.test.js test/wheel.test.js test/noadmin.test.js test/swap.test.js test/match.test.js",
+    "test": "node --test test/engine.test.js test/individual.test.js test/wheel.test.js test/noadmin.test.js test/swap.test.js test/match.test.js test/results-text.test.js",
     "simulate": "node test/simulate.js 14 8 2026",
     "stats": "node test/stats.js 300 14",
     "mock": "node tools/mock-server.js 8787 test-key",

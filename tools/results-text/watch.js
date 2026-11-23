@@ -1,9 +1,10 @@
 // Make code module "Is a night over?": looks at both clubs' saved results and decides whether a card is due.
 // A card is due once per night: as soon as the night was ended in the app, or, when nobody ended it, once no score
-// has changed for 45 minutes. Only nights dated today count (or yesterday, until 3am).
+// has changed for 30 minutes. Only nights dated today count (or yesterday, until 3am).
 // input: lehi_raw, tempe_raw (JSON of each club's results), state (JSON kept between runs), now_ms,
 //        l_today, l_yday, l_hour, t_today, t_yday, t_hour (each club's own date and hour)
-const QUIET_MIN = 45;
+// (the watcher runs every 15 minutes, a little unevenly: 28 makes sure the second run after a score counts as 30 minutes)
+const QUIET_MIN = 28;
 const parse = (s, d) => { if (s && typeof s === 'object') return s; try { const v = JSON.parse(s); return v === null || v === undefined ? d : v; } catch (e) { return d; } };
 const hash = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); };
 const now = Math.round(Number(input.now_ms) / 60000) || Math.round(Date.now() / 60000);

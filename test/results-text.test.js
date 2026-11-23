@@ -87,3 +87,28 @@ test('a test card texts only the extra person and is kept apart from the real ca
   assert.ok(/^TEST CARD \| RESULTS TEXT/.test(c.card_text));
   assert.ok(!/Ana Lopez/.test(c.card_text.split('WILL RECEIVE')[1]));
 });
+
+test('the watcher: a card is due once, when the night is ended or has gone quiet for 45 minutes', () => {
+  const night = (status, pts) => ({ soc: { '2026-11': { s1: { date: '2026-11-22', rounds: 3, status: status, entries: { a: { name: 'Ana Lopez', points: pts, played: 3 }, b: { name: 'Bruno Diaz', points: 2, played: 3 }, c: { name: 'Gone', points: 9, left: true } } } } } });
+  const at = (min, lehi, tempe, state, hour) => run(body('watch.js'), { lehi_raw: JSON.stringify(lehi || null), tempe_raw: JSON.stringify(tempe || null), state: state || '', now_ms: String(min * 60000),
+    l_today: '2026-11-22', l_yday: '2026-11-21', l_hour: hour || '21', t_today: '2026-11-22', t_yday: '2026-11-21', t_hour: hour || '21' });
+  let w = at(1000, night('live', 5));
+  assert.deepEqual([w.fire, w.changed, w.watching], ['0', '1', '1'], 'a live night is only watched');
+  let w2 = at(1015, night('live', 5), null, w.state);
+  assert.deepEqual([w2.fire, w2.changed], ['0', '0'], 'nothing new: nothing to save');
+  w2 = at(1030, night('live', 8), null, w.state);
+  assert.equal(w2.fire, '0'); assert.equal(w2.changed, '1', 'a new score restarts the wait');
+  let w3 = at(1074, night('live', 8), null, w2.state);
+  assert.equal(w3.fire, '0', '44 minutes is not yet quiet');
+  w3 = at(1075, night('live', 8), null, w2.state);
+  assert.deepEqual([w3.fire, w3.club, w3.series, w3.key], ['1', 'lehi', 'soc', 'lehi|soc|2026-11-22']);
+  assert.match(w3.why, /no score for 45 minutes/);
+  assert.equal(at(1090, night('ended', 8), null, w3.state).fire, '0', 'only one card per night');
+  const e = at(1000, null, night('ended', 5));
+  assert.deepEqual([e.fire, e.club, e.why], ['1', 'tempe', 'ended in the app'], 'ended in the app: at once');
+  const both = at(1000, night('ended', 5), night('ended', 5));
+  assert.equal(both.club, 'lehi'); assert.equal(at(1015, night('ended', 5), night('ended', 5), both.state).club, 'tempe', 'the second one goes on the next run');
+  assert.equal(run(body('watch.js'), { lehi_raw: JSON.stringify(night('ended', 5)), tempe_raw: 'null', state: '', now_ms: '60000000', l_today: '2026-11-23', l_yday: '2026-11-22', l_hour: '1', t_today: '2026-11-23', t_yday: '2026-11-22', t_hour: '1' }).fire, '1', 'just after midnight still counts');
+  assert.equal(run(body('watch.js'), { lehi_raw: JSON.stringify(night('ended', 5)), tempe_raw: 'null', state: '', now_ms: '60000000', l_today: '2026-11-23', l_yday: '2026-11-22', l_hour: '9', t_today: '2026-11-23', t_yday: '2026-11-22', t_hour: '9' }).fire, '0', 'the next morning it is too late');
+  assert.equal(at(1000, { soc: { '2026-11': { s1: { date: '2026-11-22', rounds: 0, status: 'ended', entries: { a: { name: 'A B' }, b: { name: 'C D' } } } } } }).watching, '0', 'a night with no round played is ignored');
+});

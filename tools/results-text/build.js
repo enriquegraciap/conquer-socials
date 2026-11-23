@@ -6,6 +6,7 @@
  * "Card": for one social (club + social id) finds the latest night, matches its players to PlayByPoint customers and
  * HighLevel contacts, and posts a card to the approvals chat on Telegram with Send and Skip buttons (links).
  * "Send": runs when a button is pressed; sends the text through HighLevel to the people on the card, once.
+ * "Watch": every 15 minutes looks at both clubs' saved results and starts "Card" for a night that is over (once per night).
  */
 const fs = require('fs');
 // (the code goes into the scenario without its comment lines, and the files are written in plain ASCII)
@@ -144,6 +145,38 @@ const send = { name: 'Conquer - Socials results text: Send / Skip buttons (Claud
       ] }
     ] }
   ] };
+// ---------------------------------------------------------------- the watcher
+// Runs on a timer. Most runs cost two steps: it reads each club's results and stops unless one of them holds a night
+// dated today (or yesterday, before 3am). Otherwise it works out whether a card is due (watch.js) and, if so and no
+// card exists for that night yet, starts the card scenario for it.
+at = 0;
+const ZONE = { l: 'America/Denver', t: 'America/Phoenix' };
+const day = (z, back) => '{{formatDate(' + (back ? 'addDays(now; -1)' : 'now') + '; "YYYY-MM-DD"; "' + ZONE[z] + '")}}', hourOf = z => '{{formatDate(now; "H"; "' + ZONE[z] + '")}}';
+const dated = (id, z, back) => ({ a: '{{toString(' + id + '.data)}}', b: '"date":"' + day(z, back) + '"', o: 'text:contain' }), early = z => ({ a: hourOf(z), b: '3', o: 'number:less' });
+const nowStamp = '{{formatDate(now; "YYYY-MM-DD HH:mm"; "America/Denver")}}';
+const watch = { name: 'Conquer - Socials results text: watcher, makes the card when a night is over (Claude)', metadata: meta(false), interface: { input: [], output: [] },
+  flow: [
+    http(1, 'Lehi results', { url: DB + '/pub/results.json', parse: false }),
+    http(2, 'Tempe results', { url: DB + '/tempe/results.json', parse: false }),
+    { id: 3, module: 'datastore:GetRecord', version: 1, mapper: { key: 'watch-state', returnWrapped: false }, parameters: { datastore: STORE }, metadata: pos('What was seen last time'),
+      filter: { name: 'A night dated today (or yesterday, before 3am)', conditions: [[dated(1, 'l')], [dated(1, 'l', true), early('l')], [dated(2, 't')], [dated(2, 't', true), early('t')]] } },
+    code(4, 'Is a night over?', here('watch.js'), { lehi_raw: '{{toString(1.data)}}', tempe_raw: '{{toString(2.data)}}', state: '{{3.text}}', now_ms: '{{formatDate(now; "x")}}',
+      l_today: day('l'), l_yday: day('l', true), l_hour: hourOf('l'), t_today: day('t'), t_yday: day('t', true), t_hour: hourOf('t') }),
+    { id: 5, module: 'builtin:BasicRouter', version: 1, mapper: null, metadata: pos('What to do'), routes: [
+      { flow: [{ id: 10, module: 'datastore:AddRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Remember what was seen'), filter: { name: 'Something changed', conditions: [[is('{{4.result.changed}}', '1')]] },
+        mapper: { key: 'watch-state', overwrite: true, data: { status: 'state', text: '{{4.result.state}}', count: '{{4.result.watching}}', created: nowStamp } } }] },
+      { flow: [
+        { id: 20, module: 'datastore:GetRecord', version: 1, mapper: { key: '{{4.result.key}}', returnWrapped: false }, parameters: { datastore: STORE }, metadata: pos('Is there a card for this night already?'),
+          filter: { name: 'A card is due', conditions: [[is('{{4.result.fire}}', '1')]] } },
+        // (Make's own "call a scenario" step: no API key involved; it does not wait for the card to be made)
+        { id: 22, module: 'scenario-service:CallSubscenario', version: 2, parameters: { scenario: 'SCN_' + CFG.scenarios.card, shouldWaitForExecutionEnd: false }, metadata: pos('Start the card scenario'),
+          filter: { name: 'No card yet', conditions: [[{ a: '{{20.status}}', o: 'notexist' }]] }, mapper: { data: { club: '{{4.result.club}}', series: '{{4.result.series}}' } } },
+        { id: 23, module: 'datastore:AddRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Note that it was started'),
+          mapper: { key: 'auto-{{4.result.key}}', overwrite: true, data: { status: 'auto', club: '{{4.result.club}}', series: '{{4.result.series}}', created: nowStamp, result: '{{4.result.why}}; card scenario started' } } }
+      ] }
+    ] }
+  ] };
 fs.writeFileSync(PRIVATE + 'results-text-card.blueprint.json', ascii(clean(card)));
 fs.writeFileSync(PRIVATE + 'results-text-send.blueprint.json', ascii(clean(send)));
-console.log('card', JSON.stringify(clean(card)).length, 'chars; send', JSON.stringify(clean(send)).length, 'chars');
+fs.writeFileSync(PRIVATE + 'results-text-watch.blueprint.json', ascii(clean(watch)));
+console.log('card', JSON.stringify(clean(card)).length, 'chars; send', JSON.stringify(clean(send)).length, 'chars; watch', JSON.stringify(clean(watch)).length, 'chars');

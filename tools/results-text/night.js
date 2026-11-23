@@ -36,5 +36,5 @@ rows.forEach(r => (Array.isArray(r.players) && r.players.length ? r.players : [r
 const plain = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 const q = {}, queries = [];
 names.forEach(n => { const p = plain(n), t = p.split(' '); if (t.length < 2) return; [p, t[t.length - 1], t[0]].forEach(x => { if (x.length >= 3 && !q[x.toLowerCase()]) { q[x.toLowerCase()] = true; queries.push(x); } }); });
-return { ok: queries.length ? 'yes' : 'no', reason: queries.length ? '' : 'no player has a first and a last name', queries: queries.join('|'), names_json: JSON.stringify(names), text: text,
+return { ok: 'yes', reason: '', start: String(best.d.start || ''), queries: queries.join('|'), names_json: JSON.stringify(names), text: text,
   key: club + '|' + series + '|' + date + (String(input.test || '') === '1' ? '|test' : ''), night: date, title: title, players: String(names.length), nice_date: DAYS[dt.getUTCDay()] + ', ' + MONTHS[dt.getUTCMonth()] + ' ' + dt.getUTCDate() };

@@ -122,3 +122,40 @@ test('the text says today for a daytime social and tonight for an evening one', 
   assert.match(run(body('night.js'), Object.assign(withStart('09:00'), { today: '2026-11-23', yesterday: '2026-11-22', hour: '9' })).text, /Nights yesterday!/);
   assert.match(run(body('night.js'), Object.assign(withStart('09:00'), { today: '2026-11-25', yesterday: '2026-11-24', hour: '9' })).text, /Nights on Sunday!/);
 });
+
+test('the day\'s PlayByPoint roster: which program, which session, who was signed up, and the looser match within it', () => {
+  const promo = { lehi: { items: [
+    { program: 'kc-monday', name: 'King%27s%20Court%20Monday%20Open%20Play', date: '2026-11-23', start: '06:30', end: '08:30' },
+    { program: 'evening-open', name: 'Evening%20Open%20Play', date: '2026-11-23', start: '19:00', end: '21:00' },
+    { program: 'kc-monday', name: 'King%27s%20Court%20Monday%20Open%20Play', date: '2026-11-30', start: '06:30', end: '08:30' }] } };
+  const which = o => run(body('which.js'), Object.assign({ pbp_raw: 'null', promo_raw: JSON.stringify(promo), date: '2026-11-23', start: '06:17', title: 'KC AM Open Play' }, o));
+  assert.equal(which({}).program, 'kc-monday', 'the session that was on when the social started (it may start a little early)');
+  assert.equal(which({ start: '19:05' }).program, 'evening-open');
+  assert.equal(which({ start: '13:00' }).program, '', 'nothing on at that time');
+  assert.equal(which({ start: '', title: 'Evening open' }).program, 'evening-open', 'no start time: by the name');
+  assert.equal(which({ start: '', title: 'Something else' }).program, '');
+  assert.equal(which({ pbp_raw: '"my-program"', start: '13:00' }).program, 'my-program', 'the social\'s own setting wins');
+  assert.equal(which({ date: '2026-11-24' }).program, '');
+
+  const sessions = { sessions: [{ id: 'S1', date: '2026-11-23', start_time: '06:30' }, { id: 'S2', date: '2026-11-30', start_time: '06:30' }] };
+  const enr = { enrollments: [{ customer_id: 'c1', session_ids: ['S1'] }, { customer_id: 'c1', session_ids: ['S2'] }, { customer_id: 'c2', session_ids: ['S1'] }, { customer_id: 'c3', session_ids: ['S2'] }, { customer_id: 'guest', session_ids: ['S1'] }], next_cursor: null };
+  const ros = o => run(body('roster.js'), Object.assign({ program: 'kc-monday', why: '', sess_a: JSON.stringify(sessions), sess_b: sessions, e1: enr, e2: { status: 422 }, e3: '', e4: null, date: '2026-11-23', start: '06:17', queries: 'Ana Lopez|Lopez|Ana' }, o));
+  let r = ros({});
+  assert.deepEqual([r.roster, r.paths, r.count], ['yes', 'customers/c1|customers/c2|customers/guest', '3']);
+  assert.match(r.note, /roster of the 06:30 session that day \(3 signed up\)/);
+  r = ros({ program: '' });
+  assert.equal(r.roster, 'no'); assert.equal(r.paths, 'customers?q=Ana%20Lopez&limit=100|customers?q=Lopez&limit=100|customers?q=Ana&limit=100');
+  assert.match(r.note, /looked up among all/);
+  assert.equal(ros({ date: '2026-11-25' }).roster, 'no', 'no session that day: the old search');
+  assert.equal(ros({ queries: '' }).roster, 'yes');
+  assert.equal(ros({ program: '', queries: '' }).paths, 'customers?q=zzzz-nobody&limit=1', 'never an empty list');
+
+  // the roster as the pool: exact, a spelling variant, a unique first name; the phone-less guest account is never guessed
+  const pool = [{ customer: { id: 'c1', name: 'Jon Michael Ossola', phone: '4805550101', email: 'j@x.com' } }, { customer: { id: 'c2', name: 'J. Rod Rojas', phone: '(480) 555-0102' } },
+    { customer: { id: 'c4', name: 'Alexander Stone', phone: '4805550104' } }, { customer: { id: 'guest', name: 'Conquer Padel Lehi Guest', phone: null } }].map(x => JSON.stringify(x)).join('\n');
+  const pick = roster => run(matchSrc + '\n' + body('pick.js'), { names_json: JSON.stringify(['Jon Michael Osola', 'J. Rod Rojas', 'Alex', 'Rodrigo Stone', "John's Friend"]), pool: pool, extra: '', roster: roster });
+  const p = pick('yes'), m = JSON.parse(p.matched_json), sk = JSON.parse(p.skipped_json);
+  assert.deepEqual(m.map(x => x.name + '=' + x.cname), ['Jon Michael Osola=Jon Michael Ossola', 'J. Rod Rojas=J. Rod Rojas', 'Rodrigo Stone=Alexander Stone']);
+  assert.deepEqual(sk.map(x => x.name + ': ' + x.why), ['Alex: not on the PlayByPoint roster of this session', "John's Friend: not on the PlayByPoint roster of this session"]);
+  assert.equal(JSON.parse(pick('no').matched_json).length, 2, 'outside a roster the loose match is not used');
+});

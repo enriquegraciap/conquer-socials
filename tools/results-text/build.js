@@ -33,17 +33,31 @@ const clean = o => JSON.parse(JSON.stringify(o));
 const is = (a, b) => ({ a: a, b: b, o: 'text:equal' }), not = (a, b) => ({ a: a, b: b, o: 'text:notequal' });
 const meta = instant => ({ instant: !!instant, version: 1, scenario: { dlq: false, slots: null, dataloss: false, maxErrors: 3, autoCommit: true, roundtrips: 1, sequential: false, confidential: false, freshVariables: false, autoCommitTriggerLast: true } });
 const matchSrc = here('match.js').replace(/if \(typeof module[\s\S]*$/, '').replace(/^'use strict';\n/, '');   // (the same name matching goes into two of the code steps)
+const PROGRAM = 'https://api.playbypoint.com/v1/programs/{{ifempty(52.result.program; "none")}}';
+const pbp = (id, name, url, parsed) => http(id, name, { url: url, parse: !!parsed, headers: [{ name: 'Authorization', value: 'Bearer {{1.pbp_key}}' }, { name: 'Accept', value: 'application/json' }, { name: 'X-PBP-Facility-Id', value: FACILITY }] });
 const bearer = (field, extra) => [{ name: 'Authorization', value: 'Bearer {{1.' + field + '}}' }, { name: 'Accept', value: 'application/json' }].concat(extra || []);
 
 // (an answer that is not read as JSON arrives as raw bytes: toString() makes it text before it goes into the code)
 // ---------------------------------------------------------------- the card
 at = 0;
 const REST_OF = () => [
-    { id: 5, module: 'builtin:BasicFeeder', version: 1, parameters: {}, metadata: pos('Each name to look up'), mapper: { array: '{{split(4.result.queries; "|")}}' },
-      filter: { name: 'There is a night with players', conditions: [[is('{{4.result.ok}}', 'yes')]] } },
-    http(6, 'PlayByPoint customers', { url: 'https://api.playbypoint.com/v1/customers?q={{encodeURL(5.value)}}&limit=100', parse: false, headers: bearer('pbp_key', [{ name: 'X-PBP-Facility-Id', value: FACILITY }]) }),
+    // The day's own PlayByPoint roster first (standing rule): which program the social is, its session that day, who was
+    // signed up. A step that has nothing to ask still runs (it asks for a program called "none"), so the flow never stops.
+    Object.assign(http(50, 'The club\'s PlayByPoint schedule', { url: DB + '/' + ROOT + '/promo.json', parse: false }), { filter: { name: 'There is a night with players', conditions: [[is('{{4.result.ok}}', 'yes')]] } }),
+    http(51, 'The social\'s own PlayByPoint program, if set', { url: DB + '/' + ROOT + '/series/{{encodeURL(var.input.series)}}/pbp.json', parse: false }),
+    code(52, 'Which PlayByPoint program', here('which.js'), { pbp_raw: '{{toString(51.data)}}', promo_raw: '{{toString(50.data)}}', date: '{{4.result.night}}', start: '{{4.result.start}}', title: '{{4.result.title}}' }),
+    pbp(53, 'Its sessions, oldest first', PROGRAM + '/sessions?limit=100'),
+    pbp(54, 'Its sessions, newest first', PROGRAM + '/sessions?limit=100&sort=-date'),
+    pbp(55, 'Who is enrolled (page 1)', PROGRAM + '/enrollments?limit=100', true),
+    pbp(56, 'Who is enrolled (page 2)', PROGRAM + '/enrollments?limit=100&cursor={{ifempty(55.data.next_cursor; "none")}}', true),
+    pbp(57, 'Who is enrolled (page 3)', PROGRAM + '/enrollments?limit=100&cursor={{ifempty(56.data.next_cursor; "none")}}', true),
+    pbp(58, 'Who is enrolled (page 4)', PROGRAM + '/enrollments?limit=100&cursor={{ifempty(57.data.next_cursor; "none")}}', true),
+    code(60, 'The day\'s roster', here('roster.js'), { program: '{{52.result.program}}', why: '{{52.result.why}}', sess_a: '{{toString(53.data)}}', sess_b: '{{toString(54.data)}}',
+      e1: '{{55.data}}', e2: '{{56.data}}', e3: '{{57.data}}', e4: '{{58.data}}', date: '{{4.result.night}}', start: '{{4.result.start}}', queries: '{{4.result.queries}}' }),
+    { id: 5, module: 'builtin:BasicFeeder', version: 1, parameters: {}, metadata: pos('Each customer to fetch'), mapper: { array: '{{split(60.result.paths; "|")}}' } },
+    http(6, 'PlayByPoint customers', { url: 'https://api.playbypoint.com/v1/{{5.value}}', parse: false, headers: bearer('pbp_key', [{ name: 'X-PBP-Facility-Id', value: FACILITY }]) }),
     { id: 7, module: 'util:TextAggregator', version: 1, parameters: { feeder: 5, rowSeparator: '\n' }, metadata: pos('All answers'), mapper: { value: '{{toString(6.data)}}' } },
-    code(8, 'Who is who', matchSrc + '\n' + here('pick.js'), { names_json: '{{4.result.names_json}}', pool: '{{7.text}}', extra: '{{var.input.extra}}' }),
+    code(8, 'Who is who', matchSrc + '\n' + here('pick.js'), { names_json: '{{4.result.names_json}}', pool: '{{7.text}}', extra: '{{var.input.extra}}', roster: '{{60.result.roster}}' }),
     { id: 9, module: 'builtin:BasicFeeder', version: 1, parameters: {}, metadata: pos('Each matched player'), mapper: { array: '{{split(8.result.lookups; "|")}}' } },
     http(10, 'HighLevel: by phone', { url: GHL + '/contacts/search/duplicate?locationId=' + LOCATION + '&number={{encodeURL(get(split(9.value; "~"); 2))}}', parse: false, headers: bearer('ghl_pit', [{ name: 'Version', value: '2021-07-28' }]) }),
     http(16, 'HighLevel: by email', { url: GHL + '/contacts/search', method: 'post', parse: false, data: '{"locationId":"' + LOCATION + '","pageLimit":5,"query":"{{get(split(9.value; "~"); 3)}}"}',
@@ -52,7 +66,7 @@ const REST_OF = () => [
       headers: bearer('ghl_pit', [{ name: 'Version', value: '2021-07-28' }, { name: 'Content-Type', value: 'application/json' }]) }),
     { id: 11, module: 'util:TextAggregator', version: 1, parameters: { feeder: 9, rowSeparator: '\n' }, metadata: pos('All contacts'), mapper: { value: '{"i":"{{get(split(9.value; "~"); 1)}}","a":{{ifempty(toString(10.data); "null")}},"b":{{ifempty(toString(16.data); "null")}},"c":{{ifempty(toString(17.data); "null")}}}' } },
     code(12, 'The card', matchSrc + '\n' + here('card.js'), { matched_json: '{{8.result.matched_json}}', skipped_json: '{{8.result.skipped_json}}', ghl: '{{11.text}}', text: '{{4.result.text}}', title: '{{4.result.title}}',
-      club: '{{var.input.club}}', nice_date: '{{4.result.nice_date}}', players: '{{4.result.players}}', key: '{{4.result.key}}', dry: '{{var.input.dry}}', test: '{{var.input.test}}',
+      club: '{{var.input.club}}', nice_date: '{{4.result.nice_date}}', players: '{{4.result.players}}', key: '{{4.result.key}}', dry: '{{var.input.dry}}', test: '{{var.input.test}}', roster_note: '{{60.result.note}}',
       from: '{{if(var.input.club = "tempe"; "' + CFG.from.tempe + '"; "' + CFG.from.lehi + '")}}', seed: '{{uuid}}' }),
     { id: 20, module: 'datastore:GetRecord', version: 1, mapper: { key: '{{4.result.key}}', returnWrapped: false }, parameters: { datastore: STORE }, metadata: pos('Already a card for this night?') },
     { id: 13, module: 'datastore:AddRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Keep it until a button is pressed'),

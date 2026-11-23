@@ -1,0 +1,25 @@
+// Make code module "The day's roster": from the program's sessions and enrollments in PlayByPoint, who was signed
+// up for the session on the social's day. Gives back what to fetch next (paths, joined by |): one customer per
+// person on the roster, or, when there is no roster to go by, the old search by name among all customers.
+// input: program, sess_a, sess_b (two readings of the program's sessions: oldest first, newest first),
+//        e1..e4 (pages of the program's enrollments), date, start, queries (names to search for, joined by |)
+const parse = (s, d) => { if (s && typeof s === 'object' && !(s.type === 'Buffer')) return s; if (s && s.type === 'Buffer' && s.data) s = Buffer.from(s.data).toString('utf8'); try { const v = JSON.parse(s); return v === null || v === undefined ? d : v; } catch (e) { return d; } };
+const mins = t => { const m = /^(\d{1,2}):(\d{2})/.exec(String(t || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : -1; };
+const search = why => {
+  const q = String(input.queries || '').split('|').filter(Boolean).map(x => 'customers?q=' + encodeURIComponent(x) + '&limit=100');
+  return { roster: 'no', paths: (q.length ? q : ['customers?q=zzzz-nobody&limit=1']).join('|'), count: '0', note: why + ': the names were looked up among all of the club\'s PlayByPoint customers.' };
+};
+if (!input.program) return search('No PlayByPoint session was found for this social (' + (input.why || 'not in the schedule') + ')');
+const seen = {}, sessions = [];
+[input.sess_a, input.sess_b].forEach(r => ((parse(r, {}) || {}).sessions || []).forEach(s => { if (s && s.id && !seen[s.id] && s.date === input.date) { seen[s.id] = true; sessions.push(s); } }));
+if (!sessions.length) return search('PlayByPoint has no session of "' + input.program + '" on that day');
+const at = mins(input.start);
+sessions.sort((a, b) => at >= 0 ? Math.abs(mins(a.start_time) - at) - Math.abs(mins(b.start_time) - at) : 0);
+const session = sessions[0], ids = [], got = {};
+[input.e1, input.e2, input.e3, input.e4].forEach(r => ((parse(r, {}) || {}).enrollments || []).forEach(e => {
+  if (!e || !e.customer_id || got[e.customer_id] || (e.session_ids || []).indexOf(session.id) < 0) return;
+  got[e.customer_id] = true; ids.push(e.customer_id);
+}));
+if (!ids.length) return search('Nobody is signed up in PlayByPoint for the ' + session.start_time + ' session');
+return { roster: 'yes', paths: ids.map(id => 'customers/' + id).join('|'), count: String(ids.length),
+  note: 'Matched with the PlayByPoint roster of the ' + session.start_time + ' session that day (' + ids.length + ' signed up).' };

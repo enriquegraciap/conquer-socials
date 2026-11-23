@@ -2,7 +2,7 @@
 // takes texts), and the Telegram card.
 // input: matched_json, skipped_json, ghl (one line per matched player: {"i": number, "a": HighLevel's answer for the phone,
 // "b": its answer for the email, "c": its answer for the name}), text, title, club, nice_date, players, key, dry,
-// from (the club's own number the text goes out from), seed (a random id)
+// from (the club's own number the text goes out from), seed (a random id), roster_note (where the names were looked up)
 const parse = (s, d) => { if (s && typeof s === 'object') return s; try { return JSON.parse(s); } catch (e) { return d; } };
 const matched = parse(input.matched_json, []), skipped = parse(input.skipped_json, []), answers = {};
 String(input.ghl || '').split('\n').forEach(line => { const j = parse(line, null); if (j && j.i) answers[j.i] = j; });
@@ -51,6 +51,7 @@ if (token.length < 24) for (let i = 0; i < 28; i++) token += 'abcdefghijkmnpqrst
 const lines = [(test ? 'TEST CARD | ' : '') + 'RESULTS TEXT | ' + input.title + ' (' + Club + ') | ' + input.nice_date,
   test ? 'Test only: Send texts ' + (extras.map(r => r.name).join(', ') || 'nobody') + ' and no player.' : 'Send goes to ' + players.length + ' of ' + input.players + ' players' + (extras.length ? ', plus ' + extras.map(r => r.name).join(', ') : '') + '. Nothing is sent until you press Send.',
   '', 'TEXT', input.text, '', 'WILL RECEIVE (' + (test ? extras : players).length + ')', (test ? extras : players).map(r => r.name).join(', ') || 'nobody'];
+if (input.roster_note) lines.splice(2, 0, String(input.roster_note));
 if (close.length) lines.push('', 'MATCHED BY A SIMILAR NAME, PLEASE CHECK (' + close.length + ')', close.join('\n'));
 if (skipped.length && !test) lines.push('', 'NOT SENT (' + skipped.length + ')', skipped.map(s => s.name + ': ' + s.why).join('\n'));
 const cardText = lines.join('\n').slice(0, 3900);

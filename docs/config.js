@@ -13,9 +13,10 @@ window.SOCIALS_CONFIG = {
   // Other clubs. Each has its own pages (a folder of this site), its own part of the database with its own admin
   // key, and nothing in common with the first club: its events, TVs, flyers, leaderboards and ratings are its own.
   //   root: where its data lives in the database      dir: its folder on this site
-  //   publicURL: the address its players see (a page on the club's site that loads <dir>wrap.js); empty = this site
+  //   publicURL: the address its players see: the first club's page with ?c=<club> (wrap.js then shows this club's
+  //              pages), or a page of its own on the club's site that loads <dir>wrap.js; empty = this site
   //   formats: the formats offered when an event is created there      courts: how many courts the club has
   clubs: {
-    tempe: { name: 'Tempe', root: 'tempe', dir: 'tempe/', publicURL: '', formats: ['kings-fixed', 'kings-individual'], courts: 5 }
+    tempe: { name: 'Tempe', root: 'tempe', dir: 'tempe/', publicURL: 'https://go.playcnqr.com/socials?c=tempe', formats: ['kings-fixed', 'kings-individual'], courts: 5 }
   }
 };

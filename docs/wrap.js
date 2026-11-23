@@ -3,6 +3,7 @@
  * address people see is that site's. Put one line on that page:
  *     <script src="https://.../conquer-socials/wrap.js"></script>
  * The page's address chooses what is shown:   (nothing) = admin,   ?v=tv = TV screen,   ?v=p = players' phones,   ?v=flyers = club flyers,   ?v=learn = intro to padel,   ?v=board = a social's leaderboard to share.
+ * ?c=<club> shows another club's pages from the same page (?c=tempe), so every club has a short address.
  * Everything else in the address (?s=..., ?tv=...) is passed through.
  */
 (function () {
@@ -14,13 +15,15 @@
     if (document.getElementById('cq-socials')) return;
     var q = new URLSearchParams(location.search), v = (q.get('v') || '').toLowerCase();
     q.delete('v');
+    var c = (q.get('c') || '').toLowerCase(), club = /^[a-z0-9-]{1,30}$/.test(c) && app.slice(-c.length - 2) !== '/' + c + '/' ? c + '/' : '';
+    q.delete('c');
     var qs = q.toString();
     var frame = document.createElement('iframe');
     frame.id = 'cq-socials';
     frame.title = 'Conquer Padel socials';
     frame.setAttribute('allow', 'fullscreen; screen-wake-lock; microphone; web-share; clipboard-write');
     frame.setAttribute('allowfullscreen', '');
-    frame.src = app + (v === 'tv' ? 'tv/' : v === 'p' ? 'p/' : v === 'flyers' ? 'flyers/' : v === 'learn' ? 'learn/' : v === 'board' ? 'board/' : '') + (qs ? '?' + qs : '') + location.hash;
+    frame.src = app + club + (v === 'tv' ? 'tv/' : v === 'p' ? 'p/' : v === 'flyers' ? 'flyers/' : v === 'learn' ? 'learn/' : v === 'board' ? 'board/' : '') + (qs ? '?' + qs : '') + location.hash;
     frame.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;border:0;z-index:2147483000;background:#071a30';
     document.body.appendChild(frame);
     document.documentElement.style.overflow = 'hidden';

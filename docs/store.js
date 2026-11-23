@@ -51,7 +51,7 @@
     if (viaPublic && kind === 'board') parts.push('v=board');
     Object.keys(query || {}).forEach(function (k) { parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(query[k])); });
     var qs = parts.length ? '?' + parts.join('&') : '';
-    if (viaPublic) return pub + qs;
+    if (viaPublic) return pub.indexOf('?') >= 0 ? pub + (qs ? '&' + qs.slice(1) : '') : pub + qs;      // (a club's address may carry ?c=<club> already)
     return home + clubDir + (kind === 'tv' ? 'tv/' : kind === 'player' ? 'p/' : kind === 'flyers' ? 'flyers/' : kind === 'learn' ? 'learn/' : kind === 'board' ? 'board/' : '') + qs;
   }
 

@@ -756,8 +756,9 @@
     ]);
   }
   function board(title, sub, rows, count, empty) {
-    // a long list goes in two columns; on a portrait screen the boards are half as wide, so a single column goes on longer
-    var two = rows.length > (window.innerHeight > window.innerWidth ? 24 : 16);
+    // a long list goes in two columns. On a portrait screen the two boards stand side by side: a long one then gets
+    // two thirds of the width (CSS: .tvboard.wide), which is room for its two columns.
+    var two = rows.length > 16;
     var list = h('div', 'tvrows' + (two ? ' two' : ''), rows.map(function (r) {
       // gold, silver and bronze for places 1 to 3 once there are points; teams level on points share a medal
       var medal = r.points > 0 && r.rank <= 3 ? MEDALS[r.rank - 1] : '';
@@ -765,7 +766,7 @@
     }));
     if (two) list.style.gridTemplateRows = 'repeat(' + Math.ceil(rows.length / 2) + ', minmax(0, 1fr))';
     list.setAttribute('data-per', String(two ? Math.ceil(rows.length / 2) : Math.max(rows.length, 1)));
-    var box = h('div', 'tvboard', [h('h2', null, [title, h('small', null, sub)]), rows.length ? list : h('div', 'tvempty', empty)]);
+    var box = h('div', 'tvboard' + (two ? ' wide' : ''), [h('h2', null, [title, h('small', null, sub)]), rows.length ? list : h('div', 'tvempty', empty)]);
     box.style.flexGrow = String(Math.max(two ? Math.ceil(count / 2) : count, 4) + 1.6);
     return box;
   }
@@ -789,6 +790,24 @@
       };
       for (var w = tight(); w < 1 && size > floor && guard++ < 8; w = tight()) { size = Math.max(floor, size * Math.max(w, 0.8) * 0.985); list.style.fontSize = size + 'px'; }
     });
+    // The check-in list before the night starts: however many names there are, they all fit under the heading.
+    // Tried in two, three and four columns; the arrangement that allows the largest letters wins.
+    var names = document.querySelector('.tvbig .teams');
+    if (names && names.children.length) {
+      var box = names.parentNode, ttl = box.querySelector('.ttl'), count = names.children.length, best = null;
+      var room = box.clientHeight - (ttl ? ttl.offsetHeight : 0) - 2.4 * vh;
+      [2, 3, 4].forEach(function (cols) {
+        if (cols > 2 && count <= cols * 4) return;
+        var rows = Math.ceil(count / cols), size = Math.min(4.2 * vh, room / rows / 1.5), guard = 0;
+        names.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+        var set = function () { names.style.fontSize = size + 'px'; names.style.rowGap = (size * 0.22) + 'px'; };
+        var cut = function () { return names.offsetHeight > room + 1 || Array.prototype.some.call(names.children, function (el) { return el.scrollWidth > el.clientWidth + 1; }); };
+        for (set(); cut() && size > 1.5 * vh && guard++ < 40; set()) size *= 0.95;
+        if (!best || size > best.size * 1.04) best = { cols: cols, size: size };
+      });
+      names.style.gridTemplateColumns = 'repeat(' + best.cols + ', minmax(0, 1fr))';
+      names.style.fontSize = best.size + 'px'; names.style.rowGap = (best.size * 0.22) + 'px';
+    }
     Array.prototype.forEach.call(document.querySelectorAll('.tvcourt'), function (c) {
       var hgt = c.clientHeight;
       var tm = Math.min(hgt * 0.46, 5.6 * vh);

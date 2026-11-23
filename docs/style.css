@@ -320,7 +320,7 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .tvrow .pt { font-weight: 700; font-variant-numeric: tabular-nums; }
 .tvrow.lead .nm, .tvrow.lead .pt { color: var(--gold); }
 .tvempty { color: #a9c3e0; font-family: var(--display); font-size: 2.8vmin; padding: 1vmin 0; }
-.tvbig { display: flex; flex-direction: column; justify-content: center; gap: 2vmin; min-height: 0; }
+.tvbig { display: flex; flex-direction: column; justify-content: center; gap: 2vmin; min-height: 0; overflow: hidden; }
 .tvbig .ttl { font-family: var(--display); font-size: 7vmin; font-weight: 700; text-transform: uppercase; }
 .tvbig .teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1vmin 2vw; font-family: var(--display); font-size: 4.2vmin; }
 .tvbig .teams div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: .12vmin solid rgba(255,255,255,.18); padding-bottom: .4vmin; }
@@ -675,13 +675,15 @@ body.tv.themed .inter { background: var(--t-bg); }
   body.tv .tvleft.nofoot { grid-template-rows: auto minmax(0, 1fr); }      /* tv.js moves the sign and QR code to the foot of the screen */
   body.tv .tvrow .nm { white-space: normal; line-height: 1.06; }
   body.tv .tvsit.sign .line .who { max-height: 3.75em; overflow-wrap: normal; }      /* a name is never cut in two: the text gets smaller instead */
-  body.tv .tvbig .teams { font-size: 3.3vmin; }
+
   body.tv .podium div { font-size: 4.2vmin; }
   body.tv .podium div:first-child { font-size: 4.5vmin; }
   body.tv.hasbtn .tvroot { padding-bottom: 9.4vmin; }
   body.tv .tvleft, body.tv.hasbtn .tvleft { padding-bottom: 0; }
   body.tv .tvright { flex-direction: row; gap: 2.2vw; }
   body.tv .tvright .tvboard { flex: 1 1 0 !important; min-width: 0; padding: 1.4vmin 2vw 1.2vmin; }
+  body.tv .tvright .tvboard.wide { flex: 2 1 0 !important; }      /* a long list in two columns gets two thirds of the width */
+  body.tv .tvright .tvboard.wide + .tvboard.wide, body.tv .tvright .tvboard.wide:first-child:last-child { flex: 1 1 0 !important; }
   body.tv .tvcourt { grid-template-columns: 17vw minmax(0, 1fr) auto minmax(0, 1fr); gap: 2.2vw; padding-right: 2.6vw; }
   body.tv .tvcourt .mid { min-width: 8vw; }
   body.tv .tvbottom { gap: 2.2vw; }

@@ -299,7 +299,7 @@ body.tv { background: var(--night); color: #fff; overflow: hidden; height: 100vh
 .tvsit.sign .line .det .when { color: var(--gold); }
 .tvsit.sign .line .det .spots { margin-left: 1.2em; padding: 0 .5em; border-radius: .3em; background: rgba(255,255,255,.14); color: #fff; font-size: .82em; letter-spacing: .05em; text-transform: uppercase; }
 .tvsit.sign .line .det .spots.full { background: rgba(244,182,63,.25); color: var(--gold); }
-.tvsit.sign .line .who { font-size: 4.2vmin; font-weight: 500; line-height: 1.22; max-height: 2.5em; overflow: hidden; overflow-wrap: break-word; }
+.tvsit.sign .line .who { font-size: 4.2vmin; font-weight: 500; line-height: 1.22; max-height: 10.6vmin; overflow: hidden; overflow-wrap: break-word; }      /* a fixed height: smaller letters give more lines */
 @media (prefers-reduced-motion: reduce) { .tvsit.sign .line.swap { animation: none; } }
 /* WPR Social rating after a name on the leaderboards: plain green figures, the green of a court whose score is
    in, a little brighter so it reads on the dark board. No rating: (NR) in a darker blue. */
@@ -674,7 +674,7 @@ body.tv.themed .inter { background: var(--t-bg); }
   body.tv .tvroot { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr) auto; gap: 2vmin; padding: 2.2vmin 2.6vw 6.2vmin; }
   body.tv .tvleft.nofoot { grid-template-rows: auto minmax(0, 1fr); }      /* tv.js moves the sign and QR code to the foot of the screen */
   body.tv .tvrow .nm { white-space: normal; line-height: 1.06; }
-  body.tv .tvsit.sign .line .who { max-height: 3.75em; overflow-wrap: normal; }      /* a name is never cut in two: the text gets smaller instead */
+  body.tv .tvsit.sign .line .who { max-height: 15.6vmin; overflow-wrap: normal; }      /* a name is never cut in two: the text gets smaller instead */
 
   body.tv .podium div { font-size: 4.2vmin; }
   body.tv .podium div:first-child { font-size: 4.5vmin; }

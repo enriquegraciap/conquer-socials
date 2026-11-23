@@ -976,8 +976,9 @@
     // long text is made smaller until it fits on its line(s), never cut off
     Array.prototype.forEach.call(sign.line.children, function (el) {
       el.style.fontSize = '';
-      var size = parseFloat(getComputedStyle(el).fontSize), min = size * 0.55, guard = 0;
-      while ((el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 2) && size > min && guard++ < 24) { size *= 0.95; el.style.fontSize = size + 'px'; }
+      // (a long list of people sitting out may get quite small: every name has to be there)
+      var size = parseFloat(getComputedStyle(el).fontSize), min = size * (el.className === 'who' ? 0.36 : 0.55), guard = 0;
+      while ((el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 2) && size > min && guard++ < 40) { size *= 0.95; el.style.fontSize = size + 'px'; }
     });
   }
   setInterval(signUpdate, 1000);

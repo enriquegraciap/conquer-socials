@@ -17,6 +17,6 @@ window.SOCIALS_CONFIG = {
   //              pages), or a page of its own on the club's site that loads <dir>wrap.js; empty = this site
   //   formats: the formats offered when an event is created there      courts: how many courts the club has
   clubs: {
-    tempe: { name: 'Tempe', root: 'tempe', dir: 'tempe/', publicURL: 'https://go.playcnqr.com/socials?c=tempe', formats: ['kings-fixed', 'kings-individual'], courts: 5 }
+    tempe: { name: 'Tempe', root: 'tempe', dir: 'tempe/', publicURL: 'https://go.playcnqr.com/socials?c=tempe', formats: ['kings-fixed', 'kings-individual', 'rr-individual', 'rr-fixed'], courts: 5 }
   }
 };

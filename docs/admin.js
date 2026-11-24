@@ -396,6 +396,10 @@
             h('b', null, E.FORMATS[f].name),
             h('span', null, f === 'wheel'
               ? 'Everyone signs up alone and a wheel on the TV picks the partners. How the day runs depends on how many came: new partners after every set with 4 to 7 players; with 8 or more, the same partner all day, pool rounds and play-offs. Points and the leaderboard are per player.'
+              : f === 'rr-individual'
+              ? 'Everyone signs up alone and plays with and against as many different people as possible: every round is a new random mix, four to a court. No King’s Court, nobody moves up or down. With more players than places, everyone sits out the same number of times. Points and the leaderboard are per player.'
+              : f === 'rr-fixed'
+              ? 'Couples sign up together and stay together. Every round each couple meets a different couple, at random, until everyone has played everyone. No King’s Court. With more couples than places, everyone sits out the same number of times. Points and the leaderboard are per couple.'
               : f === 'kings-individual'
               ? 'Everyone signs up alone. After each round the pairs split: the two winners move up a court and face each other with new partners, the two losers move down and split. Points and the leaderboard are per player.'
               : 'Couples sign up together and stay together all night. Winners move up a court, losers move down. Points and the leaderboard are per couple.')
@@ -472,7 +476,11 @@
         h('div', { class: 'a-teams' }, teamsPanel(s, true)),
         h('div', { class: 'a-courts' }, courtsPanel(s)),
         h('div', { class: 'a-r1' },
-          h('div', { class: 'panel' }, [
+          E.isRR(s) ? h('div', { class: 'panel' }, [
+            h('h2', null, 'Rounds'),
+            h('p', { class: 'hint', style: 'margin-top:0' }, W.solo ? 'Every round is a new random mix: four to a court, with the partners and opponents each player has met least so far.' : 'Every round each team meets a team it has not played yet, at random, until everyone has played everyone.'),
+            h('p', { class: 'hint' }, 'With more ' + W.many + ' than places, everyone sits out the same number of times, and nobody twice in a row if it can be avoided.')
+          ]) : h('div', { class: 'panel' }, [
             h('h2', null, 'Round 1'),
             h('div', { class: 'seg' }, [
               h('button', { type: 'button', class: s.round1 === 'random' ? 'on' : '', onclick: function () { commit(function (x) { x.round1 = 'random'; }); } }, 'Random draw'),
@@ -485,7 +493,9 @@
           h('div', { class: 'panel' }, [
             h('h2', null, ['Sets', h('small', null, 'played to')]),
             setsControl(s),
-            h('p', { class: 'hint' }, 'Every game won is a point, so a set to ' + s.setTo + ' is worth up to ' + s.setTo + ' points.')
+            h('div', { style: 'margin-top:12px;font-weight:600' }, 'Points'),
+            pointsControl(s),
+            h('p', { class: 'hint' }, E.multOf(s) > 1 ? 'Double points: every game won is 2 points, so a 4–1 set gives 8 and 2. Scores are still typed in as played.' : 'Every game won is a point, so a set to ' + s.setTo + ' is worth up to ' + s.setTo + ' points.')
           ])),
         h('div', { class: 'a-start' },
           h('div', { class: 'panel startbar' }, [
@@ -602,19 +612,28 @@
     };
     return h('div', { class: 'seg' }, [opt(4), opt(6)]);
   }
+  // Normal points, or a "double points" night: every game won counts twice on tonight's table and on the month's.
+  function pointsControl(s) {
+    var opt = function (n, label) {
+      return h('button', { type: 'button', class: E.multOf(s) === n ? 'on' : '', 'data-mult': n, 'aria-pressed': E.multOf(s) === n ? 'true' : 'false',
+        onclick: function () { commit(function (x) { x.mult = n; }); } }, label);
+    };
+    return h('div', { class: 'seg' }, [opt(1, 'Normal'), opt(2, 'Double')]);
+  }
 
   // The court buttons: tap from the bottom court up to King's Court. `courts` is the list being edited.
   function courtPicker(courts, onChange) {
-    var chips = [], wheel = !!state.session && E.isWheel(state.session);
+    var chips = [], wheel = !!state.session && E.isWheel(state.session), flat = !!state.session && E.isRR(state.session);
     for (var n = 1; n <= MAX_COURT; n++) (function (n) {
       var i = courts.indexOf(n), king = i >= 0 && i === courts.length - 1;
-      chips.push(h('button', { type: 'button', class: 'chip' + (i >= 0 ? ' on' : '') + (king ? ' king' : ''), 'aria-pressed': i >= 0 ? 'true' : 'false', 'data-court': n,
+      chips.push(h('button', { type: 'button', class: 'chip' + (i >= 0 ? ' on' : '') + (king && !flat ? ' king' : ''), 'aria-pressed': i >= 0 ? 'true' : 'false', 'data-court': n,
         onclick: function () { var next = courts.slice(), j = next.indexOf(n); if (j >= 0) next.splice(j, 1); else next.push(n); onChange(next); } },
-        [String(n), i >= 0 ? h('span', { class: 'ord' }, king ? (wheel ? 'Main' : 'King') : String(i + 1)) : null]));
+        [String(n), i >= 0 ? h('span', { class: 'ord' }, king && !flat ? (wheel ? 'Main' : 'King') : String(i + 1)) : null]));
     })(n);
     return [
       h('div', { class: 'courtpick' }, chips),
-      courts.length ? (wheel ? h('div', { class: 'ladder' }, [courts.slice(0, -1).join(' · ') + (courts.length > 1 ? ' · ' : ''), h('b', null, courts[courts.length - 1] + ' main court')])
+      courts.length ? (flat ? h('div', { class: 'ladder' }, 'Courts ' + courts.join(' · '))
+        : wheel ? h('div', { class: 'ladder' }, [courts.slice(0, -1).join(' · ') + (courts.length > 1 ? ' · ' : ''), h('b', null, courts[courts.length - 1] + ' main court')])
         : h('div', { class: 'ladder' }, ['Bottom: ' + courts.slice(0, -1).join(' → ') + (courts.length > 1 ? ' → ' : ''), h('b', null, courts[courts.length - 1] + ' King’s Court')])) : h('p', { class: 'hint' }, 'No courts picked yet.'),
       courts.length ? h('div', { class: 'row', style: 'margin-top:8px' }, [
         btn('Sort low to high', 'small', function () { onChange(courts.slice().sort(function (a, b) { return a - b; })); }),
@@ -625,7 +644,7 @@
   }
   function courtsPanel(s) {
     return h('div', { class: 'panel' }, [
-      h('h2', null, ['Courts', h('small', null, E.isWheel(s) ? 'tap the courts you have; the last one is the main court' : 'tap from the bottom court up to King’s Court')]),
+      h('h2', null, ['Courts', h('small', null, E.isRR(s) ? 'tap the courts you have' : E.isWheel(s) ? 'tap the courts you have; the last one is the main court' : 'tap from the bottom court up to King’s Court')]),
       courtPicker(s.courts, function (next) { commit(function (x) { E.setCourts(x, next); }); })
     ]);
   }
@@ -914,7 +933,8 @@
             cur && cur.sitting.length ? h('p', { class: 'sitlist' }, [h('b', null, 'Sitting out: '), cur.sitting.map(teamNameOf).join(', ')]) : null,
             waiting.length ? h('p', { class: 'sitlist' }, [h('b', null, 'Joining next round: '), waiting.map(function (t) { return t.name; }).join(', ')]) : null,
             h('div', { class: 'row end', style: 'margin-top:8px' }, [
-              wheel ? null : h('span', { class: 'hint', style: 'margin:0' }, 'Sets to'), wheel ? null : setsControl(s), h('span', { style: 'flex:1' }),
+              wheel ? null : h('span', { class: 'hint', style: 'margin:0' }, 'Sets to'), wheel ? null : setsControl(s),
+              wheel ? null : h('span', { class: 'hint', style: 'margin:0 0 0 8px' }, 'Points'), wheel ? null : pointsControl(s), h('span', { style: 'flex:1' }),
               btn('Change courts', 'small', function () { state.ui.modal = { type: 'courts', courts: s.courts.slice() }; render(); }, { id: 'changeCourts' }),
               cur && left ? btn('Switch ' + words(s).many, 'small', function () { state.ui.modal = { type: 'switch', a: null, b: null }; render(); }, { id: 'switchPlaces' }) : null,
               wheel && wst === 'playing' && cur && !E.roundHasScores(cur) ? btn('Spin again', 'small', spinAgain, { id: 'spinAgain' }) : null,
@@ -945,7 +965,7 @@
   function boardPanel(s, title) {
     var rows = E.leaderboard(s);
     return h('div', { class: 'panel' }, [
-      h('h2', null, [title, h('small', null, 'a point for every game won')]),
+      h('h2', null, [title, h('small', null, E.multOf(s) > 1 ? 'double points: 2 for every game won' : 'a point for every game won')]),
       rows.length ? h('table', { class: 'board' }, [
         h('thead', null, h('tr', null, [h('th', null, ''), h('th', null, s.scoring === 'player' ? 'Player' : 'Team'), h('th', null, 'Played'), h('th', null, 'Won'), h('th', null, 'Sat'), h('th', null, 'Points')])),
         h('tbody', null, rows.map(function (r) {
@@ -1028,7 +1048,7 @@
         render();
       };
       body = [h('h3', null, 'Courts for tonight'),
-        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, E.isWheel(s) ? 'Tap the courts you have today. The last one you tap is the main court: finals are played there.' : 'Tap from the bottom court up to King’s Court. You can change the numbers, or use more or fewer courts.'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, E.isRR(s) ? 'Tap the courts you have. You can change the numbers, or use more or fewer courts.' : E.isWheel(s) ? 'Tap the courts you have today. The last one you tap is the main court: finals are played there.' : 'Tap from the bottom court up to King’s Court. You can change the numbers, or use more or fewer courts.'),
         courtPicker(m.courts, function (next) { m.courts = next; render(); }),
         h('div', { class: 'notice' }, [effect, m.courts.length && !E.isWheel(s) ? h('div', { style: 'margin-top:6px' }, teamsN + ' ' + Wc.many + ' on ' + kk + (kk === 1 ? ' court' : ' courts') + ': ' + (Wc.per * kk) + ' play, ' + (teamsN - Wc.per * kk) + ' sit out each round.') : null]),
         h('div', { class: 'row end' }, [btn('Cancel', '', closeModal), btn('Use these courts', 'primary', applyCourts, { disabled: same || !m.courts.length, id: 'applyCourts' })])];
@@ -1300,11 +1320,11 @@
       };
       body = [
         h('h3', null, roundTitle(r) + ' · Court ' + c.court + (c.label ? ' · ' + c.label : !E.isWheel(s) && E.isKingsCourt(s, r, c) ? ' · King’s Court' : '')),
-        h('p', { class: 'hint', style: 'margin:-8px 0 0' }, 'Sets to ' + E.roundSetTo(s, r) + ' games. A point for every game won.'),
+        h('p', { class: 'hint', style: 'margin:-8px 0 0' }, 'Sets to ' + E.roundSetTo(s, r) + ' games. ' + (E.multOf(s) > 1 ? 'Double points: type the score as played, every game counts twice.' : 'A point for every game won.')),
         c.void ? h('div', { class: 'notice' }, 'This match was called off because someone on it was removed. If it was played after all, enter the score here: it counts for everyone on the court. To have a removed player in the next rounds too, press Bring back beside the name.') : null,
         h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, sideNameOf(c, 'a')), h('div', { class: 'digits' }, digits('sa'))]),
         h('div', { class: 'scoreteam' }, [h('div', { class: 'nm' }, sideNameOf(c, 'b')), h('div', { class: 'digits' }, digits('sb'))]),
-        level ? h('div', { class: 'notice' }, [h('div', { style: 'margin-bottom:8px;font-weight:600' }, E.isWheel(s) ? 'Level on games. Which pair won?' : E.isSolo(s) ? 'Level on games. Which pair moves up?' : 'Level on games. Which team moves up?'), h('div', { class: 'row' }, [
+        level ? h('div', { class: 'notice' }, [h('div', { style: 'margin-bottom:8px;font-weight:600' }, E.isRR(s) ? 'Level on games. Who takes the win?' : E.isWheel(s) ? 'Level on games. Which pair won?' : E.isSolo(s) ? 'Level on games. Which pair moves up?' : 'Level on games. Which team moves up?'), h('div', { class: 'row' }, [
           btn(sideNameOf(c, 'a'), m.w === 'a' ? 'primary small' : 'small', function () { m.w = 'a'; render(); }),
           btn(sideNameOf(c, 'b'), m.w === 'b' ? 'primary small' : 'small', function () { m.w = 'b'; render(); })])]) : null,
         h('div', { class: 'row end' }, [

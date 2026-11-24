@@ -18,7 +18,7 @@ const NAMES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fran', 'Gaby', 'Hugo'
   // 1. create the event and choose its format
   await admin.goto(BASE + '/?db=' + DB + '#k=test-key');
   await admin.waitForSelector('.fmtpick');
-  assert.deepEqual(await admin.locator('.fmtpick .fmt b').allTextContents(), ['Fixed partner, King’s Court', 'Individual, King’s Court', 'Wheel of Fortune']);
+  assert.deepEqual(await admin.locator('.fmtpick .fmt b').allTextContents(), ['Fixed partner, King’s Court', 'Individual, King’s Court', 'Wheel of Fortune', 'Individual, Round Robin', 'Fixed partner, Round Robin']);
   assert.equal(await admin.getAttribute('.fmtpick .fmt.on', 'data-format'), 'kings-fixed', 'fixed partner is the choice until another is tapped');
   await admin.fill('#newSeries', 'Tapas Fridays - Intermediate King’s Court');
   await admin.click('.fmtpick [data-format="kings-individual"]');

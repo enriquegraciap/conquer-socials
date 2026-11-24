@@ -15,6 +15,9 @@
  *   kings-individual  everyone plays for themselves. An entry in session.teams is ONE player; a court's a and b
  *                     are each a list of two player ids. After every round the pairs split: the two winners move
  *                     up a court and become opponents, each with a new partner; the two losers move down and split.
+ *
+ * Round robin (rr-individual, rr-fixed) has no King's Court and nobody moves up or down: every round is a fresh
+ * mix, with the partners and opponents each player (or couple) has met least so far. Sit-outs are shared equally.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -34,10 +37,17 @@
   var FORMATS = {
     'kings-fixed': { name: 'Fixed partner, King\u2019s Court', solo: false, per: 2, scoring: 'team', unit: 'team', units: 'teams' },
     'kings-individual': { name: 'Individual, King\u2019s Court', solo: true, per: 4, scoring: 'player', unit: 'player', units: 'players' },
-    'wheel': { name: 'Wheel of Fortune', solo: true, per: 4, scoring: 'player', unit: 'player', units: 'players', wheel: true }
+    'wheel': { name: 'Wheel of Fortune', solo: true, per: 4, scoring: 'player', unit: 'player', units: 'players', wheel: true },
+    'rr-individual': { name: 'Individual, Round Robin', solo: true, per: 4, scoring: 'player', unit: 'player', units: 'players', rr: true },
+    'rr-fixed': { name: 'Fixed partner, Round Robin', solo: false, per: 2, scoring: 'team', unit: 'team', units: 'teams', rr: true }
   };
   function formatOf(x) { return FORMATS[typeof x === 'string' ? x : (x && x.format)] || FORMATS['kings-fixed']; }
   function isSolo(session) { return formatOf(session).solo; }
+  function isRR(session) { return formatOf(session).rr === true; }
+  // King's Court nights: winners move up a court, losers move down (not the wheel, not a round robin).
+  function isLadder(session) { var f = formatOf(session); return !f.wheel && !f.rr; }
+  // How much a game won is worth tonight: 1, or 2 on a "double points" night.
+  function multOf(x) { var m = Number(x && x.mult); return m > 1 && m <= 5 ? m : 1; }
   // The ids on one side of a court: one team (fixed partners) or two players (individual).
   function sideIds(c, side) {
     var v = c ? c[side] : null;
@@ -115,6 +125,7 @@
       round1: opts.round1 || 'random',           // 'random' or 'seeded' (seeded = team list order)
       setTo: opts.setTo === 6 ? 6 : 4,           // sets are played to 4 games or to 6 games
       seed: opts.seed || Math.floor(Math.random() * 1e9),
+      mult: multOf(opts),                        // 2 = double points tonight (a 4-1 set gives 8 and 2)
       teams: {},
       rounds: []
     };
@@ -143,6 +154,7 @@
     s.scoring = s.scoring || 'team';
     s.round1 = s.round1 || 'random';
     s.setTo = Number(s.setTo) === 6 ? 6 : 4;
+    s.mult = multOf(s);
     s.courts = toArray(s.courts);
     s.teams = s.teams && typeof s.teams === 'object' ? s.teams : {};
     Object.keys(s.teams).forEach(function (id) {
@@ -195,7 +207,7 @@
 
   // ---- Stats by replaying the rounds --------------------------------------------------------
   function teamStats(session, upto) {
-    var st = {};
+    var st = {}, mult = multOf(session);
     Object.keys(session.teams).forEach(function (id) {
       st[id] = { points: 0, against: 0, wins: 0, losses: 0, played: 0, sitOuts: session.teams[id].sitCredit || 0,
         satOut: 0, lastSat: 0, lastPlayed: null };
@@ -215,7 +227,7 @@
           return;
         }
         if (!c.w) return;
-        var sa = c.sa || 0, sb = c.sb || 0;
+        var sa = (c.sa || 0) * mult, sb = (c.sb || 0) * mult;
         ['a', 'b'].forEach(function (side) {
           var won = c.w === side, mine = side === 'a' ? sa : sb, theirs = side === 'a' ? sb : sa;
           sideIds(c, side).forEach(function (id) {
@@ -233,6 +245,7 @@
   // ---- Round generation: King's Court with sit-outs (fixed partners, or individual) ---------
   function generateRound(session, n, redraw) {
     redraw = redraw || 0;
+    if (isRR(session)) return generateRoundRR(session, n, redraw);
     var C = session.courts.length;
     var teams = activeTeams(session);
     var N = teams.length;
@@ -322,6 +335,68 @@
 
     for (l = top; l >= L0; l--) {
       round.courts.push({ court: session.courts[l], level: l, a: slots[l][0], b: slots[l][1], sa: null, sb: null, w: null, void: false });
+    }
+    return round;
+  }
+
+  // ---- Round robin: a fresh mix every round ---------------------------------------------------
+  // Who sits: whoever has sat out least so far; among those, whoever sat longest ago, so nobody sits twice running
+  // while someone else could; then by lot. Who plays whom: many random mixes are tried and improved, and the one
+  // kept has the fewest repeated partners and opponents (a partner or opponent of the round just played counts
+  // most). The draw only depends on the night's seed and on who has met whom, so every screen works out the same one.
+  function generateRoundRR(session, n, redraw) {
+    var teams = activeTeams(session), N = teams.length, solo = isSolo(session), per = solo ? 4 : 2;
+    var C = session.courts.length, k = Math.min(C, Math.floor(N / per)), S = N - per * k;
+    var rng = makeRng(hashSeed(session.seed, 'rr', n, redraw));
+    var round = { n: n, top: -1, courts: [], sitting: [], entry: {}, redraw: redraw };
+    if (k === 0) { round.sitting = teams.map(function (t) { return t.id; }); return round; }
+    var st = teamStats(session, n - 1), tb = {};
+    teams.forEach(function (t) { tb[t.id] = rng(); });
+    // someone who has just arrived counts as having sat the round before, so they play before they sit
+    var lastSat = function (id) { var s = st[id]; return (!s.lastPlayed && !s.satOut && n > 1) ? n - 1 : s.lastSat; };
+    var sitSet = {};
+    teams.map(function (t) { return t.id; })
+      .sort(function (x, y) { return st[x].sitOuts - st[y].sitOuts || lastSat(x) - lastSat(y) || tb[x] - tb[y]; })
+      .slice(0, S).forEach(function (id) { sitSet[id] = true; });
+    round.sitting = teams.filter(function (t) { return sitSet[t.id]; }).map(function (t) { return t.id; });
+    var playing = teams.filter(function (t) { return !sitSet[t.id]; }).map(function (t) { return t.id; });
+
+    var past = pairHistory(session, n), prev = n - 1;
+    var cnt = function (map, x, y) { return (map[x] && map[x][y]) || 0; };
+    var lastWith = {}, lastVs = {};                       // partners and opponents of the round just played
+    (session.rounds[prev - 1] ? session.rounds[prev - 1].courts : []).forEach(function (c) {
+      var A = sideIds(c, 'a'), B = sideIds(c, 'b');
+      if (A.length === 2) { lastWith[A[0] + '|' + A[1]] = lastWith[A[1] + '|' + A[0]] = true; }
+      if (B.length === 2) { lastWith[B[0] + '|' + B[1]] = lastWith[B[1] + '|' + B[0]] = true; }
+      A.forEach(function (x) { B.forEach(function (y) { lastVs[x + '|' + y] = lastVs[y + '|' + x] = true; }); });
+    });
+    var withCost = function (x, y) { var c = cnt(past.partner, x, y); return 100 * c * c + (lastWith[x + '|' + y] ? 600 : 0); };
+    var vsCost = function (x, y) { var c = cnt(past.opp, x, y); return (solo ? 12 : 100) * c * c + (lastVs[x + '|' + y] ? (solo ? 40 : 600) : 0); };
+    var courtCost = function (o, i) {                    // the court that starts at place i of the order
+      if (!solo) return vsCost(o[i], o[i + 1]);
+      return withCost(o[i], o[i + 1]) + withCost(o[i + 2], o[i + 3]) +
+        vsCost(o[i], o[i + 2]) + vsCost(o[i], o[i + 3]) + vsCost(o[i + 1], o[i + 2]) + vsCost(o[i + 1], o[i + 3]);
+    };
+    var best = null, bestCost = Infinity, P = playing.length;
+    for (var tries = 0; tries < 6 && bestCost > 0; tries++) {
+      var o = shuffle(playing, rng), costs = [], total = 0, i, j;
+      for (i = 0; i < k; i++) { costs[i] = courtCost(o, i * per); total += costs[i]; }
+      for (var pass = 0; pass < 8 && total > 0; pass++) {  // swap any two places while that makes the mix better
+        var better = false;
+        for (i = 0; i < P - 1; i++) for (j = i + 1; j < P; j++) {
+          var ci = Math.floor(i / per), cj = Math.floor(j / per), t = o[i];
+          o[i] = o[j]; o[j] = t;
+          var ni = courtCost(o, ci * per), nj = ci === cj ? 0 : courtCost(o, cj * per), was = costs[ci] + (ci === cj ? 0 : costs[cj]);
+          if (ni + nj < was) { total += ni + nj - was; costs[ci] = ni; if (ci !== cj) costs[cj] = nj; better = true; }
+          else { t = o[i]; o[i] = o[j]; o[j] = t; }
+        }
+        if (!better) break;
+      }
+      if (total < bestCost) { bestCost = total; best = o.slice(); }
+    }
+    for (var m = 0; m < k; m++) {
+      var four = best.slice(m * per, m * per + per);
+      round.courts.push({ court: session.courts[m], level: m, a: solo ? [four[0], four[1]] : four[0], b: solo ? [four[2], four[3]] : four[1], sa: null, sb: null, w: null, void: false });
     }
     return round;
   }
@@ -814,7 +889,7 @@
       var on = px || py, inId = px ? y : x, outId = px ? x : y;     // inId was off court and now plays; outId sits
       put(on, outId, inId);
       if (!sitSwap(cur.sitting, inId, outId)) cur.sitting.push(outId);
-      if (cur.n === 1 && !isWheel(session)) {                      // round 1: the one who now sits comes in next round on the court they left
+      if (cur.n === 1 && isLadder(session)) {                      // round 1: the one who now sits comes in next round on the court they left
         cur.entry = cur.entry || {};
         delete cur.entry[inId];
         cur.entry[outId] = on.c.level;
@@ -956,7 +1031,7 @@
       out.advanced = advance(session);
       return out;
     }
-    if (session.status === 'live' && roundNo < last.n && oldW !== c.w) {
+    if (session.status === 'live' && roundNo < last.n && oldW !== c.w && !isRR(session)) {   // (a round robin's next round does not depend on who won)
       if (roundNo === last.n - 1 && !roundHasScores(last)) {
         // the winner of the previous round changed and nobody has played the new round yet: redo it
         session.rounds.pop();
@@ -1074,6 +1149,7 @@
       rounds: session.rounds.filter(roundComplete).length, entries: entries
     };
     if (session.start) doc.start = session.start;        // when it began: decides "today" or "tonight" wherever the results are shown
+    if (multOf(session) > 1) doc.mult = multOf(session); // a double points night (the points saved here are already doubled)
     return doc;
   }
   function monthlyBoard(resultsBySession) {
@@ -1088,10 +1164,30 @@
         var e = doc.entries[key];
         var r = rows[key] || (rows[key] = { key: key, name: e.name, players: e.players, points: 0, wins: 0, played: 0, diff: 0, nights: 0 });
         r.name = e.name || r.name; r.players = e.players || r.players;
-        r.points += e.points || 0; r.wins += e.wins || 0; r.played += e.played || 0; r.diff += e.diff || 0; r.nights++;
+        r.points += e.points || 0; r.wins += e.wins || 0; r.played += e.played || 0; r.diff += e.diff || 0; if (!doc.brought) r.nights++;
       });
     });
     return rankRows(Object.keys(rows).map(function (k) { return rows[k]; }));
+  }
+  // A social can keep ONE table for all its nights instead of a table per month (series.table), for a league or a
+  // "Fall Series": table.name is what it is called ("Fall Series"), and table.start the points everyone brings along
+  // from before the social was run here ({ key: { name, points } }). tableDocs puts those starting points with the
+  // nights' results (resultsByMonth: { '2026-11': { sessionId: doc } }), ready for monthlyBoard.
+  function tableOf(series) { var t = series && series.table; return t && typeof t === 'object' ? t : null; }
+  function tableDocs(series, resultsByMonth) {
+    var t = tableOf(series), docs = {};
+    if (!t) return docs;
+    var start = {}, any = false;
+    Object.keys(t.start || {}).forEach(function (key) {
+      var e = t.start[key];
+      if (!e || !e.name) return;
+      start[key] = { name: e.name, players: e.players ? toArray(e.players) : [e.name], points: Number(e.points) || 0, wins: 0, played: 0, diff: 0 }; any = true;
+    });
+    if (any) docs['0-start'] = { date: '0000-00-00', brought: true, entries: start };   // (brought: not a night that was played)
+    Object.keys(resultsByMonth || {}).forEach(function (m) {
+      Object.keys(resultsByMonth[m] || {}).forEach(function (sid) { if (resultsByMonth[m][sid]) docs[sid] = resultsByMonth[m][sid]; });
+    });
+    return docs;
   }
 
   // ---- Turning "before" and "after" into the smallest set of database writes -----------------
@@ -1114,7 +1210,7 @@
   }
 
   return {
-    RULES: RULES, FORMATS: FORMATS, formatOf: formatOf, isSolo: isSolo, sideIds: sideIds, courtIds: courtIds, sideOf: sideOf, sideName: sideName,
+    RULES: RULES, FORMATS: FORMATS, formatOf: formatOf, isSolo: isSolo, isRR: isRR, isLadder: isLadder, multOf: multOf, tableOf: tableOf, tableDocs: tableDocs, sideIds: sideIds, courtIds: courtIds, sideOf: sideOf, sideName: sideName,
     newSession: newSession, normalize: normalize, localDate: localDate, localTime: localTime, isDaytime: isDaytime, dayWord: dayWord, clone: clone, randomId: randomId,
     teamList: teamList, activeTeams: activeTeams, currentRound: currentRound,
     roundComplete: roundComplete, roundHasScores: roundHasScores, courtDone: courtDone,

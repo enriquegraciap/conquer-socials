@@ -207,7 +207,7 @@
     if (!s) return '';
     if (s.status === 'ended') return 'Night finished';
     if (s.status === 'live' && cur && E.isWheel(s)) { var ws = E.wheelState(s); return ws === 'spin' ? 'New partners coming up' : ws === 'done' ? 'All matches played' : (cur.title || 'Round ' + cur.n) + ' · sets to ' + E.roundSetTo(s, cur); }
-    if (s.status === 'live' && cur) return 'Round ' + cur.n + ' · sets to ' + (s.setTo || 4);
+    if (s.status === 'live' && cur) return 'Round ' + cur.n + ' · sets to ' + (s.setTo || 4) + (E.multOf(s) > 1 ? ' · double points' : '');
     return 'Starting soon';
   }
   function note(title, text) { return h('div', { class: 'pl-card' }, [h('h2', null, title), text ? h('p', null, text) : null]); }
@@ -351,7 +351,7 @@
     return h('div', { class: 'pl-card' }, [head, versus,
       h('div', { class: 'pl-row' }, [h('label', null, 'Your games'), digits('us')]),
       h('div', { class: 'pl-row' }, [h('label', null, 'Their games'), digits('them')]),
-      level ? h('div', { class: 'pl-row' }, [h('label', null, wheel ? 'Level on games. Who won?' : 'Level on games. Who moves up?'), h('div', { class: 'pl-two' }, [
+      level ? h('div', { class: 'pl-row' }, [h('label', null, wheel || E.isRR(s) ? 'Level on games. Who won?' : 'Level on games. Who moves up?'), h('div', { class: 'pl-two' }, [
         h('button', { type: 'button', class: f.w === 'us' ? 'on' : '', onclick: function () { f.w = 'us'; render(); } }, 'We do'),
         h('button', { type: 'button', class: f.w === 'them' ? 'on' : '', onclick: function () { f.w = 'them'; render(); } }, 'They do')])]) : null,
       st.error ? h('p', { class: 'err', role: 'alert' }, st.error) : null,

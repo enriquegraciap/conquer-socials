@@ -14,7 +14,7 @@
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var W = 1080, H = 1920, GOLD = '#f4b63f', DISPLAY = '"Barlow Condensed", "Arial Narrow", Arial, sans-serif', SCRIPT = 'Knewave, "Barlow Condensed", Arial, sans-serif';
   var app = document.getElementById('app'), params = new URLSearchParams(location.search), id = params.get('s') || '';
-  var st = { series: null, night: null, nightRows: [], month: '', monthRows: [], nights: 0, view: params.get('view') === 'month' ? 'month' : 'night', me: '', imgs: {}, tile: null, sig: '', busy: false };
+  var st = { series: null, night: null, nightRows: [], table: '', month: '', monthRows: [], nights: 0, view: params.get('view') === 'month' ? 'month' : 'night', me: '', imgs: {}, tile: null, sig: '', busy: false };
   try { st.me = localStorage.getItem('socials.board.me') || ''; } catch (e) { /* private mode */ }
 
   function h(tag, attrs, kids) {
@@ -30,7 +30,7 @@
   function shortDate(d) { var x = new Date(d + 'T12:00:00'); return DAYS[x.getDay()].slice(0, 3) + ', ' + MONTHS[x.getMonth()].slice(0, 3) + ' ' + x.getDate(); }
   // a night that is being played now (not one that was simply never closed)
   function onNow(doc) { return !!doc && doc.status !== 'ended' && Math.abs(Date.now() - new Date(doc.date + 'T12:00:00').getTime()) < 36 * 3600000; }
-  function monthName(m) { return MONTHS[Number(String(m).slice(5, 7)) - 1] || ''; }
+  function monthName(m) { return st.table || MONTHS[Number(String(m).slice(5, 7)) - 1] || ''; }      // the table's own name ("Fall Series"), or the month
   function clubLine() { return 'Conquer Padel Club · ' + (S.club.name || 'Lehi'); }
   function image(src) {
     return new Promise(function (ok) {
@@ -63,6 +63,10 @@
       st.month = best ? best.month : (months[months.length - 1] || '');
       st.monthRows = st.month ? E.monthlyBoard(res[st.month]) : [];
       st.nights = st.month ? Object.keys(res[st.month] || {}).filter(function (k) { return !!(res[st.month][k] || {}).entries; }).length : 0;
+      // a social with one table for all its nights (a "Fall Series"): every month counts, and the points brought along
+      var table = E.tableOf(series);
+      st.table = table ? (table.name || 'Series') : '';
+      if (table) { st.monthRows = E.monthlyBoard(E.tableDocs(series, res)); if (!st.month) st.month = E.localDate(new Date()).slice(0, 7); }
       if (!st.night) st.view = 'month';
     });
   }
@@ -183,7 +187,7 @@
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 
     // ---- what this is
-    var label = night ? longDate(st.night.date) : st.nights + (st.nights === 1 ? ' night played' : ' nights played');
+    var label = night ? longDate(st.night.date) : st.table ? st.monthRows.length + (st.monthRows.length === 1 ? ' player' : ' players') : st.nights + (st.nights === 1 ? ' night played' : ' nights played');
     var head = night ? (st.night.status === 'ended' ? 'Final standings' : onNow(st.night) ? 'Standings so far' : 'Standings') : monthName(st.month) + ' leaderboard';
     ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = GOLD; ctx.font = '600 38px ' + DISPLAY; caps(ctx, label.toUpperCase(), W / 2, 448, 5);
@@ -311,7 +315,7 @@
         h('h2', null, [night ? 'Everyone who played' : monthName(st.month) + ': everyone', h('small', null, 'Tap your name to mark it in the picture')]),
         h('ol', null, rows.map(function (r) {
           return h('li', null, h('button', { type: 'button', class: r.name === st.me ? 'me' : '', 'data-name': r.name, 'aria-pressed': r.name === st.me ? 'true' : 'false', onclick: function () { pickMe(r.name); } },
-            [h('span', { class: 'rk' }, String(r.rank)), h('span', { class: 'nm' }, r.name), h('span', { class: 'dt' }, night ? r.wins + ' won of ' + r.played : r.nights + (r.nights === 1 ? ' night' : ' nights')), h('b', null, String(r.points))]));
+            [h('span', { class: 'rk' }, String(r.rank)), h('span', { class: 'nm' }, r.name), h('span', { class: 'dt' }, night ? r.wins + ' won of ' + r.played : st.table ? '' : r.nights + (r.nights === 1 ? ' night' : ' nights')), h('b', null, String(r.points))]));
         }))
       ])
     );

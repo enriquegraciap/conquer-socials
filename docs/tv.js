@@ -441,15 +441,19 @@
     S.get('pub/series').then(function (series) {
       series = series || {};
       var ids = Object.keys(series).sort(function (a, b) { return (series[a].name || '') < (series[b].name || '') ? -1 : 1; });
-      return Promise.all(ids.map(function (id) { return S.get('pub/results/' + id + '/' + month).catch(function () { return null; }); })).then(function (all) {
+      return Promise.all(ids.map(function (id) { return S.get('pub/results/' + id + (E.tableOf(series[id]) ? '' : '/' + month)).catch(function () { return null; }); })).then(function (all) {
         if (st.mode !== 'flyers' || fl.which !== FLYERS) return;
         st.series = series;
         var list = [];
         ids.forEach(function (id, i) {
-          var docs = {};
-          Object.keys(all[i] || {}).forEach(function (k) { var d = all[i][k]; if (d && d.status === 'ended' && d.entries) docs[k] = d; });
-          var rows = E.monthlyBoard(docs).filter(function (r) { return r.points > 0; }).slice(0, 3);
-          if (rows.length) list.push({ id: id, name: series[id].name || '', format: FORMATS[series[id].format] || '', look: series[id].look || null, nights: Object.keys(docs).length, rows: rows });
+          var docs = {}, table = E.tableOf(series[id]), src = table ? E.tableDocs(series[id], all[i] || {}) : (all[i] || {}), nights = 0, thisMonth = !table;
+          Object.keys(src).forEach(function (k) {
+            var d = src[k];
+            if (d && d.brought) docs[k] = d;
+            else if (d && d.status === 'ended' && d.entries) { docs[k] = d; nights++; if (String(d.date).slice(0, 7) === month) thisMonth = true; }
+          });
+          var rows = thisMonth && nights ? E.monthlyBoard(docs).filter(function (r) { return r.points > 0; }).slice(0, 3) : [];   // (a series table is shown in the months it was played in)
+          if (rows.length) list.push({ id: id, name: series[id].name || '', format: (table && table.name) || FORMATS[series[id].format] || '', look: series[id].look || null, nights: nights, rows: rows });
         });
         var sig = JSON.stringify(list.map(function (b) { return [b.id, b.name, b.nights, b.look && b.look.rev, b.rows.map(function (r) { return [r.name, r.points]; })]; }));
         var changed = sig !== fl.boardSig || month !== fl.month;
@@ -612,8 +616,10 @@
   function loadMonth(monthKey) {
     if (!st.seriesId) return Promise.resolve();
     // the players' WPR Social ratings come along with the results (they change rarely)
-    return Promise.all([S.get('pub/results/' + st.seriesId + '/' + monthKey), S.get('pub/ratings').catch(function () { return st.ratings; })]).then(function (got) {
-      st.month = got[0] || {}; st.monthKey = monthKey; st.ratings = got[1] || {};
+    // a social with one table for all its nights (a "Fall Series"): every month's results, and the points brought along
+    var id = st.seriesId, whole = !!E.tableOf(st.series[id]);
+    return Promise.all([S.get('pub/results/' + id + (whole ? '' : '/' + monthKey)), S.get('pub/ratings').catch(function () { return st.ratings; })]).then(function (got) {
+      st.month = whole ? E.tableDocs(st.series[id], got[0] || {}) : (got[0] || {}); st.monthKey = monthKey; st.monthWhole = whole; st.ratings = got[1] || {};
     });
   }
   // "Carter (4.37) & Casey (NR)": each player's WPR Social rating after their name, NR when there is none.
@@ -682,7 +688,7 @@
   }
   function head(title, flash, note) {
     // the event name lives in the top banner; this line carries the round and the set length (the clock is bottom left)
-    var s = st.session, sets = note !== undefined ? note : s && !s.discarded && s.status !== 'ended' ? 'Sets to ' + (s.setTo || 4) : '';
+    var s = st.session, sets = note !== undefined ? note : s && !s.discarded && s.status !== 'ended' ? 'Sets to ' + (s.setTo || 4) + (E.multOf(s) > 1 ? ' \u00b7 Double points' : '') : '';
     barTitle();
     return h('div', 'tvhead', [h('div', 'round' + (flash ? ' flash' : ''), title), h('div', 'event', sets)]);
   }
@@ -778,7 +784,7 @@
     return h('div', 'tvleft', [head(E.dayWord(s, new Date()), false),
       h('div', 'tvbig', teams.length ? [h('div', 'ttl', teams.length + ' ' + E.formatOf(s).units + ' checked in'), h('div', 'teams', teams.map(function (t) { return h('div', null, t.name); }))]
         : h('div', 'ttl', 'Starting soon')),
-      s.courts.length ? h('div', 'tvsit', [h('div', 'lab', 'Courts'), h('div', 'names', s.courts.join(' · ') + '   (court ' + s.courts[s.courts.length - 1] + ' is King’s Court)')]) : h('div')]);
+      s.courts.length ? h('div', 'tvsit', [h('div', 'lab', 'Courts'), h('div', 'names', s.courts.join(' · ') + (E.isRR(s) ? '' : '   (court ' + s.courts[s.courts.length - 1] + ' is King’s Court)'))]) : h('div')]);
   }
   function liveLeft(s) {
     var r = E.currentRound(s);
@@ -858,16 +864,17 @@
     var tonight = s && !s.discarded ? E.leaderboard(s) : [];
     var monthDocs = {};
     Object.keys(st.month || {}).forEach(function (k) { monthDocs[k] = st.month[k]; });
-    if (s && !s.discarded && s.status !== 'setup' && s.month === st.monthKey) monthDocs[s.id] = E.resultsDoc(s); // tonight, up to the second
-    var month = E.monthlyBoard(monthDocs);
-    var nights = Object.keys(monthDocs).filter(function (k) { return monthDocs[k] && monthDocs[k].entries && Object.keys(monthDocs[k].entries).length; }).length;
-    var mName = MONTHS[Number((st.monthKey || '2000-01').slice(5, 7)) - 1];
+    var table = E.tableOf(st.series[st.seriesId]), whole = !!table && st.monthWhole;
+    if (s && !s.discarded && s.status !== 'setup' && (whole || s.month === st.monthKey)) monthDocs[s.id] = E.resultsDoc(s); // tonight, up to the second
+    var month = E.monthlyBoard(monthDocs), monthRows = whole ? 44 : MONTH_ROWS;    // a series table shows everyone on it
+    var nights = Object.keys(monthDocs).filter(function (k) { return monthDocs[k] && !monthDocs[k].brought && monthDocs[k].entries && Object.keys(monthDocs[k].entries).length; }).length;
+    var mName = whole && table.name ? table.name : MONTHS[Number((st.monthKey || '2000-01').slice(5, 7)) - 1];
     var unit = s && s.scoring === 'player' ? 'players' : 'teams';
     // a daytime social: "today", "2 days" (by when it started; before the start, by the clock)
     var byDay = s && !s.discarded ? E.isDaytime(s, s.status === 'setup' ? new Date() : null) : E.isDaytime(null, new Date());
     return h('div', 'tvright', [
       board(byDay ? 'Today' : 'Tonight', tonight.length ? tonight.length + ' ' + unit : '', tonight, tonight.length, 'Waiting for ' + unit),
-      board(mName, nights ? nights + (byDay ? (nights === 1 ? ' day' : ' days') : (nights === 1 ? ' night' : ' nights')) : '', month.slice(0, MONTH_ROWS), Math.min(month.length, MONTH_ROWS), 'No results yet this month')
+      board(mName, whole ? (month.length ? month.length + ' ' + unit : '') : nights ? nights + (byDay ? (nights === 1 ? ' day' : ' days') : (nights === 1 ? ' night' : ' nights')) : '', month.slice(0, monthRows), Math.min(month.length, monthRows), whole ? 'No results yet' : 'No results yet this month')
     ]);
   }
   function board(title, sub, rows, count, empty) {

@@ -21,14 +21,14 @@ const TEAMS = [['Carter Maclean', 'Kasey Maclean'], ['Lexi Mecham', 'Spencer Mec
   await lehi.goto(BASE + '/?db=' + DB + '#k=test-key');
   await lehi.waitForSelector('.fmtpick');
   assert.equal((await lehi.textContent('.topbar h1')).trim(), 'Padel Socials');
-  assert.equal(await lehi.locator('.fmtpick .fmt').count(), 3);
+  assert.equal(await lehi.locator('.fmtpick .fmt').count(), 5);
   await lehi.fill('#newSeries', 'Lehi Date Night'); await lehi.click('text=Create');
   await lehi.waitForSelector('text=Courts');
   assert.equal(await lehi.locator('.courtpick .chip').count(), 7, 'Lehi keeps its seven courts');
   await tempe.goto(BASE + '/tempe/?db=' + DB + '#k=tempe-key');
   await tempe.waitForSelector('.fmtpick');
   assert.equal((await tempe.textContent('.topbar h1')).trim(), 'Padel Socials · Tempe');
-  assert.deepEqual(await tempe.locator('.fmtpick .fmt b').allTextContents(), ['Fixed partner, King’s Court', 'Individual, King’s Court'], 'no Wheel of Fortune in Tempe');
+  assert.deepEqual(await tempe.locator('.fmtpick .fmt b').allTextContents(), ['Fixed partner, King’s Court', 'Individual, King’s Court', 'Individual, Round Robin', 'Fixed partner, Round Robin'], 'no Wheel of Fortune in Tempe');
   assert.equal(await tempe.locator('[data-open]').count(), 0, 'Tempe starts empty: it does not see the other club’s events');
   await tempe.fill('#newSeries', 'Kings of the Desert'); await tempe.click('text=Create');
   await tempe.waitForSelector('text=Courts');

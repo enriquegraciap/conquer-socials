@@ -106,7 +106,8 @@ const cardOf = () => ({ name: 'Conquer - Socials results text: card for approval
     http(2, 'The social\'s name', { url: DB + '/' + ROOT + '/series/{{encodeURL(var.input.series)}}/name.json', parse: false }),
     http(3, 'Its results', { url: DB + '/' + ROOT + '/results/{{encodeURL(var.input.series)}}.json', parse: false }),
     http(42, 'Its public name, if it has one', { url: DB + '/' + ROOT + '/series/{{encodeURL(var.input.series)}}/share.json', parse: false }),
-    code(4, 'The night and the text', here('night.js'), { test: '{{var.input.test}}', club: '{{var.input.club}}', series: '{{var.input.series}}', name_raw: '{{toString(2.data)}}', results_raw: '{{toString(3.data)}}', share_raw: '{{toString(42.data)}}',
+    http(47, 'The name of its own table, if it has one', { url: DB + '/' + ROOT + '/series/{{encodeURL(var.input.series)}}/table/name.json', parse: false }),
+    code(4, 'The night and the text', here('night.js'), { test: '{{var.input.test}}', club: '{{var.input.club}}', series: '{{var.input.series}}', name_raw: '{{toString(2.data)}}', results_raw: '{{toString(3.data)}}', share_raw: '{{toString(42.data)}}', table_raw: '{{toString(47.data)}}',
       today: '{{formatDate(now; "YYYY-MM-DD"; ' + TZ + ')}}', yesterday: '{{formatDate(addDays(now; -1); "YYYY-MM-DD"; ' + TZ + ')}}', hour: '{{formatDate(now; "H"; ' + TZ + ')}}' }),
     { id: 40, module: 'builtin:BasicRouter', version: 1, mapper: null, metadata: pos('Is there a night?'), routes: [
       { flow: [{ id: 41, module: 'datastore:AddRecord', version: 1, parameters: { datastore: STORE }, metadata: pos('Note why there is no card'), filter: { name: 'No night to text about', conditions: [[not('{{4.result.ok}}', 'yes')]] },

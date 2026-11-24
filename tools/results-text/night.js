@@ -33,8 +33,10 @@ const shortCode = (c, s) => { const t = c + '/' + s; let h = 5381; for (let i = 
 const link = 'go.playcnqr.com/socials?' + shortCode(club, series);
 // (a social can have a fuller public name than the short one used in the app: Flyer and look, "Name on the leaderboard to share")
 const shared = parse(input.share_raw, {}), publicName = String((shared && shared.name) || '').replace(/\s+/g, ' ').trim() || title;
+// (a social with one table for all its nights names it itself, "Fall Series"; every other one has a table per month)
+const tableName = String(parse(input.table_raw, '') || '').replace(/\s+/g, ' ').trim();
 const text = 'Conquer Padel: thanks for playing ' + publicName + ' ' + when + '! Congrats to our top ' + Math.min(3, rows.length) + ':\n\n' + top + '\n\nSee the full results and the ' +
-  MONTHS[Number(best.m.slice(5, 7)) - 1] + ' leaderboard, and share yours: ' + link;
+  (tableName || MONTHS[Number(best.m.slice(5, 7)) - 1]) + ' leaderboard, and share yours: ' + link;
 // every player of the night (both players of a fixed pair), and what to look up in PlayByPoint: each full name, last
 // name and first name (a customer spelled another way is found through the name that is spelled the same)
 const names = [], seen = {};

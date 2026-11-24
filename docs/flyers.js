@@ -44,13 +44,15 @@
     toastTimer = setTimeout(function () { state.toast = ''; render(); }, 4500);
   }
   function list() {
-    return Object.keys(state.index).map(function (id) { var f = state.index[id]; return { id: id, name: f.name || 'Flyer', order: Number(f.order) || 0, thumb: f.thumb || '' }; })
+    return Object.keys(state.index).map(function (id) { var f = state.index[id]; return { id: id, name: f.name || 'Flyer', order: Number(f.order) || 0, thumb: f.thumb || '', video: f.video || '', vk: f.vk || '', dur: Number(f.dur) || 0 }; })
       .sort(function (a, b) { return a.order - b.order || (a.id < b.id ? -1 : 1); });
   }
 
   // ---------------------------------------------------------------- loading and saving
   function load() {
     if (!S.configured) { state.phase = 'nodb'; return render(); }
+    // (where staff upload videos: the club's own media library; its address is kept with the club's data, not in this code)
+    S.get('pub/settings/videoUpload').then(function (u) { if (typeof u === 'string' && /^https:\/\//.test(u)) { state.uploadURL = u; render(); } }).catch(function () { /* the steps are shown without the button */ });
     S.get(PATH + '/index').then(function (idx) { state.index = idx || {}; state.phase = 'ready'; render(); })
       .catch(function (err) { state.phase = 'error'; state.error = (err && err.message) || String(err); render(); });
   }
@@ -124,6 +126,70 @@
     };
     next(0);
   }
+  // ---------------------------------------------------------------- videos (by link)
+  // A video is not stored here (far too heavy for this database): it stays where it is kept, and the slideshow plays
+  // it from its link. A link to the file itself is best (HighLevel media library, Dropbox); YouTube links work too.
+  // Gives back { url, vk: 'file' or 'yt', thumb } or null when the text is not a usable link.
+  function videoLink(text) {
+    var t = String(text || '').trim(), u;
+    if (t && !/^https?:\/\//i.test(t)) t = 'https://' + t;
+    try { u = new URL(t); } catch (e) { return null; }
+    if (u.protocol !== 'https:') return null;
+    var host = u.hostname.replace(/^www\./, '').toLowerCase(), m;
+    if (host === 'youtu.be') m = /^\/([A-Za-z0-9_-]{6,})/.exec(u.pathname);
+    else if (/(^|\.)youtube\.com$/.test(host)) m = u.searchParams.get('v') ? [0, u.searchParams.get('v')] : /^\/(?:shorts|embed|live)\/([A-Za-z0-9_-]{6,})/.exec(u.pathname);
+    if (m && /^[A-Za-z0-9_-]{6,}$/.test(m[1])) return { url: 'https://www.youtube.com/watch?v=' + m[1], vk: 'yt', yt: m[1], thumb: 'https://i.ytimg.com/vi/' + m[1] + '/hqdefault.jpg' };
+    if (/(^|\.)youtube\.com$/.test(host) || host === 'youtu.be') return null;
+    if (/(^|\.)dropbox\.com$/.test(host)) { u.searchParams.delete('dl'); u.searchParams.set('raw', '1'); }           // the file itself, not its page
+    if (host === 'drive.google.com' && (m = /\/file\/d\/([A-Za-z0-9_-]+)/.exec(u.pathname))) u = new URL('https://drive.google.com/uc?export=download&id=' + m[1]);
+    return { url: u.toString(), vk: 'file', thumb: '' };
+  }
+  // Does the link really play as a video here? Gives its length and, when the place it is kept allows, a small picture of it.
+  function probeVideo(url) {
+    var open = function (cors) {
+      return new Promise(function (ok, no) {
+        var v = document.createElement('video'), timer = setTimeout(function () { v.removeAttribute('src'); no(new Error('timeout')); }, 20000);
+        v.muted = true; v.playsInline = true; v.preload = 'auto';
+        if (cors) v.crossOrigin = 'anonymous';
+        v.onloadeddata = function () { clearTimeout(timer); ok(v); };
+        v.onerror = function () { clearTimeout(timer); no(new Error('not a video')); };
+        v.src = url;
+      });
+    };
+    var snap = function (v) {
+      return new Promise(function (ok) {
+        var grab = function () {
+          try { var c = document.createElement('canvas'), k = Math.min(1, THUMB_W / (v.videoWidth || THUMB_W)); c.width = Math.round((v.videoWidth || 16) * k); c.height = Math.round((v.videoHeight || 9) * k);
+            c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); ok(c.toDataURL('image/jpeg', 0.72)); } catch (e) { ok(''); }
+        };
+        v.onseeked = grab; setTimeout(function () { ok(''); }, 6000);
+        try { v.currentTime = Math.min(1, (v.duration || 2) / 2); } catch (e) { grab(); }
+      });
+    };
+    return open(true).then(function (v) { return snap(v).then(function (thumb) { return { dur: isFinite(v.duration) ? Math.round(v.duration) : 0, thumb: thumb }; }); },
+      function () { return open(false).then(function (v) { return { dur: isFinite(v.duration) ? Math.round(v.duration) : 0, thumb: '' }; }); });
+  }
+  function addVideo() {
+    if (state.busy) return;
+    var link = videoLink(state.vurl), again = function () { addVideo(); };
+    if (!link) return toast(/youtu/i.test(state.vurl || '') ? 'That YouTube link is not one of a single video.' : 'Paste the link to the video first (it starts with https://).');
+    if (!S.getKey()) { state.askKey = true; state.keyWrong = false; state.after = again; render(); var box = document.getElementById('keyInput'); if (box) box.focus(); return; }
+    state.busy = 'Checking the video…'; render();
+    (link.vk === 'yt' ? Promise.resolve({ dur: 0, thumb: link.thumb }) : probeVideo(link.url)).then(function (info) {
+      var id = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), order = list().reduce(function (m, f) { return Math.max(m, f.order); }, 0) + 1;
+      var name = String(state.vname || '').replace(/\s+/g, ' ').trim().slice(0, 60) || (link.vk === 'yt' ? 'YouTube video' : 'Video');
+      var meta = { name: name, order: order, at: Date.now(), video: link.url, vk: link.vk };
+      if (link.yt) meta.yt = link.yt;
+      if (info.dur) meta.dur = info.dur;
+      if (info.thumb) meta.thumb = info.thumb;
+      var up = {}; up['index/' + id] = meta;
+      state.busy = 'Saving…'; render();
+      return save(up, again).then(function () { state.index[id] = meta; state.busy = ''; state.vurl = ''; state.vname = ''; toast('Video added. The TVs pick it up within half a minute.'); render(); });
+    }, function () {
+      state.busy = '';
+      toast('That link does not open as a video. Use the link to the video file itself (it usually ends in .mp4), or a YouTube link.'); render();
+    }).catch(function () { /* save() has already said why */ });
+  }
   function move(id, dir) {
     var all = list(), at = -1;
     all.forEach(function (f, i) { if (f.id === id) at = i; });
@@ -189,14 +255,27 @@
           h('input', { type: 'file', id: 'pick', accept: 'image/*', multiple: true, hidden: true, disabled: !!state.busy,
             onchange: function (e) { var f = Array.prototype.slice.call(e.target.files || []); e.target.value = ''; addFiles(f); } })
         ]),
+        h('h2', { style: 'margin-top:18px' }, ['Add a video', h('small', null, 'by its link')]),
+        h('ol', { class: 'vidsteps' }, [
+          h('li', null, ['Upload the video to the HighLevel media library. ', state.uploadURL ? h('a', { class: 'btn small', id: 'openMedia', href: state.uploadURL, target: '_blank', rel: 'noopener' }, 'Open the media library') : null]),
+          h('li', null, 'There, open the video\u2019s menu (the three dots) and choose Copy link.'),
+          h('li', null, 'Come back here, paste the link below and press Add video.')
+        ]),
+        h('p', { class: 'hint', style: 'margin:0 0 12px' }, 'The video stays in the media library; the TVs play it from there, once from start to end, without sound, and then the next flyer follows. A YouTube or Dropbox link works too.'),
+        h('div', { class: 'vidform' }, [
+          h('input', { type: 'url', id: 'vurl', placeholder: 'Link to the video (https://…)', value: state.vurl || '', autocomplete: 'off', autocapitalize: 'none', inputmode: 'url', disabled: !!state.busy, oninput: function (e) { state.vurl = e.target.value; } }),
+          h('input', { type: 'text', id: 'vname', placeholder: 'A name for it (optional)', value: state.vname || '', maxlength: 60, autocomplete: 'off', disabled: !!state.busy, oninput: function (e) { state.vname = e.target.value; } }),
+          btn(state.busy || 'Add video', 'primary', addVideo, { id: 'addVideo', disabled: !!state.busy })
+        ]),
         h('p', { class: 'hint' }, 'To show them: on the TV press Main menu, then ' + SET.menu + '. New flyers appear on the TVs within half a minute.' +
           (SPECIAL ? ' This slideshow shows only these flyers; the everyday club flyers and leaderboards are in the other one.' : ''))
       ]));
       body.push(h('div', { class: 'panel' }, [
-        h('h2', null, ['On the TVs now', h('small', null, all.length ? all.length + (all.length === 1 ? ' flyer' : ' flyers') + ', in this order' : '')]),
+        h('h2', null, ['On the TVs now', h('small', null, all.length ? all.length + (all.length === 1 ? ' slide' : ' slides') + ', in this order' : '')]),
         all.length ? h('div', { class: 'flygrid' }, all.map(function (f, i) {
           return h('div', { class: 'flycard', 'data-flyer': f.id }, [
-            h('div', { class: 'pic' }, [f.thumb ? h('img', { src: f.thumb, alt: '' }) : null, h('span', { class: 'no' }, String(i + 1))]),
+            h('div', { class: 'pic' + (f.video ? ' vid' : '') }, [f.thumb ? h('img', { src: f.thumb, alt: '' }) : null, h('span', { class: 'no' }, String(i + 1)),
+              f.video ? h('span', { class: 'play', 'aria-hidden': 'true' }, '\u25B6') : null, f.video ? h('span', { class: 'len' }, f.vk === 'yt' ? 'YouTube' : f.dur ? Math.floor(f.dur / 60) + ':' + ('0' + f.dur % 60).slice(-2) : 'Video') : null]),
             h('div', { class: 'nm' }, f.name),
             h('div', { class: 'row' }, [
               btn('Earlier', 'small', function () { move(f.id, -1); }, { disabled: i === 0 || !!state.busy, 'aria-label': 'Show ' + f.name + ' earlier' }),
@@ -213,7 +292,7 @@
       var f = state.confirm, close = function () { state.confirm = null; render(); };
       kids.push(h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', onclick: function (e) { if (e.target === e.currentTarget) close(); } }, h('div', { class: 'sheet' }, [
         h('h3', null, 'Remove this flyer?'),
-        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, '“' + f.name + '” comes off every TV. The photo itself stays on your device.'),
+        h('p', { style: 'margin:0;font-size:17px;line-height:1.45' }, '“' + f.name + '” comes off every TV. ' + (f.video ? 'The video itself stays where it is kept.' : 'The photo itself stays on your device.')),
         h('div', { class: 'row end' }, [btn('Cancel', '', close), btn('Remove', 'danger', function () { state.confirm = null; remove(f.id); }, { id: 'modalOk' })])
       ])));
     }

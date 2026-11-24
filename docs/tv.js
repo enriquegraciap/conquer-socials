@@ -373,17 +373,60 @@
     barTitle();
     fl.layers = [h('img', 'flyer'), h('img', 'flyer')];
     fl.layers.forEach(function (l) { l.alt = ''; });
+    fl.vbox = h('div', 'flyer vbox'); fl.hold = 0; fl.playing = '';
     fl.msg = h('div', 'flymsg');
     fl.board = h('div', 'lb');
     fl.cur = null; fl.top = 0; fl.rev = undefined; fl.boards = [];
-    root.replaceChildren(h('div', 'tvflyers', [fl.layers[0], fl.layers[1], fl.board, fl.msg]));
+    root.replaceChildren(h('div', 'tvflyers', [fl.layers[0], fl.layers[1], fl.vbox, fl.board, fl.msg]));
     flyerMessage();
     loadFlyers();
     loadBoards();
     fl.timer = setInterval(nextFlyer, SLIDE_MS);
   }
-  function stopFlyers() { clearInterval(fl.timer); fl.timer = null; fl.layers = []; fl.msg = null; fl.board = null; }
-  function readyFlyers() { return fl.list.filter(function (f) { return /^data:image\//.test(fl.data[f.id] || ''); }); }
+  function stopFlyers() { clearInterval(fl.timer); fl.timer = null; fl.layers = []; fl.msg = null; fl.board = null; clearTimeout(fl.stall); if (fl.vbox) fl.vbox.replaceChildren(); fl.vbox = null; fl.hold = 0; fl.playing = ''; }
+  function readyFlyers() { return fl.list.filter(function (f) { return f.video || /^data:image\//.test(fl.data[f.id] || ''); }); }
+  // A video in the slideshow (added by its link on the flyers page). It plays once, without sound, from start to end,
+  // and then the next slide follows; the slideshow's own clock waits meanwhile. One that will not play is passed over.
+  var VIDEO_MAX_MS = 5 * 60000, VIDEO_START_MS = 15000;
+  function videoOver(id) {
+    if (st.mode !== 'flyers' || fl.playing !== id) return;
+    clearTimeout(fl.stall); fl.hold = 0; fl.playing = '';
+    clearInterval(fl.timer); fl.timer = setInterval(nextFlyer, SLIDE_MS);      // the next slide gets its full time
+    nextFlyer();
+  }
+  function playVideo(item) {
+    var box = fl.vbox, id = item.id, el;
+    clearTimeout(fl.stall);
+    fl.cur = id; fl.playing = id; fl.hold = Date.now() + VIDEO_MAX_MS;
+    box.replaceChildren();
+    if (item.vk === 'yt' && item.yt) {
+      el = document.createElement('iframe');
+      el.setAttribute('allow', 'autoplay; encrypted-media'); el.setAttribute('data-yt', id);
+      el.src = 'https://www.youtube.com/embed/' + encodeURIComponent(item.yt) + '?autoplay=1&mute=1&controls=0&rel=0&playsinline=1&modestbranding=1&enablejsapi=1&origin=' + encodeURIComponent(location.origin);
+      el.onload = function () { try { el.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: id, channel: 'widget' }), '*'); } catch (e) { /* it still plays; the longest time allowed ends it */ } };
+    } else {
+      el = document.createElement('video');
+      el.muted = true; el.defaultMuted = true; el.autoplay = true; el.playsInline = true; el.setAttribute('muted', ''); el.setAttribute('playsinline', ''); el.preload = 'auto';
+      el.onended = function () { videoOver(id); };
+      el.onerror = function () { videoOver(id); };
+      el.onplaying = function () { clearTimeout(fl.stall); };
+      el.src = item.video;
+      var p = el.play(); if (p && p.catch) p.catch(function () { /* the start check below passes it over */ });
+      fl.stall = setTimeout(function () { if (fl.playing === id && (el.paused || el.readyState < 3) && !el.currentTime) videoOver(id); }, VIDEO_START_MS);
+    }
+    box.appendChild(el);
+    box.setAttribute('data-id', id);
+    box.classList.add('on');
+    fl.layers.forEach(function (l) { l.classList.remove('on'); });
+    if (fl.board) fl.board.classList.remove('on');
+  }
+  // (YouTube says when its video has ended)
+  window.addEventListener('message', function (e) {
+    if (!/^https:\/\/www\.youtube(-nocookie)?\.com$/.test(e.origin) || !fl.playing) return;
+    var d = null; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (err) { d = null; }
+    var state = d && (d.event === 'onStateChange' ? d.info : d.event === 'infoDelivery' && d.info ? d.info.playerState : null);
+    if (state === 0) videoOver(fl.playing);
+  });
   // Everything the slideshow goes through: the uploaded flyers in their order, then the leaderboards.
   function slides() {
     var ids = readyFlyers().map(function (f) { return f.id; });
@@ -456,18 +499,19 @@
       return S.get(path + '/index').then(function (idx) {
         if (path !== fl.path) return null;
         idx = idx || {};
-        fl.list = Object.keys(idx).map(function (id) { return { id: id, order: Number(idx[id].order) || 0 }; })
+        fl.list = Object.keys(idx).map(function (id) { return { id: id, order: Number(idx[id].order) || 0, video: idx[id].video || '', vk: idx[id].vk || '', yt: idx[id].yt || '' }; })
           .sort(function (a, b) { return a.order - b.order || (a.id < b.id ? -1 : 1); });
         Object.keys(fl.data).forEach(function (id) { if (!idx[id]) delete fl.data[id]; });
         fl.rev = rev;
         if (fl.cur && fl.cur !== BOARDS && !idx[fl.cur]) nextFlyer();   // the flyer on screen was removed
         flyerMessage();
+        if (fl.cur === null && fl.list.some(function (f) { return f.video; })) nextFlyer();      // a video needs no download: the show can start
         return fetchFlyers();
       });
     }).catch(function () { /* tried again in half a minute */ }).then(function () { fl.loading = false; flyerMessage(); });
   }
   function fetchFlyers() {
-    var next = fl.list.filter(function (f) { return fl.data[f.id] === undefined; })[0];
+    var next = fl.list.filter(function (f) { return !f.video && fl.data[f.id] === undefined; })[0];
     if (!next || st.mode !== 'flyers') return null;
     var path = fl.path;
     return S.get(path + '/data/' + next.id).then(function (d) {
@@ -482,9 +526,15 @@
     if (st.mode !== 'flyers') return;
     var ids = slides(), at = ids.indexOf(fl.cur);
     flyerMessage();
-    if (!ids.length) { fl.layers.forEach(function (l) { l.classList.remove('on'); }); fl.board.classList.remove('on'); fl.cur = null; return; }
-    var nxt = ids[(at + 1) % ids.length];
+    // a video is on: it ends by itself (videoOver), unless it has been taken off the list meanwhile
+    if (fl.playing && ids.indexOf(fl.playing) >= 0 && Date.now() < fl.hold) return;
+    if (fl.playing) { clearTimeout(fl.stall); fl.playing = ''; fl.hold = 0; }
+    var leaveVideo = function () { if (fl.vbox) { fl.vbox.classList.remove('on'); fl.vbox.replaceChildren(); } };
+    if (!ids.length) { fl.layers.forEach(function (l) { l.classList.remove('on'); }); fl.board.classList.remove('on'); leaveVideo(); fl.cur = null; return; }
+    var nxt = ids[(at + 1) % ids.length], vid = fl.list.filter(function (f) { return f.id === nxt && f.video; })[0];
+    if (vid) return playVideo(vid);                                // (a video that is the only slide plays again)
     if (nxt === fl.cur) return;                                    // only one slide: it simply stays
+    leaveVideo();
     if (nxt === BOARDS) {
       drawBoards();
       fl.board.classList.add('on');

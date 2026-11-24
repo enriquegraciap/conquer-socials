@@ -230,6 +230,13 @@ table.board td.pts { font-family: var(--display); font-size: 24px; font-weight: 
 .flycard .pic { position: relative; aspect-ratio: 16 / 9; background: #0b1c2e; border-radius: 8px; overflow: hidden; }
 .flycard .pic img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .flycard .pic .no { position: absolute; left: 8px; top: 8px; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 14px; background: var(--gold); color: var(--ink); font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.flycard .pic.vid { background: #0b1c2e linear-gradient(135deg, #12304f, #0b1c2e); }
+.flycard .pic .play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 54px; height: 54px; border-radius: 50%; background: rgba(7,26,48,.72); color: #fff; font-size: 24px; display: flex; align-items: center; justify-content: center; padding-left: 4px; }
+.flycard .pic .len { position: absolute; right: 8px; bottom: 8px; padding: 2px 8px; border-radius: 6px; background: rgba(7,26,48,.8); color: #fff; font-size: 13px; font-weight: 600; }
+.vidsteps { margin: 0 0 10px; padding-left: 22px; display: grid; gap: 8px; font-size: 16px; line-height: 1.4; }
+.vidsteps .btn { margin-left: 6px; vertical-align: middle; }
+.vidform { display: grid; gap: 8px; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; align-items: center; }
+@media (max-width: 700px) { .vidform { grid-template-columns: 1fr; } }
 .flycard .nm { font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .flycard .row { gap: 6px; }
 
@@ -430,6 +437,8 @@ body.tv.mode-flyers .tvbar, body.tv.mode-flyers .tvdate, body.tv.mode-flyers .tv
 .tvflyers { position: fixed; inset: 0; background: #000; }
 .tvflyers .flyer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 1.2s ease; }
 .tvflyers .flyer.on { opacity: 1; }
+.tvflyers .vbox { background: #000; }
+.tvflyers .vbox video, .tvflyers .vbox iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: contain; background: #000; }
 .flymsg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.4vmin; text-align: center; padding: 6vmin; }
 .flymsg[hidden] { display: none; }
 .flymsg h1 { font-family: var(--display); font-size: 7vmin; text-transform: uppercase; margin: 0; }

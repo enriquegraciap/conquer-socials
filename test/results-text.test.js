@@ -17,6 +17,11 @@ const results = { '2026-11': {
     e: { name: 'Gone Early', players: ['Gone Early'], points: 30, wins: 5, left: true }, f: { name: 'Dana Opted', players: ['Dana Opted'], points: 2, wins: 0 }, g: { name: 'Nick Nohl', players: ['Nick Nohl'], points: 1, wins: 0 } } } } };
 const nightIn = { club: 'tempe', series: 'asu-college-padel-nights', name_raw: '"ASU College Padel Nights"', results_raw: JSON.stringify(results), today: '2026-11-22', yesterday: '2026-11-21', hour: '22' };
 
+test('the night: a social with its own table names that table instead of the month', () => {
+  assert.match(run(body('night.js'), Object.assign({}, nightIn, { table_raw: '"Fall Series"' })).text, /See the full results and the Fall Series leaderboard, and share yours: /);
+  ['null', '', undefined, '""'].forEach(v => assert.match(run(body('night.js'), Object.assign({}, nightIn, { table_raw: v })).text, /and the November leaderboard,/));
+});
+
 test('the night: latest night, its top three (removed players left out), the text and what to look up', () => {
   const n = run(body('night.js'), nightIn);
   assert.equal(n.ok, 'yes');

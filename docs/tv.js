@@ -872,15 +872,17 @@
     var unit = s && s.scoring === 'player' ? 'players' : 'teams';
     // a daytime social: "today", "2 days" (by when it started; before the start, by the clock)
     var byDay = s && !s.discarded ? E.isDaytime(s, s.status === 'setup' ? new Date() : null) : E.isDaytime(null, new Date());
+    // a long series table under it: tonight's list goes in two columns sooner, so the letters of both stay large
+    var crowded = Math.min(month.length, monthRows) > 16;
     return h('div', 'tvright', [
-      board(byDay ? 'Today' : 'Tonight', tonight.length ? tonight.length + ' ' + unit : '', tonight, tonight.length, 'Waiting for ' + unit),
+      board(byDay ? 'Today' : 'Tonight', tonight.length ? tonight.length + ' ' + unit : '', tonight, tonight.length, 'Waiting for ' + unit, crowded ? 8 : 0),
       board(mName, whole ? (month.length ? month.length + ' ' + unit : '') : nights ? nights + (byDay ? (nights === 1 ? ' day' : ' days') : (nights === 1 ? ' night' : ' nights')) : '', month.slice(0, monthRows), Math.min(month.length, monthRows), whole ? 'No results yet' : 'No results yet this month')
     ]);
   }
-  function board(title, sub, rows, count, empty) {
+  function board(title, sub, rows, count, empty, twoAt) {
     // a long list goes in two columns. On a portrait screen the two boards stand side by side: a long one then gets
     // two thirds of the width (CSS: .tvboard.wide), which is room for its two columns.
-    var two = rows.length > 16;
+    var two = rows.length > (twoAt || 16);
     var list = h('div', 'tvrows' + (two ? ' two' : ''), rows.map(function (r) {
       // gold, silver and bronze for places 1 to 3 once there are points; teams level on points share a medal
       var medal = r.points > 0 && r.rank <= 3 ? MEDALS[r.rank - 1] : '';

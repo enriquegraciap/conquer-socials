@@ -91,6 +91,7 @@ const NAMES = ['Ana Ruiz', 'Bruno Diaz', 'Carla Gil', 'Diego Mora', 'Elena Paz',
   await admin.click('.digits button[data-side="sa"][data-v="2"]'); await admin.click('.digits button[data-side="sb"][data-v="4"]');
   await admin.click('#saveScore');
   await admin.waitForSelector('text=Round 2');
+  for (let i = 0; i < 40 && (await s1()).rounds.length < 2; i++) await admin.waitForTimeout(250);      // (saved in the background)
   s = await s1();
   const r1 = s.rounds[0], r2 = s.rounds[1];
   assert.equal(r2.sitting.length, 2);

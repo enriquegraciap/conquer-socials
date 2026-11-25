@@ -59,7 +59,7 @@ matched.forEach(m => {
   seenC[c.id] = m.name;
   recipients.push({ cid: c.id, name: m.name, extra: !!m.extra });
   const notes = [];
-  if (m.close) notes.push('PlayByPoint "' + m.close + '"');
+  if (m.close) notes.push('PlayByPoint "' + m.close + '"' + (m.earlier ? ' (on an earlier session\'s roster)' : ''));
   if (got.how) notes.push('HighLevel "' + fullName(c) + '" (found by ' + got.how + ')');
   if (notes.length) close.push('"' + m.name + '" = ' + notes.join(', '));
 });

@@ -67,7 +67,7 @@ const REST_OF = () => [
     { id: 5, module: 'builtin:BasicFeeder', version: 1, parameters: {}, metadata: pos('Each customer to fetch'), mapper: { array: '{{split(60.result.paths; "|")}}' } },
     http(6, 'PlayByPoint customers', { url: 'https://api.playbypoint.com/v1/{{5.value}}', parse: false, headers: bearer('pbp_key', [{ name: 'X-PBP-Facility-Id', value: FACILITY }]) }),
     { id: 7, module: 'util:TextAggregator', version: 1, parameters: { feeder: 5, rowSeparator: '\n' }, metadata: pos('All answers'), mapper: { value: '{{toString(6.data)}}' } },
-    code(8, 'Who is who', matchSrc + '\n' + here('pick.js'), { names_json: '{{4.result.names_json}}', pool: '{{7.text}}', extra: '{{var.input.extra}}', roster: '{{60.result.roster}}' }),
+    code(8, 'Who is who', matchSrc + '\n' + here('pick.js'), { names_json: '{{4.result.names_json}}', pool: '{{7.text}}', extra: '{{var.input.extra}}', roster: '{{60.result.roster}}', prime: '{{60.result.prime}}' }),
     { id: 9, module: 'builtin:BasicFeeder', version: 1, parameters: {}, metadata: pos('Each matched player'), mapper: { array: '{{split(8.result.lookups; "|")}}' } },
     http(10, 'HighLevel: by phone', { url: GHL + '/contacts/search/duplicate?locationId=' + LOCATION + '&number={{encodeURL(get(split(9.value; "~"); 2))}}', parse: false, headers: bearer('ghl_pit', [{ name: 'Version', value: '2021-07-28' }]) }),
     http(16, 'HighLevel: by email', { url: GHL + '/contacts/search', method: 'post', parse: false, data: '{"locationId":"' + LOCATION + '","pageLimit":5,"query":"{{get(split(9.value; "~"); 3)}}"}',

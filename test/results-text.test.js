@@ -169,6 +169,27 @@ test('the day\'s PlayByPoint roster: which program, which session, who was signe
   assert.deepEqual(m.map(x => x.name + '=' + x.cname), ['Jon Michael Osola=Jon Michael Ossola', 'J. Rod Rojas=J. Rod Rojas', 'Rodrigo Stone=Alexander Stone']);
   assert.deepEqual(sk.map(x => x.name + ': ' + x.why), ['Alex: not on the PlayByPoint roster of this session', "John's Friend: not on the PlayByPoint roster of this session"]);
   assert.equal(JSON.parse(pick('no').matched_json).length, 2, 'outside a roster the loose match is not used');
+
+  // players in the app by first name only, and regulars who did not sign up this time: the day's roster first, then the
+  // rosters of the three sessions before it; a first name may differ by a letter or an ending (Kristen/Kristin, Ellie/Elly)
+  const S = { sessions: [{ id: 'W1', date: '2026-11-04', start_time: '09:00' }, { id: 'W2', date: '2026-11-11', start_time: '09:00' }, { id: 'W3', date: '2026-11-18', start_time: '09:00' },
+    { id: 'W4', date: '2026-11-25', start_time: '09:00' }, { id: 'W0', date: '2026-10-21', start_time: '09:00' }, { id: 'W5', date: '2026-12-02', start_time: '09:00' }] };
+  const E1 = { enrollments: [{ customer_id: 'a', session_ids: ['W4'] }, { customer_id: 'b', session_ids: ['W4'] }, { customer_id: 'k', session_ids: ['W3'] }, { customer_id: 'e', session_ids: ['W1'] },
+    { customer_id: 'l', session_ids: ['W2'] }, { customer_id: 'a', session_ids: ['W3'] }, { customer_id: 'z', session_ids: ['W0'] }, { customer_id: 'y', session_ids: ['W5'] }, { customer_id: 'k2', session_ids: ['W2'] }], next_cursor: null };
+  const rr = run(body('roster.js'), { program: 'ladies', why: '', sess_a: S, sess_b: '', e1: E1, date: '2026-11-25', start: '09:05', queries: '' });
+  assert.deepEqual([rr.count, rr.prime, rr.earlier, rr.paths], ['2', 'a|b', '4', 'customers/a|customers/b|customers/k|customers/e|customers/l|customers/k2'], 'the day\'s own, then the three sessions before (not older, not later)');
+  assert.match(rr.note, /roster of the 09:00 session that day \(2 signed up\), then with the rosters of the 3 sessions before it\./);
+  const pool2 = [{ customer: { id: 'a', name: 'Susie Godfrey', phone: '8015550001' } }, { customer: { id: 'b', name: 'Courtney Lloyd', phone: '8015550002' } }, { customer: { id: 'k', name: 'Kristin Longson', phone: '8015550003' } },
+    { customer: { id: 'e', name: 'Elly Lloyd', phone: '8015550004' } }, { customer: { id: 'l', name: 'Libby Stone', phone: '8015550005' } }, { customer: { id: 'k2', name: 'Kate Nadauld', phone: null, email: 'kate@x.com' } }].map(x => JSON.stringify(x)).join('\n');
+  const p2 = run(matchSrc + '\n' + body('pick.js'), { names_json: JSON.stringify(['Susie', 'Courtney', 'Kristen', 'Ellie', 'Libby', 'Kate', 'Maribel']), pool: pool2, extra: '', roster: 'yes', prime: rr.prime });
+  assert.deepEqual(JSON.parse(p2.matched_json).map(x => x.name + '=' + x.cname + (x.earlier ? '*' : '')).sort(),
+    ['Courtney=Courtney Lloyd', 'Ellie=Elly Lloyd*', 'Kate=Kate Nadauld*', 'Kristen=Kristin Longson*', 'Libby=Libby Stone*', 'Susie=Susie Godfrey']);
+  assert.deepEqual(JSON.parse(p2.skipped_json).map(x => x.name + ': ' + x.why), ['Maribel: not on the PlayByPoint roster of this session or of the sessions before it']);
+  // someone on the day's roster is never taken from an earlier one instead, and two people who fit leave it open
+  const p3 = run(matchSrc + '\n' + body('pick.js'), { names_json: JSON.stringify(['Lloyd']), pool: pool2, extra: '', roster: 'yes', prime: rr.prime });
+  assert.equal(JSON.parse(p3.matched_json).length, 0);
+  const cardOf = mj => run(matchSrc + '\n' + body('card.js'), { matched_json: mj, skipped_json: '[]', ghl: '', text: 'T', title: 'L', club: 'lehi', nice_date: 'd', players: '1', seed: 'abc', roster_note: rr.note, from: '+1' });
+  assert.match(String(cardOf(p2.matched_json).card || ''), /"Kate" = [^\n]*PlayByPoint "Kate Nadauld" \(on an earlier session's roster\)|NOT SENT/);
 });
 
 test('the text uses the social\'s public name when it has one', () => {

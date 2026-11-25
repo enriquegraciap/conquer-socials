@@ -25,5 +25,17 @@ pages.forEach(p => (p.enrollments || []).forEach(e => {
 // still more sign-ups after the last page that was read: the roster may be short of some players
 const lastPage = pages.filter(p => Array.isArray(p.enrollments)).pop(), cut = !!(lastPage && lastPage.next_cursor) ? ' PlayByPoint has more sign-ups for this program than this card reads, so someone on the roster may be missing here.' : '';
 if (!ids.length) return search('Nobody is signed up in PlayByPoint for the ' + session.start_time + ' session');
-return { roster: 'yes', paths: ids.map(id => 'customers/' + id).join('|'), count: String(ids.length),
-  note: 'Matched with the PlayByPoint roster of the ' + session.start_time + ' session that day (' + ids.length + ' signed up).' + cut };
+// The three sessions before it: a regular who played without signing up this time, or who is in the app by first name
+// only, is looked for on those rosters too (after the day's own roster, never instead of it).
+const before = [], seenS = {};
+[input.sess_a, input.sess_b].forEach(r => ((parse(r, {}) || {}).sessions || []).forEach(s => { if (s && s.id && !seenS[s.id] && String(s.date) < String(input.date)) { seenS[s.id] = true; before.push(s); } }));
+before.sort((a, b) => (String(b.date) + String(b.start_time || '')).localeCompare(String(a.date) + String(a.start_time || '')));
+const recent = before.slice(0, 3).map(s => s.id), earlier = [];
+if (recent.length) pages.forEach(p => (p.enrollments || []).forEach(e => {
+  if (!e || !e.customer_id || got[e.customer_id] || !(e.session_ids || []).some(id => recent.indexOf(id) >= 0)) return;
+  got[e.customer_id] = true; earlier.push(e.customer_id);
+}));
+const more = earlier.slice(0, 60);
+return { roster: 'yes', paths: ids.concat(more).map(id => 'customers/' + id).join('|'), count: String(ids.length), prime: ids.join('|'), earlier: String(more.length),
+  note: 'Matched with the PlayByPoint roster of the ' + session.start_time + ' session that day (' + ids.length + ' signed up)' +
+    (more.length ? ', then with the rosters of the ' + (recent.length === 1 ? 'session' : recent.length + ' sessions') + ' before it.' : '.') + cut };

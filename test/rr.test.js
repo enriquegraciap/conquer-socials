@@ -123,6 +123,13 @@ test('a social with its own table: starting points plus every night, under the t
   assert.strictEqual(by['Harrison Smedley'].nights, 0);
   assert.strictEqual(rows[0].name, 'Harrison Smedley');
   assert.strictEqual(rows.length, 5);
+  // table.present: only whoever is on tonight's list, with what they brought plus tonight
+  const here = E.tableHere(rows, E.sessionKeys(s));
+  assert.deepStrictEqual(here.map(r => r.name).sort(), ['Dani Marquez', 'Fourth Fay', 'New Nora', 'Third Theo']);
+  assert.strictEqual(here[0].name, 'Dani Marquez'); assert.strictEqual(here[0].rank, 1); assert.strictEqual(here[0].points, 32);
+  const before = E.newSession({ format: 'rr-individual', courts: [1] });
+  ['Dani Marquez', 'Harrison Smedley', 'Brand New'].forEach(n => E.addTeam(before, [n]));
+  assert.deepStrictEqual(E.tableHere(E.monthlyBoard(E.tableDocs(series, {})), E.sessionKeys(before)).map(r => r.name + ' ' + r.points), ['Harrison Smedley 66', 'Dani Marquez 24']);
   assert.strictEqual(E.tableOf({ name: 'x' }), null);
   assert.deepStrictEqual(E.tableDocs({ name: 'x' }, res), {});
 });

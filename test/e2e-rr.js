@@ -101,6 +101,17 @@ const NAMES = ['Ana Ruiz', 'Bruno Diaz', 'Carla Gil', 'Diego Mora', 'Elena Paz',
   assert.equal(r2.top, -1);
   step('round 2: new partners, different players sit out');
 
+  // 5b. "only whoever is here tonight": the table leaves out people who brought points but are not on tonight's list
+  await patch({ ['pub/series/' + id + '/table/present']: true, ['pub/live/' + id + '/ping']: Date.now() });
+  await tv.reload();
+  await tv.waitForFunction(() => [...document.querySelectorAll('.tvboard h2')].some(h => /Fall Series/.test(h.textContent)), null, { timeout: 15000 });
+  await tv.waitForFunction(() => document.querySelectorAll('.tvboard')[1].querySelectorAll('.tvrow').length > 0, null, { timeout: 8000 });
+  const hereOnly = Object.fromEntries(await boardRows(1));
+  assert.equal(hereOnly['Zed Away'], undefined, 'not here tonight: not on the table');
+  assert.ok(hereOnly['Ana Ruiz'] >= 24, 'here tonight: brought points plus tonight\'s');
+  await patch({ ['pub/series/' + id + '/table/present']: null });
+  step('with "present" set, the table only lists tonight\'s players');
+
   // 6. the leaderboard to share: its second tab is the Fall Series
   await board.goto(BASE + '/board/?s=' + id + '&db=' + DB);
   await board.waitForSelector('#card');

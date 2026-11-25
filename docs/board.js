@@ -66,7 +66,10 @@
       // a social with one table for all its nights (a "Fall Series"): every month counts, and the points brought along
       var table = E.tableOf(series);
       st.table = table ? (table.name || 'Series') : '';
-      if (table) { st.monthRows = E.monthlyBoard(E.tableDocs(series, res)); if (!st.month) st.month = E.localDate(new Date()).slice(0, 7); }
+      if (table) {
+        st.monthRows = E.monthlyBoard(E.tableDocs(series, res)); if (!st.month) st.month = E.localDate(new Date()).slice(0, 7);
+        if (table.present && best) { var here = {}; Object.keys(best.doc.entries).forEach(function (k) { here[k] = true; }); st.monthRows = E.tableHere(st.monthRows, here); }   // only whoever played that night
+      }
       if (!st.night) st.view = 'month';
     });
   }

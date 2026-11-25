@@ -1173,7 +1173,16 @@
   // "Fall Series": table.name is what it is called ("Fall Series"), and table.start the points everyone brings along
   // from before the social was run here ({ key: { name, points } }). tableDocs puts those starting points with the
   // nights' results (resultsByMonth: { '2026-11': { sessionId: doc } }), ready for monthlyBoard.
+  // table.present: the table only lists whoever is on the list of the night being played (or of the latest night),
+  // each with the points brought along plus the night's; people who are not there that night are left out (tableHere).
   function tableOf(series) { var t = series && series.table; return t && typeof t === 'object' ? t : null; }
+  function tableHere(rows, keys) { return rankRows(rows.filter(function (r) { return !!keys[r.key]; })); }
+  // The keys of everyone on a night's list (session), as they appear on a table.
+  function sessionKeys(session) {
+    var keys = {};
+    teamList(session).forEach(function (t) { scoringEntities(t, session.scoring).forEach(function (e) { keys[e.key] = true; }); });
+    return keys;
+  }
   function tableDocs(series, resultsByMonth) {
     var t = tableOf(series), docs = {};
     if (!t) return docs;
@@ -1210,7 +1219,7 @@
   }
 
   return {
-    RULES: RULES, FORMATS: FORMATS, formatOf: formatOf, isSolo: isSolo, isRR: isRR, isLadder: isLadder, multOf: multOf, tableOf: tableOf, tableDocs: tableDocs, sideIds: sideIds, courtIds: courtIds, sideOf: sideOf, sideName: sideName,
+    RULES: RULES, FORMATS: FORMATS, formatOf: formatOf, isSolo: isSolo, isRR: isRR, isLadder: isLadder, multOf: multOf, tableOf: tableOf, tableDocs: tableDocs, tableHere: tableHere, sessionKeys: sessionKeys, rankRows: rankRows, sideIds: sideIds, courtIds: courtIds, sideOf: sideOf, sideName: sideName,
     newSession: newSession, normalize: normalize, localDate: localDate, localTime: localTime, isDaytime: isDaytime, dayWord: dayWord, clone: clone, randomId: randomId,
     teamList: teamList, activeTeams: activeTeams, currentRound: currentRound,
     roundComplete: roundComplete, roundHasScores: roundHasScores, courtDone: courtDone,

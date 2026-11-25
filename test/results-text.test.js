@@ -148,6 +148,12 @@ test('the day\'s PlayByPoint roster: which program, which session, who was signe
   let r = ros({});
   assert.deepEqual([r.roster, r.paths, r.count], ['yes', 'customers/c1|customers/c2|customers/guest', '3']);
   assert.match(r.note, /roster of the 06:30 session that day \(3 signed up\)/);
+  // a program that has run for months: tonight's players can be on any page, up to the last one read
+  const page = (n, more) => ({ enrollments: [{ customer_id: 'p' + n, session_ids: ['S1'] }, { customer_id: 'old' + n, session_ids: ['S0'] }], next_cursor: more ? 'next' : null });
+  r = ros({ e1: page(1, true), e2: JSON.stringify(page(2, true)), e3: page(3, true), e4: page(4, true), e5: page(5, true), e9: page(9, true), e12: page(12, false), e10: { status: 422 } });
+  assert.deepEqual([r.count, r.paths], ['7', 'customers/p1|customers/p2|customers/p3|customers/p4|customers/p5|customers/p9|customers/p12']);
+  assert.doesNotMatch(r.note, /more sign-ups/);
+  assert.match(ros({ e1: page(1, true), e2: page(2, true), e3: { status: 422 }, e4: null }).note, /\(2 signed up\)\. PlayByPoint has more sign-ups for this program than this card reads/);
   r = ros({ program: '' });
   assert.equal(r.roster, 'no'); assert.equal(r.paths, 'customers?q=Ana%20Lopez&limit=100|customers?q=Lopez&limit=100|customers?q=Ana&limit=100');
   assert.match(r.note, /looked up among all/);

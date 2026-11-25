@@ -16,10 +16,14 @@ if (!sessions.length) return search('PlayByPoint has no session of "' + input.pr
 const at = mins(input.start);
 sessions.sort((a, b) => at >= 0 ? Math.abs(mins(a.start_time) - at) - Math.abs(mins(b.start_time) - at) : 0);
 const session = sessions[0], ids = [], got = {};
-[input.e1, input.e2, input.e3, input.e4].forEach(r => ((parse(r, {}) || {}).enrollments || []).forEach(e => {
+// every page of sign-ups that was read (e1, e2, ...): the program's whole history, so tonight's can be on any of them
+const pages = Object.keys(input).filter(k => /^e\d+$/.test(k)).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))).map(k => parse(input[k], {}) || {});
+pages.forEach(p => (p.enrollments || []).forEach(e => {
   if (!e || !e.customer_id || got[e.customer_id] || (e.session_ids || []).indexOf(session.id) < 0) return;
   got[e.customer_id] = true; ids.push(e.customer_id);
 }));
+// still more sign-ups after the last page that was read: the roster may be short of some players
+const lastPage = pages.filter(p => Array.isArray(p.enrollments)).pop(), cut = !!(lastPage && lastPage.next_cursor) ? ' PlayByPoint has more sign-ups for this program than this card reads, so someone on the roster may be missing here.' : '';
 if (!ids.length) return search('Nobody is signed up in PlayByPoint for the ' + session.start_time + ' session');
 return { roster: 'yes', paths: ids.map(id => 'customers/' + id).join('|'), count: String(ids.length),
-  note: 'Matched with the PlayByPoint roster of the ' + session.start_time + ' session that day (' + ids.length + ' signed up).' };
+  note: 'Matched with the PlayByPoint roster of the ' + session.start_time + ' session that day (' + ids.length + ' signed up).' + cut };

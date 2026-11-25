@@ -33,12 +33,26 @@
     var c = (q.get('c') || '').toLowerCase(), club = /^[a-z0-9-]{1,30}$/.test(c) && app.slice(-c.length - 2) !== '/' + c + '/' ? c + '/' : '';
     q.delete('c');
     var qs = q.toString();
+    // The admin key, once typed on this device, is remembered by THIS page too (the app asks for that, see store.js):
+    // an iPad's Safari forgets what a framed page stores whenever the tab is reloaded. Handed back in the address.
+    var appOrigin = '', hash = location.hash, keyName = function (cl) { return 'cq-socials-key' + (cl && /^[a-z0-9-]{1,30}$/.test(cl) ? '-' + cl : ''); };
+    try { appOrigin = new URL(app).origin; } catch (e) { appOrigin = ''; }
+    if ((v === '' || v === 'flyers') && !/[#&]k=/.test(hash)) {
+      var kept = '';
+      try { kept = localStorage.getItem(keyName(club ? c : '')) || ''; } catch (e2) { kept = ''; }
+      if (kept) hash = (hash && hash !== '#' ? hash + '&' : '#') + 'k=' + encodeURIComponent(kept);
+    }
     var frame = document.createElement('iframe');
     frame.id = 'cq-socials';
     frame.title = 'Conquer Padel socials';
     frame.setAttribute('allow', 'fullscreen; screen-wake-lock; microphone; web-share; clipboard-write');
     frame.setAttribute('allowfullscreen', '');
-    frame.src = app + club + (v === 'tv' ? 'tv/' : v === 'p' ? 'p/' : v === 'flyers' ? 'flyers/' : v === 'learn' ? 'learn/' : v === 'board' ? 'board/' : '') + (qs ? '?' + qs : '') + location.hash;
+    frame.src = app + club + (v === 'tv' ? 'tv/' : v === 'p' ? 'p/' : v === 'flyers' ? 'flyers/' : v === 'learn' ? 'learn/' : v === 'board' ? 'board/' : '') + (qs ? '?' + qs : '') + hash;
+    window.addEventListener('message', function (e) {
+      var d = e.data;
+      if (!appOrigin || e.origin !== appOrigin || e.source !== frame.contentWindow || !d || d.cqSocials !== 'key') return;
+      try { if (d.key) localStorage.setItem(keyName(d.club), String(d.key).slice(0, 200)); else localStorage.removeItem(keyName(d.club)); } catch (e3) { /* private mode */ }
+    });
     frame.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;border:0;z-index:2147483000;background:#071a30';
     document.body.appendChild(frame);
     document.documentElement.style.overflow = 'hidden';

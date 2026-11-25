@@ -74,12 +74,59 @@
 
   // what a device remembers (the admin key, which TV it is, who a player is) is kept apart per club as well
   var PREF = 'socials.' + (clubId ? clubId + '.' : ''), KEY_STORE = PREF + 'adminKey';
+  // The admin key is typed once per device and then has to stay: a night must never stop saving because the browser
+  // forgot it. So it is kept in several places and read back from whichever still has it:
+  //   - in memory, for as long as the page is open (the browser clearing its storage cannot take that away);
+  //   - localStorage, sessionStorage and a cookie of this site;
+  //   - and, when the app is shown inside the club's own page (wrap.js), with THAT page as well. An iPad's Safari does
+  //     not keep the storage of a framed page: it is gone whenever the tab is reloaded or the browser restarted. The
+  //     club's page hands the key back in the address (#k=...) each time it opens the app.
+  var memKey = '', cookiePath = '/';
+  try { cookiePath = new URL(home || root.location.href).pathname.replace(/[^\/]*$/, '') || '/'; } catch (e) { /* stays "/" */ }
+  function cookieGet(name) {
+    try {
+      var all = String(root.document.cookie || '').split(/;\s*/);
+      for (var i = 0; i < all.length; i++) { var eq = all[i].indexOf('='); if (eq > 0 && decodeURIComponent(all[i].slice(0, eq)) === name) return decodeURIComponent(all[i].slice(eq + 1)); }
+    } catch (e) { /* no cookies here */ }
+    return '';
+  }
+  function cookieSet(name, value) {
+    try {
+      root.document.cookie = encodeURIComponent(name) + '=' + encodeURIComponent(value || '') + '; path=' + cookiePath + '; max-age=' + (value ? 400 * 86400 : 0) + '; SameSite=Lax' + (root.location.protocol === 'https:' ? '; Secure' : '');
+    } catch (e) { /* no cookies here */ }
+  }
+  // The club's page this app is shown in (see wrap.js): only that address is ever told the key.
+  var wrapOrigin = '';
+  try { wrapOrigin = new URL(params.get('db') ? (params.get('wrapper') || 'x:') : (cfg.publicURL || 'x:')).origin; } catch (e) { wrapOrigin = ''; }
+  if (!/^https?:/.test(wrapOrigin)) wrapOrigin = '';
+  function tellWrapper(k) {
+    if (!framed || !wrapOrigin) return;
+    try { root.parent.postMessage({ cqSocials: 'key', club: clubId || '', key: k || '' }, wrapOrigin); } catch (e) { /* not in the club's page */ }
+  }
   function getKey() {
-    try { return root.localStorage.getItem(KEY_STORE) || ''; } catch (e) { return ''; }
+    if (memKey) return memKey;
+    var k = '';
+    try { k = root.localStorage.getItem(KEY_STORE) || ''; } catch (e) { k = ''; }
+    if (!k) { try { k = root.sessionStorage.getItem(KEY_STORE) || ''; } catch (e2) { k = ''; } }
+    if (!k) k = cookieGet(KEY_STORE);
+    memKey = k;
+    return k;
   }
   function setKey(k) {
+    k = k ? String(k) : '';
+    memKey = k;
     try { if (k) root.localStorage.setItem(KEY_STORE, k); else root.localStorage.removeItem(KEY_STORE); } catch (e) { /* private mode */ }
+    try { if (k) root.sessionStorage.setItem(KEY_STORE, k); else root.sessionStorage.removeItem(KEY_STORE); } catch (e2) { /* private mode */ }
+    cookieSet(KEY_STORE, k);
+    tellWrapper(k);
   }
+  // A key in the address (#k=...): from a staff link, or handed back by the club's page. Taken in and removed from the address.
+  (function () {
+    var m = root.location ? /[#&]k=([^&]+)/.exec(root.location.hash || '') : null;
+    if (!m) { if (getKey()) tellWrapper(getKey()); return; }      // (a key this device already had: the club's page learns it too)
+    try { setKey(decodeURIComponent(m[1])); } catch (e) { return; }
+    try { root.history.replaceState(null, '', root.location.pathname + root.location.search); } catch (e2) { /* stays in the address */ }
+  })();
 
   root.Store = {
     configured: !!base,

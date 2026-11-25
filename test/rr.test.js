@@ -129,7 +129,16 @@ test('a social with its own table: starting points plus every night, under the t
   assert.strictEqual(here[0].name, 'Dani Marquez'); assert.strictEqual(here[0].rank, 1); assert.strictEqual(here[0].points, 32);
   const before = E.newSession({ format: 'rr-individual', courts: [1] });
   ['Dani Marquez', 'Harrison Smedley', 'Brand New'].forEach(n => E.addTeam(before, [n]));
-  assert.deepStrictEqual(E.tableHere(E.monthlyBoard(E.tableDocs(series, {})), E.sessionKeys(before)).map(r => r.name + ' ' + r.points), ['Harrison Smedley 66', 'Dani Marquez 24']);
+  const full = () => E.monthlyBoard(E.tableDocs(series, {}));
+  assert.deepStrictEqual(E.tableHere(full(), E.sessionKeys(before)).map(r => r.rank + ' ' + r.name + ' ' + r.points), ['1 Harrison Smedley 66', '2 Dani Marquez 24', '3 Brand New 0']);
+  // table.others: tonight's players, plus that many of the best placed who are not here tonight
+  ['Away Ann', 'Away Bob', 'Away Cy'].forEach((n, i) => { series.table.start[E.keyOf(n)] = { name: n, points: 50 - 20 * i }; });
+  const few = E.newSession({ format: 'rr-individual', courts: [1] });
+  ['Dani Marquez', 'Brand New'].forEach(n => E.addTeam(few, [n]));
+  assert.deepStrictEqual(E.tableHere(full(), E.sessionKeys(few), 2).map(r => r.rank + ' ' + r.name + ' ' + r.points), ['1 Harrison Smedley 66', '2 Away Ann 50', '3 Dani Marquez 24', '4 Brand New 0']);
+  assert.deepStrictEqual(E.tableHere(full(), E.sessionKeys(few), 0).map(r => r.name), ['Dani Marquez', 'Brand New']);
+  assert.strictEqual(E.tableHere(full(), E.sessionKeys(few), 99).length, 6);
+  ['Away Ann', 'Away Bob', 'Away Cy'].forEach(n => { delete series.table.start[E.keyOf(n)]; });
   assert.strictEqual(E.tableOf({ name: 'x' }), null);
   assert.deepStrictEqual(E.tableDocs({ name: 'x' }, res), {});
 });

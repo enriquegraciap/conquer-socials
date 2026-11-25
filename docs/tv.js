@@ -868,7 +868,7 @@
     var table = E.tableOf(st.series[st.seriesId]), whole = !!table && st.monthWhole;
     if (s && !s.discarded && s.status !== 'setup' && (whole || s.month === st.monthKey)) monthDocs[s.id] = E.resultsDoc(s); // tonight, up to the second
     var month = E.monthlyBoard(monthDocs), monthRows = whole ? 44 : MONTH_ROWS;    // a series table shows everyone on it
-    if (whole && table.present && s && !s.discarded) month = E.tableHere(month, E.sessionKeys(s));   // ...or only whoever is on tonight's list
+    if (whole && table.present && s && !s.discarded) month = E.tableHere(month, E.sessionKeys(s), table.others);   // ...or only whoever is on tonight's list
     var nights = Object.keys(monthDocs).filter(function (k) { return monthDocs[k] && !monthDocs[k].brought && monthDocs[k].entries && Object.keys(monthDocs[k].entries).length; }).length;
     var mName = whole && table.name ? table.name : MONTHS[Number((st.monthKey || '2000-01').slice(5, 7)) - 1];
     var unit = s && s.scoring === 'player' ? 'players' : 'teams';

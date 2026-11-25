@@ -1176,11 +1176,26 @@
   // table.present: the table only lists whoever is on the list of the night being played (or of the latest night),
   // each with the points brought along plus the night's; people who are not there that night are left out (tableHere).
   function tableOf(series) { var t = series && series.table; return t && typeof t === 'object' ? t : null; }
-  function tableHere(rows, keys) { return rankRows(rows.filter(function (r) { return !!keys[r.key]; })); }
-  // The keys of everyone on a night's list (session), as they appear on a table.
+  // table.others (a number): besides them, that many of the best placed who are NOT there that night ("tonight's 13 and
+  // the top 7 of the rest"). Whoever is on the night's list without any points yet is listed too, with 0.
+  function tableHere(rows, keys, others) {
+    var have = {}, all = rows.slice(), left = Math.max(0, Math.floor(Number(others) || 0));
+    rows.forEach(function (r) { have[r.key] = true; });
+    Object.keys(keys).forEach(function (k) {
+      var e = keys[k];
+      if (!have[k] && e && e.name) all.push({ key: k, name: e.name, players: e.players || [e.name], points: 0, wins: 0, played: 0, diff: 0, nights: 0 });
+    });
+    rankRows(all);                                       // best first, so "the top 7 of the rest" are the first 7 met
+    return rankRows(all.filter(function (r) { return keys[r.key] ? true : left-- > 0; }));
+  }
+  // Everyone on a night's list (session), by the key they have on a table: { key: { name, players } }.
+  // Someone who was taken off the list without playing is not on it.
   function sessionKeys(session) {
-    var keys = {};
-    teamList(session).forEach(function (t) { scoringEntities(t, session.scoring).forEach(function (e) { keys[e.key] = true; }); });
+    var keys = {}, st = teamStats(session);
+    teamList(session).forEach(function (t) {
+      if (t.left && !st[t.id].played) return;
+      scoringEntities(t, session.scoring).forEach(function (e) { keys[e.key] = { name: e.name, players: e.players }; });
+    });
     return keys;
   }
   function tableDocs(series, resultsByMonth) {

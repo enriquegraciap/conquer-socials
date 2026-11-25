@@ -68,7 +68,7 @@
       st.table = table ? (table.name || 'Series') : '';
       if (table) {
         st.monthRows = E.monthlyBoard(E.tableDocs(series, res)); if (!st.month) st.month = E.localDate(new Date()).slice(0, 7);
-        if (table.present && best) { var here = {}; Object.keys(best.doc.entries).forEach(function (k) { here[k] = true; }); st.monthRows = E.tableHere(st.monthRows, here); }   // only whoever played that night
+        if (table.present && best) { var here = {}; Object.keys(best.doc.entries).forEach(function (k) { here[k] = true; }); st.monthRows = E.tableHere(st.monthRows, here, table.others); }   // only whoever played that night
       }
       if (!st.night) st.view = 'month';
     });

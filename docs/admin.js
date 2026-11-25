@@ -875,7 +875,7 @@
     for (var k = n; k <= last + 30; k++) up['pub/scores/' + id + '/' + s.id + '/r' + k] = null;      // (and any sent for rounds not saved here yet)
     var go = function () {
       S.write(up).then(function () {
-        var out = commit(function (x) { return E.rewindTo(x, n); });
+        var out = commit(function (x) { var o = E.rewindTo(x, n); if (!x.rounds.some(E.roundHasScores)) delete x.scoredAt; return o; });   // no score left: the TV's "45 minutes since the last score" starts over
         state.ui.modal = null;
         toast(!out.ok ? 'Nothing was deleted.' : out.setup ? 'Back to the list of players. Spin the wheel when you are ready.' : n === 1 ? 'The night starts again: round 1 has been drawn afresh.' : 'Back to round ' + n + ': ' + out.removed + (out.removed === 1 ? ' round' : ' rounds') + ' deleted, round ' + n + ' drawn afresh.');
         render();

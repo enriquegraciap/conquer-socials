@@ -344,7 +344,8 @@
     if (st.mode !== 'show' || !st.shown || !s || s.discarded || now < (st.restHold || 0) || restKey() === st.restSkip) return false;
     if (s.status === 'ended') return !s.endedAt || now - Number(s.endedAt) >= REST_AFTER_END;
     if (s.status !== 'live' || !s.rounds || !s.rounds.length) return false;
-    var last = Math.max(Number(s.scoredAt) || 0, st.phoneAt || 0);
+    // (the time of the last score only counts while a score is still there: a night restarted from round 1 has none)
+    var last = Math.max(s.rounds.some(E.roundHasScores) ? Number(s.scoredAt) || 0 : 0, st.phoneAt || 0);
     if (last) return now - last >= REST_QUIET;
     return String(s.date) < E.localDate(new Date(now - 6 * 3600000));      // an older night nobody ended, from before these times were kept
   }
